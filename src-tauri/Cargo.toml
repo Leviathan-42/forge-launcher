@@ -1,0 +1,57 @@
+[package]
+name    = "forge-launcher"
+version = "0.1.0"
+edition = "2021"
+# Rust 1.77+ required for Tauri 2
+rust-version = "1.77"
+
+# Keep the binary name consistent with tauri.conf.json
+[[bin]]
+name = "forge-launcher"
+path = "src/main.rs"
+
+# ---------------------------------------------------------------------------
+# Dependencies
+# ---------------------------------------------------------------------------
+
+[dependencies]
+# Tauri 2.x core — macOS target only matters here
+tauri = { version = "2", features = ["macos-private-api"] }
+
+# JSON serialisation / deserialisation for config + IPC
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Deflate decompression for reading DepotDownloader's account.config
+flate2 = "1"
+
+# Native file/folder picker dialog
+tauri-plugin-dialog = "2"
+
+# ---------------------------------------------------------------------------
+# Build dependency — Tauri build script
+# ---------------------------------------------------------------------------
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+# ---------------------------------------------------------------------------
+# Profile tuning
+# ---------------------------------------------------------------------------
+
+[profile.release]
+# Link-time optimisation for a smaller, faster binary
+lto           = true
+# Single codegen unit → more inlining opportunities
+codegen-units = 1
+# Abort on panic in release (avoids unwinding overhead; ~10 KB smaller)
+panic         = "abort"
+# Optimise for binary size while keeping reasonable performance
+opt-level     = "z"
+# Strip debug symbols from the release binary
+strip         = true
+
+[profile.dev]
+# Fast incremental dev builds
+opt-level     = 0
+debug         = true

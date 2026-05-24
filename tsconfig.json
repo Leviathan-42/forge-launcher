@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target":           "ESNext",
+    "useDefineForClassFields": true,
+    "module":           "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules":  true,
+    "noEmit":           true,
+    "strict":           true,
+    "noUnusedLocals":   false,
+    "noUnusedParameters": false,
+    "noImplicitAny":    true,
+    "strictNullChecks": true,
+    "lib":              ["ESNext", "DOM", "DOM.Iterable"],
+    "types":            ["node"],
+    "skipLibCheck":     true,
+    "baseUrl":          ".",
+    "paths": {
+      "$lib/*": ["src/lib/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.svelte", "vite.config.ts"],
+  "exclude": ["node_modules"]
+}

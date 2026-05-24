@@ -1,0 +1,30 @@
+# Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Node
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp / logs
+*.log
+/tmp/
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.local
+
+# DepotDownloader leftovers
+depots/
+
+# Test data
+*.test

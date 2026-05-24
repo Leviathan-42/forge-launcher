@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Allow the app to run other processes (arch, wine64, open).          -->
+  <!-- Without this, std::process::Command will be blocked by the sandbox. -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+
+  <!-- Required for Tauri's WKWebView to work in a sandboxed context.      -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+
+  <!-- Read/write access to user-selected files (game .exe paths).         -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+
+  <!-- Read access to the full home directory so we can scan Steam's       -->
+  <!-- steamapps folder and Wine prefixes in ~/Library.                    -->
+  <key>com.apple.security.files.downloads.read-write</key>
+  <true/>
+
+  <!-- Disable the App Sandbox entirely for this helper tool.              -->
+  <!--                                                                      -->
+  <!-- IMPORTANT: A fully sandboxed app CANNOT:                            -->
+  <!--   • Spawn arbitrary child processes (wine64, arch)                  -->
+  <!--   • Read ~/Library/Application Support/Steam outside its container  -->
+  <!--   • Set DYLD_LIBRARY_PATH on child processes                        -->
+  <!--                                                                      -->
+  <!-- Whisky and CrossOver ship without the sandbox for the same reason.  -->
+  <!-- If you plan to distribute on the Mac App Store, you will need a     -->
+  <!-- helper tool architecture — see docs/ARCHITECTURE.md.                -->
+  <key>com.apple.security.app-sandbox</key>
+  <false/>
+</dict>
+</plist>
