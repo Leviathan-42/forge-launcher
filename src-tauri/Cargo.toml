@@ -28,6 +28,9 @@ flate2 = "1"
 # Native file/folder picker dialog
 tauri-plugin-dialog = "2"
 
+# PTY for reading progress from DepotDownloader (which uses ANSI escape codes)
+nix = { version = "0.29", features = ["process", "term", "ioctl"] }
+
 # ---------------------------------------------------------------------------
 # Build dependency — Tauri build script
 # ---------------------------------------------------------------------------

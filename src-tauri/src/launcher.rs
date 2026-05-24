@@ -283,7 +283,9 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         // GStreamer verbosity (matches Whisky)
         .env("GST_DEBUG", "1")
         // Metal HUD
-        .env("MTL_HUD_ENABLED", if opts.show_hud { "1" } else { "0" });
+        .env("MTL_HUD_ENABLED", if opts.show_hud { "1" } else { "0" })
+        // Mouse warp — helps cursor capture in games on macOS
+        .env("WINE_MOUSE_WARP", "1");
 
     // ── Sync mode ─────────────────────────────────────────────────────────
     // MSYNC trick from Whisky: D3DMetal checks for WINEESYNC internally,
@@ -298,7 +300,7 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
     // ── DXVK ──────────────────────────────────────────────────────────────
     if opts.use_dxvk {
         // Full override list from Whisky — includes dxgi and d3d9
-        cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11=n,b");
+        cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11,user32=n,b");
         // Async shader compilation — reduces stutter on first render
         cmd.env("DXVK_ASYNC", "1");
         // Optional HUD
@@ -317,6 +319,13 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
     }
 
     // ── D3DMetal / GPTK extras ────────────────────────────────────────────
+
+    // Force native-first on user32 for missing functions like IsMouseInPointerEnabled
+    // (DXVK path above already includes user32; here we set it standalone for D3DMetal)
+    if !opts.use_dxvk {
+        cmd.env("WINEDLLOVERRIDES", "user32=n,b");
+    }
+
     if opts.enable_dxr {
         cmd.env("D3DM_SUPPORT_DXR", "1");
     }

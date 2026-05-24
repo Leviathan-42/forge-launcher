@@ -35,8 +35,15 @@
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::os::fd::AsRawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::ffi::CString;
+
+use nix::pty::{forkpty, Winsize};
+use nix::unistd::{execvp, read as nix_read};
+use nix::sys::wait::{waitpid, WaitStatus};
+use nix::libc;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
@@ -444,7 +451,7 @@ pub fn download_game(
 }
 
 // ---------------------------------------------------------------------------
-// DepotDownloader runner (silent — requires cached credentials)
+// DepotDownloader runner — uses a PTY so progress ANSI escape codes are emitted
 // ---------------------------------------------------------------------------
 
 fn run_depot_downloader<F>(
@@ -457,115 +464,166 @@ where
 {
     let exe = find_depot_downloader()?;
 
-    // At this point credentials must be cached — no TTY needed.
-    // DepotDownloader will use the stored token automatically when
-    // -username is provided with -remember-password and the token exists.
-    let mut cmd = Command::new(&exe);
-    cmd.args([
-        "-app",
-        &req.app_id.to_string(),
-        "-os",
-        "windows",
-        "-username",
-        &req.username,
-        "-remember-password",
-        "-dir",
-        &req.install_dir,
-    ]);
+    // Build argv
+    let mut args: Vec<CString> = vec![
+        CString::new(exe.as_bytes()).unwrap(),
+        CString::new("-app").unwrap(),
+        CString::new(req.app_id.to_string()).unwrap(),
+        CString::new("-os").unwrap(),
+        CString::new("windows").unwrap(),
+        CString::new("-username").unwrap(),
+        CString::new(req.username.as_bytes()).unwrap(),
+        CString::new("-remember-password").unwrap(),
+        CString::new("-dir").unwrap(),
+        CString::new(req.install_dir.as_bytes()).unwrap(),
+    ];
 
     if req.validate_only {
-        cmd.arg("-validate");
+        args.push(CString::new("-validate").unwrap());
     }
 
-    // ALL DepotDownloader output goes to stderr — pipe that, ignore stdout
-    cmd.stdout(Stdio::null()).stderr(Stdio::piped());
+    // Fork with a PTY so DepotDownloader sees a real terminal and emits ANSI progress
+    let winsize = Winsize {
+        ws_row: 24,
+        ws_col: 120,
+        ws_xpixel: 0,
+        ws_ypixel: 0,
+    };
 
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("Failed to start DepotDownloader: {}", e))?;
+    let fork_result = unsafe { forkpty(Some(&winsize), None) }
+        .map_err(|e| format!("forkpty failed: {}", e))?;
 
-    let stderr = child.stderr.take().unwrap();
-    let reader = BufReader::new(stderr);
+    match fork_result {
+        nix::pty::ForkptyResult::Child => {
+            // Child: exec DepotDownloader. The PTY becomes its stdin/stdout/stderr.
+            let args_refs: Vec<&CString> = args.iter().collect();
+            let _ = execvp(&args_refs[0], &args_refs);
+            // execvp never returns on success
+            std::process::exit(1);
+        }
+        nix::pty::ForkptyResult::Parent { master, child: _ } => {
+            // Parent continues below
+            run_depot_downloader_parent(req, cancelled, emit, master)
+        }
+    }
+}
+
+fn run_depot_downloader_parent<F>(
+    _req: &DownloadRequest,
+    cancelled: Arc<AtomicBool>,
+    emit: F,
+    master: std::os::unix::io::OwnedFd,
+) -> Result<(), String>
+where
+    F: Fn(f32, &str, bool, Option<String>),
+{
+    let master_fd = master.as_raw_fd();
 
     emit(0.0, "Connecting to Steam…", false, None);
 
-    // Track the last known percent and key status lines
     let mut last_pct: f32 = 0.0;
     let mut last_status = String::from("Connecting to Steam…");
-    let mut saw_depots = false; // true once we start downloading depots
+    let mut saw_depots = false;
     let mut total_bytes_line = String::new();
+    let mut buf = [0u8; 4096];
+    let mut line_buf = String::new();
 
-    for line in reader.lines() {
+    // ESC state machine for ANSI escape sequences
+    enum EscState {
+        Normal,
+        GotEsc,
+        InOsc(String),  // collecting OSC payload
+    }
+    let mut esc_state = EscState::Normal;
+
+    loop {
         if cancelled.load(Ordering::SeqCst) {
-            let _ = child.kill();
-            emit(
-                0.0,
-                "Cancelled",
-                false,
-                Some("Download cancelled".to_string()),
-            );
+            unsafe { libc::kill(-(libc::tcgetpgrp(master_fd)), libc::SIGTERM); }
+            emit(0.0, "Cancelled", false, Some("Download cancelled".to_string()));
             return Err("Cancelled".to_string());
         }
 
-        let line = match line {
-            Ok(l) => l,
-            Err(_) => continue,
+        let n = match nix_read(master_fd, &mut buf) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(nix::errno::Errno::EAGAIN) | Err(nix::errno::Errno::EINTR) => continue,
+            Err(e) => {
+                emit(last_pct, &format!("Read error: {}", e), false, Some(format!("IO error: {}", e)));
+                break;
+            }
         };
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
 
-        // Track progress percentage
-        if let Some(pct) = parse_depot_progress(trimmed) {
-            last_pct = pct;
+        for &byte in &buf[..n] {
+            match esc_state {
+                EscState::Normal => {
+                    if byte == 0x1b {
+                        esc_state = EscState::GotEsc;
+                    } else if byte == b'\n' {
+                        let trimmed = line_buf.trim().to_string();
+                        line_buf.clear();
+                        if !trimmed.is_empty() {
+                            track_status(&trimmed, &mut last_status, &mut saw_depots, &mut total_bytes_line);
+                            emit(last_pct, &trimmed, false, None);
+                        }
+                    } else if byte != b'\r' {
+                        line_buf.push(byte as char);
+                    }
+                }
+                EscState::GotEsc => {
+                    if byte == b']' {
+                        esc_state = EscState::InOsc(String::new());
+                    } else if byte == b'[' {
+                        // CSI sequence — skip until terminating letter
+                        esc_state = EscState::Normal;
+                    } else {
+                        // Unknown escape — reset
+                        esc_state = EscState::Normal;
+                    }
+                }
+                EscState::InOsc(ref mut buf) => {
+                    if byte == 0x07 {
+                        // BEL terminates OSC
+                        if let Some(pct) = parse_ansi_progress(buf) {
+                            last_pct = pct;
+                        }
+                        esc_state = EscState::Normal;
+                    } else if byte == 0x1b {
+                        // ESC inside OSC — ST (ESC \) terminator, or start of another escape
+                        // Treat as OSC end
+                        if let Some(pct) = parse_ansi_progress(buf) {
+                            last_pct = pct;
+                        }
+                        esc_state = EscState::GotEsc;
+                    } else {
+                        buf.push(byte as char);
+                    }
+                }
+            }
         }
-
-        // Track meaningful status for the UI (skip internal debug lines)
-        if trimmed.starts_with("Downloading depot")
-            || trimmed.starts_with("Processing depot")
-            || trimmed.starts_with("Progress:")
-            || trimmed.contains("Connecting")
-            || trimmed.contains("Logging")
-            || trimmed.contains("Pre-allocating")
-            || trimmed.contains("total bytes")
-        {
-            last_status = trimmed.to_string();
-        }
-
-        if trimmed.contains("Downloading depot") {
-            saw_depots = true;
-        }
-
-        if trimmed.contains("total bytes") {
-            total_bytes_line = trimmed.to_string();
-        }
-
-        emit(last_pct, trimmed, false, None);
     }
 
-    // Process has exited — stderr is closed. Now check exit code.
-    let status = child.wait().map_err(|e| e.to_string())?;
-    let exit_code = status.code().unwrap_or(-1);
+    // Wait for the child process
+    let exit_code = match waitpid(None, None) {
+        Ok(WaitStatus::Exited(_, code)) => code,
+        Ok(WaitStatus::Signaled(_, sig, _)) => 128 + sig as i32,
+        Ok(_) => 0,
+        Err(e) => {
+            return Err(format!("waitpid failed: {}", e));
+        }
+    };
 
     match exit_code {
-        // 0 = clean exit. DepotDownloader exits 0 whether it downloaded
-        // files or found nothing to do (already up to date, app not owned, etc.)
         0 => {
             let msg = if !total_bytes_line.is_empty() {
                 format!("Done! {}", total_bytes_line)
             } else if saw_depots {
                 "Download complete!".to_string()
             } else {
-                // Connected and logged in but nothing was downloaded.
-                // This can mean: already up to date, app not in library, etc.
                 "Done — files are up to date or no depots were needed.".to_string()
             };
             emit(100.0, &msg, true, None);
             Ok(())
         }
-
-        // 134 = SIGABRT, usually a .NET crash (auth token rejected mid-session)
         -1 | 134 => {
             let msg = "Authentication failed — credentials may have expired. \
                        Log in again via 'Login with Steam'."
@@ -573,10 +631,7 @@ where
             emit(0.0, &msg, false, Some(msg.clone()));
             Err(msg)
         }
-
         other => {
-            // Any other non-zero exit is a real error.
-            // Emit last known status as context.
             let msg = format!(
                 "DepotDownloader exited with code {}. Last status: {}",
                 other, last_status
@@ -587,18 +642,40 @@ where
     }
 }
 
-/// Parse progress percentage from DepotDownloader 3.x stderr output.
-fn parse_depot_progress(line: &str) -> Option<f32> {
-    // Strip optional "Progress: " prefix
-    let s = line.strip_prefix("Progress: ").unwrap_or(line).trim_start();
+/// Update status tracking from a text line emitted by DepotDownloader.
+fn track_status(line: &str, last_status: &mut String, saw_depots: &mut bool, total_bytes_line: &mut String) {
+    if line.starts_with("Downloading depot")
+        || line.starts_with("Processing depot")
+        || line.starts_with("Progress:")
+        || line.contains("Connecting")
+        || line.contains("Logging")
+        || line.contains("Pre-allocating")
+        || line.contains("total bytes")
+    {
+        *last_status = line.to_string();
+    }
+    if line.contains("Downloading depot") {
+        *saw_depots = true;
+    }
+    if line.contains("total bytes") {
+        *total_bytes_line = line.to_string();
+    }
+}
 
-    if let Some(pct_pos) = s.find('%') {
-        let num_str = s[..pct_pos].trim();
-        if let Ok(v) = num_str.parse::<f32>() {
-            return Some(v.clamp(0.0, 100.0));
+/// Parse an ANSI OSC 9;4 progress sequence (DepotDownloader / Windows Terminal format).
+/// Format: `9;4;<state>;<percent>`
+/// Returns the percent value (0-100) or None if parsing fails.
+fn parse_ansi_progress(osc_payload: &str) -> Option<f32> {
+    // Strip any leading ']' that got included (from ESC ] detection)
+    let payload = osc_payload.strip_prefix(']').unwrap_or(osc_payload);
+
+    let parts: Vec<&str> = payload.split(';').collect();
+    if parts.len() >= 4 && parts[0] == "9" && parts[1] == "4" {
+        // parts[2] is state (0-4), parts[3] is progress (0-100)
+        if let Ok(pct) = parts[3].parse::<u8>() {
+            return Some(pct as f32);
         }
     }
-
     None
 }
 
