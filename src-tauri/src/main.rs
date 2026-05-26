@@ -2,6 +2,7 @@
 // Harmless on macOS but kept for cross-platform hygiene.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod bottles;
 mod config;
 mod downloader;
 mod launcher;
@@ -26,6 +27,59 @@ pub struct RunningGames(pub Arc<Mutex<HashMap<String, launcher::GameProcess>>>);
 
 /// Active download handles keyed by AppID string, used for cancellation.
 pub struct ActiveDownloads(pub Arc<Mutex<HashMap<String, Arc<std::sync::atomic::AtomicBool>>>>);
+
+// ---------------------------------------------------------------------------
+// Bottle-first commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+async fn list_bottles(app: AppHandle) -> Result<Vec<bottles::Bottle>, String> {
+    bottles::list_bottles(&app)
+}
+
+#[tauri::command]
+async fn create_bottle(
+    app: AppHandle,
+    name: String,
+    prefix_path: Option<String>,
+) -> Result<Vec<bottles::Bottle>, String> {
+    bottles::create_bottle(&app, name, prefix_path)
+}
+
+#[tauri::command]
+async fn bottle_launcher_status(prefix_path: String) -> Result<bottles::LauncherStatus, String> {
+    Ok(bottles::launcher_status(&prefix_path))
+}
+
+#[tauri::command]
+async fn list_bottle_apps(prefix_path: String) -> Result<Vec<bottles::BottleApp>, String> {
+    Ok(bottles::list_apps(&prefix_path))
+}
+
+#[tauri::command]
+async fn install_steam_in_prefix(app: AppHandle, prefix_path: String) -> Result<(), String> {
+    bottles::install_steam(&app, prefix_path)
+}
+
+#[tauri::command]
+async fn open_steam_in_prefix(app: AppHandle, prefix_path: String) -> Result<(), String> {
+    bottles::open_steam(&app, prefix_path)
+}
+
+#[tauri::command]
+async fn repair_steam_in_prefix(app: AppHandle, prefix_path: String) -> Result<(), String> {
+    bottles::repair_steam(&app, prefix_path)
+}
+
+#[tauri::command]
+async fn run_exe_in_prefix(
+    app: AppHandle,
+    prefix_path: String,
+    exe_path: String,
+    args: Vec<String>,
+) -> Result<(), String> {
+    bottles::run_exe(&app, prefix_path, exe_path, args)
+}
 
 // ---------------------------------------------------------------------------
 // Game library commands
@@ -749,6 +803,15 @@ fn main() {
         .manage(RunningGames(Arc::new(Mutex::new(HashMap::new()))))
         .manage(ActiveDownloads(Arc::new(Mutex::new(HashMap::new()))))
         .invoke_handler(tauri::generate_handler![
+            // Bottles
+            list_bottles,
+            create_bottle,
+            bottle_launcher_status,
+            list_bottle_apps,
+            install_steam_in_prefix,
+            open_steam_in_prefix,
+            repair_steam_in_prefix,
+            run_exe_in_prefix,
             // Library
             load_games,
             save_games,
