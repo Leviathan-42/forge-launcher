@@ -1201,7 +1201,7 @@ final class ForgeStore: ObservableObject {
 
         let isSteam = forceSteamMode || URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
         let gameBackend = bottle.graphicsBackend ?? profile.defaultBackend
-        let launchBackend: GraphicsBackend = isSteam ? .wineBuiltin : gameBackend
+        let launchBackend: GraphicsBackend = gameBackend
 
         let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
         var env = ProcessInfo.processInfo.environment
@@ -1218,7 +1218,10 @@ final class ForgeStore: ObservableObject {
         env["MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
         env["WINE_MOUSE_WARP"] = "1"
         env["WINEESYNC"] = "1"
-        if isSteam { env["WINEMSYNC"] = "1" }
+        env["WINEMSYNC"] = "1"
+        if launchBackend == .dxvk || launchBackend == .vkd3d || launchBackend == .dxvkVkd3d {
+            configureMoltenVK(profile: profile, config: config, env: &env)
+        }
 
         switch launchBackend {
         case .d3dMetal:
@@ -1253,7 +1256,7 @@ final class ForgeStore: ObservableObject {
         for (key, value) in profile.env { env[key] = value }
         for (key, value) in bottle.envOverrides { env[key] = value }
 
-        if isSteam {
+        if false && isSteam {
             let gameVkIcd = env["VK_ICD_FILENAMES"] ?? ""
             let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(gptkLibPath: gptkLibPath, existing: env["DYLD_LIBRARY_PATH"] ?? "") : ""
             var gameWineDllPath = ""
@@ -1358,6 +1361,40 @@ final class ForgeStore: ObservableObject {
 
     nonisolated static func steamSafeArgs(_ extra: [String]) -> [String] {
         ["-no-cef-sandbox", "-cef-disable-sandbox"] + extra
+    }
+
+    nonisolated static func configureMoltenVK(profile: RuntimeProfile, config: AppConfig, env: inout [String: String]) {
+        if let existing = env["VK_ICD_FILENAMES"], !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return
+        }
+
+        let configured = profile.moltenvkPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let candidates = moltenVkIcdCandidates(configuredPath: configured)
+        if let icd = candidates.first(where: { FileManager.default.fileExists(atPath: $0) }) {
+            env["VK_ICD_FILENAMES"] = icd
+            env["VK_DRIVER_FILES"] = icd
+        }
+
+        env["MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS"] = env["MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS"] ?? "1"
+        env["MVK_CONFIG_FULL_IMAGE_VIEW_SWIZZLE"] = env["MVK_CONFIG_FULL_IMAGE_VIEW_SWIZZLE"] ?? "1"
+        env["MOLTENVK_CONFIG_LOG_LEVEL"] = env["MOLTENVK_CONFIG_LOG_LEVEL"] ?? "0"
+    }
+
+    nonisolated static func moltenVkIcdCandidates(configuredPath: String) -> [String] {
+        var candidates: [String] = []
+        func add(_ path: String) {
+            if !path.isEmpty { candidates.append((path as NSString).expandingTildeInPath) }
+        }
+
+        add(configuredPath)
+        if !configuredPath.isEmpty {
+            add(URL(fileURLWithPath: configuredPath).appendingPathComponent("share/vulkan/icd.d/MoltenVK_icd.json").path)
+            add(URL(fileURLWithPath: configuredPath).appendingPathComponent("MoltenVK_icd.json").path)
+        }
+        add("/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json")
+        add("/usr/local/share/vulkan/icd.d/MoltenVK_icd.json")
+        add("/opt/homebrew/Cellar/molten-vk/share/vulkan/icd.d/MoltenVK_icd.json")
+        return Array(NSOrderedSet(array: candidates)) as? [String] ?? candidates
     }
 
     nonisolated static func buildDyldPath(gptkLibPath: String?, existing: String) -> String {
