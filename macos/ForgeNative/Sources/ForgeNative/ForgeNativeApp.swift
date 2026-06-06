@@ -120,10 +120,10 @@ struct ContentView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Forge")
-                        .font(.system(size: 21, weight: .black, design: .rounded))
+                        .font(.system(size: 21, weight: .semibold))
                         .foregroundStyle(.white)
                     Text("Windows bottles")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.48))
                 }
             }
@@ -159,10 +159,10 @@ struct ContentView: View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Library")
-                    .font(.system(size: 30, weight: .black, design: .rounded))
+                    .font(.system(size: 30, weight: .semibold))
                     .foregroundStyle(.white)
                 Text("Drop a Windows EXE, select one manually, or launch the main app in your bottle.")
-                    .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.48))
             }
 
@@ -174,7 +174,7 @@ struct ContentView: View {
                         .controlSize(.small)
                         .tint(.white)
                     Text("Launching…")
-                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 12.5, weight: .bold))
                 }
                 .foregroundStyle(.white.opacity(0.68))
                 .padding(.horizontal, 14)
@@ -242,17 +242,17 @@ struct ContentView: View {
         VStack(spacing: 14) {
             HStack {
                 Text("Apps")
-                    .font(.system(size: 17, weight: .black, design: .rounded))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.94))
                 Text("\(filteredApps.count)")
-                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.54))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(.white.opacity(0.08), in: Capsule())
                 Spacer()
                 Text(backendText(for: bottle))
-                    .font(.system(size: 12, weight: .black, design: .rounded))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.54))
             }
 
@@ -288,10 +288,10 @@ struct ContentView: View {
                 .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.34))
             Text(searchText.isEmpty ? "No apps found yet" : "No apps match your search")
-                .font(.system(size: 16, weight: .black, design: .rounded))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.82))
             Text(searchText.isEmpty ? "Install Steam, then install games or launchers inside this bottle." : "Try another title, path, or launcher type.")
-                .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.46))
                 .multilineTextAlignment(.center)
         }
@@ -304,7 +304,7 @@ struct ContentView: View {
                 .font(.system(size: 46, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.36))
             Text("No Forge bottle configured")
-                .font(.system(size: 20, weight: .black, design: .rounded))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(.white)
             Text("Forge will look in Application Support for config.json and bottles.json.")
                 .font(.system(size: 13, weight: .medium))
@@ -334,7 +334,7 @@ struct SectionLabel: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: 10.5, weight: .black, design: .rounded))
+            .font(.system(size: 10.5, weight: .semibold))
             .foregroundStyle(.white.opacity(0.38))
             .tracking(0.9)
     }
@@ -349,17 +349,17 @@ struct BottleCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Image(systemName: "wineglass.fill")
-                    .font(.system(size: 18, weight: .black))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.86))
                     .frame(width: 38, height: 38)
                     .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(bottle.name)
-                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.92))
                     Text(statusText)
-                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 11.5, weight: .bold))
                         .foregroundStyle(isReady ? .green.opacity(0.78) : .orange.opacity(0.78))
                 }
             }
@@ -384,15 +384,15 @@ struct StatusLine: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 12, weight: .black))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.54))
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.white.opacity(0.74))
                 Text(value)
-                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10.5, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.38))
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -411,7 +411,7 @@ struct DropExeCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 11) {
                 Image(systemName: isTargeted ? "arrow.down.doc.fill" : "plus.app.fill")
-                    .font(.system(size: 22, weight: .black))
+                    .font(.system(size: 22, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.white.opacity(0.88))
                     .frame(width: 46, height: 46)
@@ -419,10 +419,10 @@ struct DropExeCard: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(isTargeted ? "Drop to Run" : "Add EXE")
-                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.94))
                     Text("Drag a Windows .exe here or select one from Finder.")
-                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.44))
                         .lineLimit(2)
                 }
@@ -456,7 +456,7 @@ struct RuntimeActionCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 11) {
                 Image(systemName: icon)
-                    .font(.system(size: 20, weight: .black))
+                    .font(.system(size: 20, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.white.opacity(0.84))
                     .frame(width: 42, height: 42)
@@ -464,10 +464,10 @@ struct RuntimeActionCard: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.92))
                     Text(subtitle)
-                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.42))
                         .lineLimit(2)
                         .truncationMode(.middle)
@@ -489,41 +489,15 @@ struct RuntimeActionCard: View {
 struct LiquidBackground: View {
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.03, green: 0.035, blue: 0.06),
-                    Color(red: 0.10, green: 0.12, blue: 0.20),
-                    Color(red: 0.035, green: 0.045, blue: 0.07)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            Circle()
-                .fill(.cyan.opacity(0.28))
-                .frame(width: 520, height: 520)
-                .blur(radius: 110)
-                .offset(x: -360, y: -260)
-
-            Circle()
-                .fill(.purple.opacity(0.24))
-                .frame(width: 620, height: 620)
-                .blur(radius: 130)
-                .offset(x: 420, y: -180)
-
-            Circle()
-                .fill(.blue.opacity(0.20))
-                .frame(width: 560, height: 560)
-                .blur(radius: 120)
-                .offset(x: 260, y: 320)
-
-            Rectangle()
-                .fill(.ultraThinMaterial.opacity(0.55))
+            Color(nsColor: .windowBackgroundColor)
                 .ignoresSafeArea()
 
             Rectangle()
-                .fill(.black.opacity(0.12))
+                .fill(.ultraThinMaterial.opacity(0.48))
+                .ignoresSafeArea()
+
+            Rectangle()
+                .fill(.black.opacity(0.08))
                 .ignoresSafeArea()
         }
     }
@@ -567,10 +541,10 @@ struct ToolbarMenuPill: View {
             Image(systemName: systemName)
             Text(text)
             Image(systemName: "chevron.down")
-                .font(.system(size: 9, weight: .black))
+                .font(.system(size: 9, weight: .semibold))
                 .opacity(0.75)
         }
-        .font(.system(size: 12, weight: .bold, design: .rounded))
+        .font(.system(size: 12, weight: .bold))
         .foregroundStyle(.white.opacity(0.78))
         .padding(.horizontal, 12)
         .frame(height: 34)
@@ -589,7 +563,7 @@ struct GlassSearchField: View {
                 .foregroundStyle(.white.opacity(0.46))
             TextField("Search Library", text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.90))
         }
         .padding(.horizontal, 13)
@@ -622,7 +596,7 @@ struct LiquidAppRow: View {
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(app.name)
-                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.88))
                     Text(app.path)
                         .font(.system(size: 10.5, weight: .medium, design: .monospaced))
@@ -634,17 +608,17 @@ struct LiquidAppRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(app.kind.capitalized)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.white.opacity(0.62))
                 .frame(width: 92, alignment: .leading)
 
             Text(backendText)
-                .font(.system(size: 12, weight: .black, design: .rounded))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.72))
                 .frame(width: 132, alignment: .leading)
 
             Text(hudText)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(hudText == "Off" ? Color.white.opacity(0.38) : Color.white.opacity(0.70))
                 .frame(width: 112, alignment: .leading)
 
@@ -666,7 +640,7 @@ struct StatusPill: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .black, design: .rounded))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.white.opacity(isGood ? 0.88 : 0.62))
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -681,7 +655,7 @@ struct ForgeButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12.5, weight: .black, design: .rounded))
+            .font(.system(size: 12.5, weight: .semibold))
             .foregroundStyle(foreground)
             .padding(.horizontal, 15)
             .padding(.vertical, 9.5)
