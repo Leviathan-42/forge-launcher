@@ -1256,7 +1256,7 @@ final class ForgeStore: ObservableObject {
         for (key, value) in profile.env { env[key] = value }
         for (key, value) in bottle.envOverrides { env[key] = value }
 
-        if false && isSteam {
+        if isSteam {
             let gameVkIcd = env["VK_ICD_FILENAMES"] ?? ""
             let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(gptkLibPath: gptkLibPath, existing: env["DYLD_LIBRARY_PATH"] ?? "") : ""
             var gameWineDllPath = ""
@@ -1316,6 +1316,7 @@ final class ForgeStore: ObservableObject {
         exe=\(exePath)
         isSteam=\(isSteam)
         backend=\(launchBackend.rawValue)
+        steamSafeMode=\(isSteam)
         steamGameBackend=\(isSteam ? gameBackend.rawValue : "")
         args=\(process.arguments?.joined(separator: " ") ?? "")
         WINEDLLOVERRIDES=\(env["WINEDLLOVERRIDES"] ?? "")
