@@ -961,10 +961,10 @@ final class ForgeStore: ObservableObject {
     }
 
     nonisolated static func backendOverride(for app: BottleAppItem) -> GraphicsBackend? {
-        // DXVK currently rejects MoltenVK for PEAK on this setup with
-        // "No adapters found", then Unity crashes in dxgi. D3DMetal is the
-        // better compatibility path for this Unity title.
-        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame { return .d3dMetal }
+        // PEAK is currently unstable on both DXVK/MoltenVK and WineD3D's
+        // Vulkan renderer on this setup. Use WineD3D/OpenGL as the safest
+        // compatibility path for now.
+        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame { return .wineBuiltin }
         return nil
     }
 
