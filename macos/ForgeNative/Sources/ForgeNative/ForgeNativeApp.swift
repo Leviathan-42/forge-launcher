@@ -1586,14 +1586,15 @@ final class ForgeStore: ObservableObject {
                 let attrs = try? FileManager.default.attributesOfItem(atPath: target.path)
                 if attrs?[.type] as? FileAttributeType == .typeSymbolicLink,
                    (try? FileManager.default.destinationOfSymbolicLink(atPath: target.path)) == source.path {
+                    try FileManager.default.removeItem(at: target)
+                } else {
+                    // Do not overwrite game-provided DLLs. PEAK does not ship these,
+                    // but this keeps staging safe for future titles.
                     continue
                 }
-                // Do not overwrite game-provided DLLs. PEAK does not ship these,
-                // but this keeps staging safe for future titles.
-                continue
             }
 
-            try FileManager.default.createSymbolicLink(at: target, withDestinationURL: source)
+            try FileManager.default.copyItem(at: source, to: target)
         }
     }
 
