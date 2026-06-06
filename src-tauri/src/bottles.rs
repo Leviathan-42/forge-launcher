@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::{AppHandle, Manager};
 
-use crate::config;
+use crate::config::{self, GraphicsBackend};
 use crate::launcher::{self, LaunchOptions};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,6 +12,9 @@ pub struct Bottle {
     pub id: String,
     pub name: String,
     pub prefix_path: String,
+    pub runtime_profile_id: String,
+    pub graphics_backend: Option<GraphicsBackend>,
+    pub env_overrides: HashMap<String, String>,
     pub exists: bool,
     pub steam_installed: bool,
     pub app_count: usize,
@@ -21,6 +24,12 @@ pub struct Bottle {
 pub struct BottleRegistryEntry {
     pub name: String,
     pub prefix_path: String,
+    #[serde(default = "default_runtime_profile_id")]
+    pub runtime_profile_id: String,
+    #[serde(default)]
+    pub graphics_backend: Option<GraphicsBackend>,
+    #[serde(default)]
+    pub env_overrides: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +57,9 @@ pub fn list_bottles(app: &AppHandle) -> Result<Vec<Bottle>, String> {
         registry.push(BottleRegistryEntry {
             name: "Default".to_string(),
             prefix_path: cfg.default_prefix.clone(),
+            runtime_profile_id: default_runtime_profile_id(),
+            graphics_backend: None,
+            env_overrides: HashMap::new(),
         });
         save_registry(app, &registry)?;
     }
@@ -61,6 +73,9 @@ pub fn list_bottles(app: &AppHandle) -> Result<Vec<Bottle>, String> {
             entries.push(BottleRegistryEntry {
                 name: entry.name,
                 prefix_path: normalized,
+                runtime_profile_id: entry.runtime_profile_id,
+                graphics_backend: entry.graphics_backend,
+                env_overrides: entry.env_overrides,
             });
         }
     }
@@ -72,6 +87,9 @@ pub fn list_bottles(app: &AppHandle) -> Result<Vec<Bottle>, String> {
                 entries.push(BottleRegistryEntry {
                     name: bottle_name_from_path(&normalized),
                     prefix_path: normalized,
+                    runtime_profile_id: default_runtime_profile_id(),
+                    graphics_backend: None,
+                    env_overrides: HashMap::new(),
                 });
             }
         }
@@ -83,6 +101,9 @@ pub fn list_bottles(app: &AppHandle) -> Result<Vec<Bottle>, String> {
             BottleRegistryEntry {
                 name: "Default".to_string(),
                 prefix_path: normalize_path(&cfg.default_prefix),
+                runtime_profile_id: default_runtime_profile_id(),
+                graphics_backend: None,
+                env_overrides: HashMap::new(),
             },
         );
     }
@@ -119,10 +140,79 @@ pub fn create_bottle(
         registry.push(BottleRegistryEntry {
             name: clean_name,
             prefix_path: prefix,
+            runtime_profile_id: default_runtime_profile_id(),
+            graphics_backend: None,
+            env_overrides: HashMap::new(),
         });
     }
     save_registry(app, &registry)?;
 
+    list_bottles(app)
+}
+
+pub fn update_bottle_runtime(
+    app: &AppHandle,
+    prefix_path: String,
+    runtime_profile_id: String,
+    graphics_backend: Option<GraphicsBackend>,
+    env_overrides: Option<HashMap<String, String>>,
+    force: bool,
+) -> Result<Vec<Bottle>, String> {
+    let prefix = normalize_path(&prefix_path);
+    let new_profile = config::runtime_profile_by_id(app, &runtime_profile_id)?;
+    let mut registry = load_registry(app)?;
+    let entry = registry
+        .iter_mut()
+        .find(|entry| normalize_path(&entry.prefix_path) == prefix)
+        .ok_or_else(|| format!("Bottle not registered: {}", prefix))?;
+
+    if !force && Path::new(&prefix).join("drive_c").exists() {
+        let old_profile = config::runtime_profile_by_id(app, &entry.runtime_profile_id).ok();
+        if old_profile.as_ref().map(|p| p.id.as_str()) == Some("gptk-d3dmetal")
+            && new_profile.id != "gptk-d3dmetal"
+        {
+            return Err(
+                "Safety warning: this bottle already exists and was using GPTK/D3DMetal. \
+                 Switching it to a Wine 10/11+ Vulkan profile may modify the prefix. \
+                 Create a cloned/test bottle instead, or retry with force=true."
+                    .to_string(),
+            );
+        }
+    }
+
+    entry.runtime_profile_id = runtime_profile_id;
+    entry.graphics_backend = graphics_backend;
+    if let Some(env) = env_overrides {
+        entry.env_overrides = env;
+    }
+    save_registry(app, &registry)?;
+    list_bottles(app)
+}
+
+pub fn create_peak_test_bottle(app: &AppHandle) -> Result<Vec<Bottle>, String> {
+    let cfg = config::load_config(app)?;
+    let prefix = default_prefix_for_name(&cfg.default_prefix, "PEAK Test");
+    let profile = config::runtime_profile_by_id(app, "wine-vulkan")?;
+    launcher::init_wine_prefix(&prefix, &profile.wine64_path)?;
+
+    let mut registry = load_registry(app)?;
+    if let Some(existing) = registry
+        .iter_mut()
+        .find(|entry| normalize_path(&entry.prefix_path) == normalize_path(&prefix))
+    {
+        existing.name = "PEAK Test".to_string();
+        existing.runtime_profile_id = "wine-vulkan".to_string();
+        existing.graphics_backend = Some(GraphicsBackend::DxvkVkd3d);
+    } else {
+        registry.push(BottleRegistryEntry {
+            name: "PEAK Test".to_string(),
+            prefix_path: prefix,
+            runtime_profile_id: "wine-vulkan".to_string(),
+            graphics_backend: Some(GraphicsBackend::DxvkVkd3d),
+            env_overrides: HashMap::new(),
+        });
+    }
+    save_registry(app, &registry)?;
     list_bottles(app)
 }
 
@@ -177,12 +267,23 @@ pub fn install_steam(app: &AppHandle, prefix_path: String) -> Result<(), String>
     )
 }
 
+fn steam_safe_args(extra: Vec<String>) -> Vec<String> {
+    // Keep only the sandbox-safe args. Over-forcing CEF GPU flags can make
+    // Chromium pick stranger paths under Wine.
+    let mut args = vec![
+        "-no-cef-sandbox".to_string(),
+        "-cef-disable-sandbox".to_string(),
+    ];
+    args.extend(extra);
+    args
+}
+
 pub fn open_steam(app: &AppHandle, prefix_path: String) -> Result<(), String> {
     let status = launcher_status(&prefix_path);
     let steam_path = status
         .steam_path
         .ok_or_else(|| "Windows Steam is not installed in this bottle yet.".to_string())?;
-    run_exe(app, status.prefix_path, steam_path, Vec::new())
+    run_exe(app, status.prefix_path, steam_path, steam_safe_args(Vec::new()))
 }
 
 pub fn repair_steam(app: &AppHandle, prefix_path: String) -> Result<(), String> {
@@ -194,7 +295,7 @@ pub fn repair_steam(app: &AppHandle, prefix_path: String) -> Result<(), String> 
         app,
         status.prefix_path,
         steam_path,
-        vec!["-repair".to_string()],
+        steam_safe_args(vec!["-repair".to_string()]),
     )
 }
 
@@ -204,29 +305,78 @@ pub fn run_exe(
     exe_path: String,
     args: Vec<String>,
 ) -> Result<(), String> {
+    let opts = resolve_launch_options(app, &prefix_path, &exe_path, args, &HashMap::new())?;
+    let _process = launcher::spawn(opts)?;
+    Ok(())
+}
+
+pub fn resolve_launch_options(
+    app: &AppHandle,
+    prefix_path: &str,
+    exe_path: &str,
+    args: Vec<String>,
+    app_env_overrides: &HashMap<String, String>,
+) -> Result<LaunchOptions, String> {
     let cfg = config::load_config(app)?;
-    let exe = normalize_path(&exe_path);
+    let prefix = normalize_path(prefix_path);
+    let exe = normalize_path(exe_path);
     if !Path::new(&exe).is_file() {
         return Err(format!("Executable not found: {}", exe));
     }
 
-    let opts = LaunchOptions {
-        wine64_path: cfg.wine64_path,
-        exe_path: exe.clone(),
-        working_dir: Path::new(&exe)
-            .parent()
-            .map(|path| path.to_string_lossy().to_string()),
-        wine_prefix: normalize_path(&prefix_path),
-        gptk_lib_path: cfg.gptk_lib_path,
-        extra_args: args,
+    let entry = bottle_entry_for_prefix(app, &prefix)?;
+    let profile = config::runtime_profile_by_id(app, &entry.runtime_profile_id)?;
+    let backend = entry
+        .graphics_backend
+        .clone()
+        .unwrap_or_else(|| profile.default_backend.clone());
+    let is_steam_client = Path::new(&exe)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("steam.exe"))
+        .unwrap_or(false);
+    let gptk_lib_path = profile
+        .gptk_lib_path
+        .clone()
+        .unwrap_or_else(|| cfg.gptk_lib_path.clone());
+    let mut env = launcher::merge_env(
+        &cfg.env,
+        &profile.env,
+        &entry.env_overrides,
+        app_env_overrides,
+    );
+    let wine64_path = profile.wine64_path;
+    let launch_exe = exe.clone();
+    let launch_prefix = prefix;
+    let working_dir = Path::new(&exe)
+        .parent()
+        .map(|path| path.to_string_lossy().to_string());
+
+    if is_steam_client {
+        // Steam should inherit the bottle's performance backend so games
+        // launched from inside Steam can use GPU acceleration. The Steam UI
+        // black-screen fix is handled inside Forge's Wine build by appending
+        // safe CEF flags only to steamwebhelper.exe child processes; do not
+        // globally hide Vulkan/DXVK from steam.exe here.
+        env.insert("MOLTENVK_CONFIG_LOG_LEVEL".to_string(), "0".to_string());
+    }
+
+    Ok(LaunchOptions {
+        wine64_path,
+        exe_path: launch_exe,
+        working_dir,
+        wine_prefix: launch_prefix,
+        gptk_lib_path,
+        extra_args: if is_steam_client { steam_safe_args(args) } else { args },
+        graphics_backend: backend,
+        env,
         esync: true,
-        msync: false,
+        msync: is_steam_client,
         show_hud: cfg.global_hud,
         metal_trace: false,
         advertise_avx: false,
         enable_dxr: false,
         metalfx_enabled: cfg.metalfx_enabled,
-        use_dxvk: false,
         dxvk_hud: Default::default(),
         mangohud_enabled: false,
         wine_debug: if cfg.suppress_wine_debug {
@@ -234,10 +384,7 @@ pub fn run_exe(
         } else {
             String::new()
         },
-    };
-
-    let _process = launcher::spawn(opts)?;
-    Ok(())
+    })
 }
 
 fn to_bottle(entry: BottleRegistryEntry) -> Bottle {
@@ -245,6 +392,9 @@ fn to_bottle(entry: BottleRegistryEntry) -> Bottle {
     Bottle {
         id: format!("{}-{:x}", slug(&entry.name), stable_hash(&prefix_path)),
         name: entry.name,
+        runtime_profile_id: entry.runtime_profile_id,
+        graphics_backend: entry.graphics_backend,
+        env_overrides: entry.env_overrides,
         exists: Path::new(&prefix_path).is_dir(),
         steam_installed: find_steam_exe(&prefix_path).is_some(),
         app_count: list_apps(&prefix_path).len(),
@@ -272,7 +422,53 @@ fn load_registry(app: &AppHandle) -> Result<Vec<BottleRegistryEntry>, String> {
     }
 
     let raw = std::fs::read_to_string(&path).map_err(|e| format!("Read bottles.json: {}", e))?;
-    serde_json::from_str(&raw).map_err(|e| format!("Parse bottles.json: {}", e))
+    let mut entries: Vec<BottleRegistryEntry> =
+        serde_json::from_str(&raw).map_err(|e| format!("Parse bottles.json: {}", e))?;
+
+    // Forge is now Wine 11 + MoltenVK first. Migrate older GPTK/D3DMetal bottle
+    // records to the Vulkan runtime so the UI cannot accidentally launch Steam
+    // or games through the old Wine 7.7 GPTK stack.
+    for entry in &mut entries {
+        entry.runtime_profile_id = "wine-vulkan".to_string();
+        if entry.graphics_backend == Some(GraphicsBackend::D3DMetal) {
+            entry.graphics_backend = Some(GraphicsBackend::DxvkVkd3d);
+        }
+    }
+
+    Ok(entries)
+}
+
+fn bottle_entry_for_prefix(app: &AppHandle, prefix_path: &str) -> Result<BottleRegistryEntry, String> {
+    let prefix = normalize_path(prefix_path);
+    let cfg = config::load_config(app)?;
+    if let Some(entry) = load_registry(app)?
+        .into_iter()
+        .find(|entry| normalize_path(&entry.prefix_path) == prefix)
+    {
+        return Ok(entry);
+    }
+
+    if normalize_path(&cfg.default_prefix) == prefix {
+        return Ok(BottleRegistryEntry {
+            name: "Default".to_string(),
+            prefix_path: prefix,
+            runtime_profile_id: default_runtime_profile_id(),
+            graphics_backend: None,
+            env_overrides: HashMap::new(),
+        });
+    }
+
+    Ok(BottleRegistryEntry {
+        name: bottle_name_from_path(&prefix),
+        prefix_path: prefix,
+        runtime_profile_id: default_runtime_profile_id(),
+        graphics_backend: None,
+        env_overrides: HashMap::new(),
+    })
+}
+
+fn default_runtime_profile_id() -> String {
+    "wine-vulkan".to_string()
 }
 
 fn save_registry(app: &AppHandle, entries: &[BottleRegistryEntry]) -> Result<(), String> {
@@ -371,17 +567,80 @@ fn collect_exes(dir: &Path, depth: usize, apps: &mut Vec<BottleApp>, seen: &mut 
 
         let path = entry.path();
         if path.is_dir() {
-            collect_exes(&path, depth + 1, apps, seen);
+            if should_descend_for_user_apps(&path) {
+                collect_exes(&path, depth + 1, apps, seen);
+            }
         } else if path
             .extension()
             .and_then(|ext| ext.to_str())
             .map(|ext| ext.eq_ignore_ascii_case("exe"))
             .unwrap_or(false)
+            && is_user_visible_exe(&path)
         {
             let kind = guess_app_kind(&path);
             push_app(apps, seen, path, &kind);
         }
     }
+}
+
+fn should_descend_for_user_apps(path: &Path) -> bool {
+    let raw = path.to_string_lossy().replace('\\', "/").to_lowercase();
+    !raw.contains("/program files/common files")
+        && !raw.contains("/program files (x86)/common files")
+        && !raw.contains("/internet explorer")
+        && !raw.contains("/windows media player")
+        && !raw.contains("/windows nt")
+        && !raw.contains("/steam/bin")
+}
+
+fn is_user_visible_exe(path: &Path) -> bool {
+    let raw = path.to_string_lossy().replace('\\', "/").to_lowercase();
+    let file = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_lowercase();
+
+    if raw.contains("/internet explorer/")
+        || raw.contains("/windows media player/")
+        || raw.contains("/windows nt/")
+        || raw.contains("/common files/")
+        || raw.contains("/steam/bin/")
+    {
+        return false;
+    }
+
+    // Steam installs lots of helper .exe files beside steam.exe. Show the app
+    // the user actually installed, not crash reporters, services, overlays, or
+    // driver probes.
+    let hidden_helpers = [
+        "uninstall.exe",
+        "writeminidump.exe",
+        "gameoverlayui.exe",
+        "gameoverlayui64.exe",
+        "steamerrorreporter.exe",
+        "steamerrorreporter64.exe",
+        "streaming_client.exe",
+        "steamsysinfo.exe",
+        "steamservice.exe",
+        "steamwebhelper.exe",
+        "x64launcher.exe",
+        "x86launcher.exe",
+        "gldriverquery.exe",
+        "gldriverquery64.exe",
+        "vulkandriverquery.exe",
+        "vulkandriverquery64.exe",
+        "drivers.exe",
+        "secure_desktop_capture.exe",
+        "fossilize-replay.exe",
+        "fossilize-replay64.exe",
+        "steamxboxutil.exe",
+        "steamxboxutil64.exe",
+        "steam_monitor.exe",
+        "hardwareupdater.exe",
+    ];
+
+    !hidden_helpers.contains(&file.as_str())
 }
 
 fn push_app(

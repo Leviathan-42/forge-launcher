@@ -198,12 +198,7 @@ Saved to `~/Library/Application Support/com.forgelauncher.app/covers/{app_id}.jp
 
 ### wine64 auto-detection (`src-tauri/src/config.rs`)
 
-`detect_wine64()` searches these paths in order:
-1. `/opt/homebrew/bin/wine64` (ARM Homebrew — GPTK cask)
-2. `/usr/local/bin/wine64` (Intel Homebrew)
-3. `~/Library/Application Support/com.isaacmarovitz.Whisky/Libraries/Wine/bin/wine64`
-4. `/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine64`
-5. `which wine64` (PATH fallback)
+`detect_wine64()` searches Forge-owned/free Wine paths first, then standard Wine installs and PATH fallback.
 
 On first run, `load_config` detects and saves the found path to `config.json`.
 

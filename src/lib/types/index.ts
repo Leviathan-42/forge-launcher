@@ -1,7 +1,31 @@
+export type GraphicsBackend =
+  | "d3dmetal"
+  | "dxvk"
+  | "vkd3d"
+  | "dxvk_vkd3d"
+  | "wine_builtin"
+  | "none";
+
+export type RuntimeProfile = {
+  id: string;
+  name: string;
+  wine64_path: string;
+  wineserver_path?: string | null;
+  gptk_lib_path?: string | null;
+  dxvk_path?: string | null;
+  vkd3d_path?: string | null;
+  moltenvk_path?: string | null;
+  default_backend: GraphicsBackend;
+  env: Record<string, string>;
+};
+
 export type Bottle = {
   id: string;
   name: string;
   prefix_path: string;
+  runtime_profile_id: string;
+  graphics_backend?: GraphicsBackend | null;
+  env_overrides?: Record<string, string>;
   exists: boolean;
   steam_installed: boolean;
   app_count: number;
@@ -29,6 +53,7 @@ export type AppConfig = {
   theme: "dark" | "light" | "system" | string;
   global_hud: boolean;
   metalfx_enabled: boolean;
+  env?: Record<string, string>;
 };
 
 export type WineStatus = {
@@ -46,4 +71,5 @@ export type Game = {
   wine_prefix?: string | null;
   source?: "manual" | "steam" | string;
   steam_app_id?: number | null;
+  env_overrides?: Record<string, string>;
 };

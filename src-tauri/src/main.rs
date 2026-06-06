@@ -47,6 +47,43 @@ async fn create_bottle(
 }
 
 #[tauri::command]
+async fn list_runtime_profiles(app: AppHandle) -> Result<Vec<config::RuntimeProfile>, String> {
+    config::load_runtime_profiles(&app)
+}
+
+#[tauri::command]
+async fn save_runtime_profiles(
+    app: AppHandle,
+    profiles: Vec<config::RuntimeProfile>,
+) -> Result<(), String> {
+    config::save_runtime_profiles(&app, &profiles)
+}
+
+#[tauri::command]
+async fn update_bottle_runtime(
+    app: AppHandle,
+    prefix_path: String,
+    runtime_profile_id: String,
+    graphics_backend: Option<config::GraphicsBackend>,
+    env_overrides: Option<std::collections::HashMap<String, String>>,
+    force: bool,
+) -> Result<Vec<bottles::Bottle>, String> {
+    bottles::update_bottle_runtime(
+        &app,
+        prefix_path,
+        runtime_profile_id,
+        graphics_backend,
+        env_overrides,
+        force,
+    )
+}
+
+#[tauri::command]
+async fn create_peak_test_bottle(app: AppHandle) -> Result<Vec<bottles::Bottle>, String> {
+    bottles::create_peak_test_bottle(&app)
+}
+
+#[tauri::command]
 async fn bottle_launcher_status(prefix_path: String) -> Result<bottles::LauncherStatus, String> {
     Ok(bottles::launcher_status(&prefix_path))
 }
@@ -199,7 +236,24 @@ async fn launch_game(
     }
 
     let cfg = config::load_config(&app)?;
-    let opts = LaunchOptions::from_game(&game, &cfg);
+    let prefix = game
+        .wine_prefix
+        .clone()
+        .unwrap_or_else(|| cfg.default_prefix.clone());
+    let mut opts = bottles::resolve_launch_options(
+        &app,
+        &prefix,
+        &game.exe_path,
+        game.extra_args.clone(),
+        &game.env_overrides,
+    )?;
+    opts.esync = game.esync;
+    opts.msync = game.msync;
+    opts.show_hud = game.show_hud || cfg.global_hud;
+    opts.advertise_avx = game.advertise_avx;
+    opts.enable_dxr = game.enable_dxr;
+    opts.metalfx_enabled = cfg.metalfx_enabled;
+    opts.mangohud_enabled = game.mangohud_enabled;
     let process = launcher::spawn(opts)?;
 
     state
@@ -806,6 +860,10 @@ fn main() {
             // Bottles
             list_bottles,
             create_bottle,
+            list_runtime_profiles,
+            save_runtime_profiles,
+            update_bottle_runtime,
+            create_peak_test_bottle,
             bottle_launcher_status,
             list_bottle_apps,
             install_steam_in_prefix,

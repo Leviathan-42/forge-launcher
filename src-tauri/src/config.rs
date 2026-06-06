@@ -10,6 +10,7 @@
 //! Both files are created with safe defaults on first run.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
@@ -135,6 +136,10 @@ pub struct Game {
     /// For D3DMetal games, use `show_hud` (MTL_HUD_ENABLED) instead.
     #[serde(default)]
     pub mangohud_enabled: bool,
+
+    /// Optional per-app environment overrides applied last at launch time.
+    #[serde(default)]
+    pub env_overrides: HashMap<String, String>,
 }
 
 fn default_true() -> bool {
@@ -183,6 +188,10 @@ pub struct AppConfig {
     /// Enable MetalFX upscaling globally (GPTK 3.0+).
     #[serde(default)]
     pub metalfx_enabled: bool,
+
+    /// Global launch environment variables. Applied before runtime/bottle/app env.
+    #[serde(default)]
+    pub env: HashMap<String, String>,
 }
 
 impl Default for AppConfig {
@@ -195,21 +204,54 @@ impl Default for AppConfig {
             theme: default_theme(),
             global_hud: false,
             metalfx_enabled: false,
+            env: HashMap::new(),
         }
     }
 }
 
-/// Scan known locations for a wine64 binary and return the first one found.
-///
-/// Search order (most to least preferred):
-/// 1. ARM Homebrew GPTK 3.0 cask  — `/opt/homebrew/bin/wine64`
-/// 2. ARM Homebrew wine-crossover  — `/opt/homebrew/bin/wine64`  (same path, different install)
-/// 3. Intel Homebrew GPTK          — `/usr/local/bin/wine64`
-/// 4. Gcenx GPTK tarball install   — `~/Library/Application Support/com.isaacmarovitz.Whisky/Libraries/Wine/bin/wine64`
-/// 5. CrossOver                    — `/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine64`
-/// 6. PATH lookup                  — `which wine64`
-///
-/// Returns `None` if wine64 is not installed anywhere.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum GraphicsBackend {
+    #[serde(rename = "d3dmetal")]
+    D3DMetal,
+    #[serde(rename = "dxvk")]
+    Dxvk,
+    #[serde(rename = "vkd3d")]
+    Vkd3d,
+    #[serde(rename = "dxvk_vkd3d")]
+    DxvkVkd3d,
+    #[serde(rename = "wine_builtin")]
+    WineBuiltin,
+    #[serde(rename = "none")]
+    None,
+}
+
+impl Default for GraphicsBackend {
+    fn default() -> Self {
+        GraphicsBackend::D3DMetal
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeProfile {
+    pub id: String,
+    pub name: String,
+    pub wine64_path: String,
+    #[serde(default)]
+    pub wineserver_path: Option<String>,
+    #[serde(default)]
+    pub gptk_lib_path: Option<String>,
+    #[serde(default)]
+    pub dxvk_path: Option<String>,
+    #[serde(default)]
+    pub vkd3d_path: Option<String>,
+    #[serde(default)]
+    pub moltenvk_path: Option<String>,
+    #[serde(default)]
+    pub default_backend: GraphicsBackend,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+}
+
 pub fn detect_wine64() -> Option<String> {
     let home = std::env::var("HOME").unwrap_or_default();
 
@@ -227,11 +269,6 @@ pub fn detect_wine64() -> Option<String> {
             "{}/Library/Application Support/Whisky/Libraries/Wine/bin/wine64",
             home
         ),
-        // CrossOver
-        "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine64".to_string(),
-        // Gcenx wine-crossover manual install
-        "/opt/homebrew/opt/wine-crossover/bin/wine64".to_string(),
-        "/usr/local/opt/wine-crossover/bin/wine64".to_string(),
     ];
 
     for path in &candidates {
@@ -257,10 +294,12 @@ pub fn detect_wine64() -> Option<String> {
 /// Returns None if GPTK is not installed.
 pub fn detect_gptk_lib_path() -> Option<String> {
     let candidates = [
-        // ARM Homebrew GPTK cask
+        // Gcenx GPTK cask app bundle
+        "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external",
+        // ARM Homebrew GPTK installs
         "/opt/homebrew/lib/external",
         "/opt/homebrew/opt/game-porting-toolkit/lib/external",
-        // Intel Homebrew
+        // Intel Homebrew GPTK installs
         "/usr/local/lib/external",
         "/usr/local/opt/game-porting-toolkit/lib/external",
     ];
@@ -275,7 +314,9 @@ pub fn detect_gptk_lib_path() -> Option<String> {
 }
 
 fn default_wine64_path() -> String {
-    detect_wine64().unwrap_or_else(|| "/opt/homebrew/bin/wine64".to_string())
+    detect_wine10_plus()
+        .or_else(detect_wine64)
+        .unwrap_or_else(|| "/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine".to_string())
 }
 
 fn default_gptk_lib_path() -> String {
@@ -310,6 +351,10 @@ fn games_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir(app)?.join("config.json"))
+}
+
+fn runtime_profiles_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(app_data_dir(app)?.join("runtime_profiles.json"))
 }
 
 // ---------------------------------------------------------------------------
@@ -348,7 +393,24 @@ pub fn load_config(app: &AppHandle) -> Result<AppConfig, String> {
         return Ok(cfg);
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| format!("Read config.json: {}", e))?;
-    serde_json::from_str(&raw).map_err(|e| format!("Parse config.json: {}", e))
+    let mut cfg: AppConfig =
+        serde_json::from_str(&raw).map_err(|e| format!("Parse config.json: {}", e))?;
+
+    // Keep Forge-owned runtimes on the newest installed Forge build, while
+    // leaving explicit custom/Wine Devel paths alone.
+    if let Some(default_wine) = detect_wine10_plus() {
+        let default_is_forge_runtime = default_wine.contains("/Wine/Runtimes/forge-wine-11");
+        let cfg_is_forge_runtime = cfg.wine64_path.contains("/Wine/Runtimes/forge-wine-11");
+        if default_is_forge_runtime
+            && (cfg_is_forge_runtime || !std::path::Path::new(&cfg.wine64_path).exists())
+            && cfg.wine64_path != default_wine
+        {
+            cfg.wine64_path = default_wine;
+            let _ = save_config(app, &cfg);
+        }
+    }
+
+    Ok(cfg)
 }
 
 /// Persist global config.
@@ -356,4 +418,122 @@ pub fn save_config(app: &AppHandle, cfg: &AppConfig) -> Result<(), String> {
     let path = config_path(app)?;
     let json = serde_json::to_string_pretty(cfg).map_err(|e| format!("Serialise config: {}", e))?;
     std::fs::write(&path, json).map_err(|e| format!("Write config.json: {}", e))
+}
+
+pub fn default_runtime_profiles(_cfg: &AppConfig) -> Vec<RuntimeProfile> {
+    let moltenvk_path = detect_moltenvk_path();
+    let mut env = HashMap::new();
+    if let Some(icd) = detect_moltenvk_icd_path() {
+        env.insert("VK_ICD_FILENAMES".to_string(), icd);
+    }
+
+    let profiles = vec![RuntimeProfile {
+        id: "wine-vulkan".to_string(),
+        name: "Forge Wine 11 + MoltenVK".to_string(),
+        wine64_path: detect_wine10_plus()
+            .unwrap_or_else(|| "/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine".to_string()),
+        wineserver_path: None,
+        gptk_lib_path: None,
+        dxvk_path: None,
+        vkd3d_path: None,
+        moltenvk_path: moltenvk_path.clone(),
+        default_backend: GraphicsBackend::DxvkVkd3d,
+        env: env.clone(),
+    }];
+
+    profiles
+}
+
+pub fn load_runtime_profiles(app: &AppHandle) -> Result<Vec<RuntimeProfile>, String> {
+    let path = runtime_profiles_path(app)?;
+    if !path.exists() {
+        let profiles = default_runtime_profiles(&load_config(app)?);
+        save_runtime_profiles(app, &profiles)?;
+        return Ok(profiles);
+    }
+
+    let raw = std::fs::read_to_string(&path).map_err(|e| format!("Read runtime_profiles.json: {}", e))?;
+    let mut profiles: Vec<RuntimeProfile> = serde_json::from_str(&raw)
+        .map_err(|e| format!("Parse runtime_profiles.json: {}", e))?;
+
+    let defaults = default_runtime_profiles(&load_config(app)?);
+    profiles.retain(|profile| profile.id == "wine-vulkan");
+    for default in defaults {
+        if let Some(existing) = profiles.iter_mut().find(|profile| profile.id == default.id) {
+            let default_is_forge_runtime = default
+                .wine64_path
+                .contains("/Wine/Runtimes/forge-wine-11");
+            if !std::path::Path::new(&existing.wine64_path).exists()
+                || existing.name == "Wine Vulkan"
+                || existing.name.contains("Wine 10")
+                || (default_is_forge_runtime && existing.wine64_path != default.wine64_path)
+            {
+                existing.name = default.name.clone();
+                existing.wine64_path = default.wine64_path.clone();
+            }
+            existing.default_backend = GraphicsBackend::DxvkVkd3d;
+            existing.moltenvk_path = existing.moltenvk_path.clone().or(default.moltenvk_path);
+            for (key, value) in default.env {
+                existing.env.entry(key).or_insert(value);
+            }
+        } else {
+            profiles.push(default);
+        }
+    }
+    save_runtime_profiles(app, &profiles)?;
+    Ok(profiles)
+}
+
+pub fn save_runtime_profiles(app: &AppHandle, profiles: &[RuntimeProfile]) -> Result<(), String> {
+    let path = runtime_profiles_path(app)?;
+    let json = serde_json::to_string_pretty(profiles)
+        .map_err(|e| format!("Serialise runtime profiles: {}", e))?;
+    std::fs::write(&path, json).map_err(|e| format!("Write runtime_profiles.json: {}", e))
+}
+
+pub fn runtime_profile_by_id(app: &AppHandle, id: &str) -> Result<RuntimeProfile, String> {
+    load_runtime_profiles(app)?
+        .into_iter()
+        .find(|profile| profile.id == id)
+        .ok_or_else(|| format!("Runtime profile '{}' not found", id))
+}
+
+fn detect_wine10_plus() -> Option<String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let candidates = [
+        // Forge-owned Wine 11 runtime. This must stay independent of any paid app runtime.
+        format!("{}/Wine/Runtimes/forge-wine-11-full/bin/wine", home),
+        format!("{}/Wine/Runtimes/forge-wine-11/bin/wine", home),
+        "/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine".to_string(),
+        "/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine".to_string(),
+        "/Applications/Wine Staging.app/Contents/Resources/wine/bin/wine".to_string(),
+    ];
+
+    candidates
+        .into_iter()
+        .find(|path| std::path::Path::new(path).exists())
+}
+
+fn detect_moltenvk_path() -> Option<String> {
+    [
+        "/opt/homebrew/lib/libMoltenVK.dylib",
+        "/usr/local/lib/libMoltenVK.dylib",
+        "/opt/homebrew/opt/molten-vk/lib/libMoltenVK.dylib",
+        "/usr/local/opt/molten-vk/lib/libMoltenVK.dylib",
+    ]
+    .into_iter()
+    .find(|path| std::path::Path::new(path).exists())
+    .map(|path| path.to_string())
+}
+
+fn detect_moltenvk_icd_path() -> Option<String> {
+    [
+        "/opt/homebrew/opt/molten-vk/etc/vulkan/icd.d/MoltenVK_icd.json",
+        "/usr/local/opt/molten-vk/etc/vulkan/icd.d/MoltenVK_icd.json",
+        "/opt/homebrew/etc/vulkan/icd.d/MoltenVK_icd.json",
+        "/usr/local/etc/vulkan/icd.d/MoltenVK_icd.json",
+    ]
+    .into_iter()
+    .find(|path| std::path::Path::new(path).exists())
+    .map(|path| path.to_string())
 }

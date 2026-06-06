@@ -2,7 +2,7 @@
 
 Forge is a Wine bottle manager for Windows launchers and apps on macOS.
 
-It should feel closer to CrossOver or Whisky than a traditional game library.
+It should feel closer to a polished native macOS utility than a traditional game library.
 The core object is the bottle, not the game.
 
 ## Product Model

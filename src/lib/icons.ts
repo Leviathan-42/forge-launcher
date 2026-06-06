@@ -16,6 +16,7 @@ import search from "lucide-static/icons/search.svg?raw";
 import settings from "lucide-static/icons/settings.svg?raw";
 import shieldCheck from "lucide-static/icons/shield-check.svg?raw";
 import slidersHorizontal from "lucide-static/icons/sliders-horizontal.svg?raw";
+import star from "lucide-static/icons/star.svg?raw";
 import wrench from "lucide-static/icons/wrench.svg?raw";
 import x from "lucide-static/icons/x.svg?raw";
 
@@ -38,6 +39,7 @@ export const icons = {
   settings,
   shieldCheck,
   slidersHorizontal,
+  star,
   wrench,
   x,
 };

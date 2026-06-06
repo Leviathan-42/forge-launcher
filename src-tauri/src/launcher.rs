@@ -31,10 +31,11 @@
 //!
 //! 7. METAL_CAPTURE_ENABLED for Metal GPU tracing (Whisky's "metal trace" mode).
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 
-use crate::config::{AppConfig, Game, TranslationBackend};
+use crate::config::{AppConfig, GraphicsBackend};
 use crate::steam::SteamGame;
 
 // ---------------------------------------------------------------------------
@@ -71,6 +72,8 @@ pub struct LaunchOptions {
     pub wine_prefix: String,
     pub gptk_lib_path: String,
     pub extra_args: Vec<String>,
+    pub graphics_backend: GraphicsBackend,
+    pub env: HashMap<String, String>,
     /// Enable WINEESYNC (eventfd threading).
     pub esync: bool,
     /// Enable WINEMSYNC (mach-port sync, macOS-specific).
@@ -86,9 +89,7 @@ pub struct LaunchOptions {
     pub enable_dxr: bool,
     /// D3DM_ENABLE_METALFX (GPTK 3.0+)
     pub metalfx_enabled: bool,
-    /// Use DXVK instead of D3DMetal
-    pub use_dxvk: bool,
-    /// DXVK HUD level (only used when use_dxvk = true)
+    /// DXVK HUD level (only used for DXVK backends)
     pub dxvk_hud: DxvkHud,
     /// MANGOHUD=1 — shows FPS, CPU, GPU, RAM, frametimes when using DXVK+MoltenVK
     pub mangohud_enabled: bool,
@@ -97,43 +98,6 @@ pub struct LaunchOptions {
 }
 
 impl LaunchOptions {
-    pub fn from_game(game: &Game, cfg: &AppConfig) -> Self {
-        let wine_prefix = game
-            .wine_prefix
-            .clone()
-            .unwrap_or_else(|| cfg.default_prefix.clone());
-
-        let use_dxvk = game.translation_backend == TranslationBackend::Dxvk;
-
-        // "fixme-all" = suppress noisy FIXME lines but keep actual errors visible
-        // "" = full verbose output for debugging
-        let wine_debug = if cfg.suppress_wine_debug {
-            "fixme-all".to_string()
-        } else {
-            String::new()
-        };
-
-        LaunchOptions {
-            wine64_path: cfg.wine64_path.clone(),
-            exe_path: game.exe_path.clone(),
-            working_dir: game.working_dir.clone(),
-            wine_prefix,
-            gptk_lib_path: cfg.gptk_lib_path.clone(),
-            extra_args: game.extra_args.clone(),
-            esync: game.esync,
-            msync: game.msync,
-            show_hud: game.show_hud || cfg.global_hud,
-            metal_trace: false,
-            advertise_avx: game.advertise_avx,
-            enable_dxr: game.enable_dxr,
-            metalfx_enabled: cfg.metalfx_enabled,
-            use_dxvk,
-            dxvk_hud: DxvkHud::Off,
-            mangohud_enabled: game.mangohud_enabled,
-            wine_debug,
-        }
-    }
-
     pub fn from_steam_game(steam_game: &SteamGame, prefix_path: &str, cfg: &AppConfig) -> Self {
         let wine_debug = if cfg.suppress_wine_debug {
             "fixme-all".to_string()
@@ -148,6 +112,8 @@ impl LaunchOptions {
             wine_prefix: prefix_path.to_string(),
             gptk_lib_path: cfg.gptk_lib_path.clone(),
             extra_args: vec!["-steam".to_string()],
+            graphics_backend: GraphicsBackend::D3DMetal,
+            env: cfg.env.clone(),
             esync: true,
             msync: false,
             show_hud: cfg.global_hud,
@@ -155,7 +121,6 @@ impl LaunchOptions {
             advertise_avx: false,
             enable_dxr: false,
             metalfx_enabled: cfg.metalfx_enabled,
-            use_dxvk: false,
             dxvk_hud: DxvkHud::Off,
             mangohud_enabled: false,
             wine_debug,
@@ -208,13 +173,25 @@ impl GameProcess {
 /// NO `arch -x86_64` wrapper — Rosetta 2 activates automatically because
 /// wine64 is an x86_64 binary. The wrapper is redundant and causes issues.
 pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
-    // DYLD_LIBRARY_PATH: gptk_lib_path + gptk_lib_path/external + any existing value
+    // DYLD_LIBRARY_PATH is only for D3DMetal/GPTK. DXVK/VKD3D should use
+    // Forge/Homebrew MoltenVK so GPTK's older libMoltenVK cannot shadow it.
     let existing_dyld = std::env::var("DYLD_LIBRARY_PATH").unwrap_or_default();
     let dyld_path = build_dyld_path(&opts.gptk_lib_path, &existing_dyld);
 
     // Expand ~ in all paths
     let wine_prefix = expand_tilde(&opts.wine_prefix);
     let exe_path = expand_tilde(&opts.exe_path);
+    let is_steam = std::path::Path::new(&exe_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("steam.exe"))
+        .unwrap_or(false);
+    let game_backend = opts.graphics_backend.clone();
+    let launch_backend = if is_steam {
+        GraphicsBackend::WineBuiltin
+    } else {
+        game_backend.clone()
+    };
 
     // Auto-create the Wine prefix if it doesn't exist yet.
     // Wine's chdir error fires before the game even starts if the prefix dir
@@ -242,6 +219,8 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
             .env("WINEPREFIX", &wine_prefix)
             .env("WINEDEBUG", "fixme-all")
             .env("GST_DEBUG", "1")
+            // Avoid first-run Mono/Gecko prompts blocking unattended bottle setup.
+            .env("WINEDLLOVERRIDES", "mscoree,mshtml=")
             .status();
 
         match boot {
@@ -277,7 +256,6 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         .current_dir(&work_dir)
         // Required Wine env
         .env("WINEPREFIX", &wine_prefix)
-        .env("DYLD_LIBRARY_PATH", &dyld_path)
         // Whisky uses "fixme-all" not "-all" — keeps real errors visible
         .env("WINEDEBUG", &opts.wine_debug)
         // GStreamer verbosity (matches Whisky)
@@ -286,6 +264,12 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         .env("MTL_HUD_ENABLED", if opts.show_hud { "1" } else { "0" })
         // Mouse warp — helps cursor capture in games on macOS
         .env("WINE_MOUSE_WARP", "1");
+
+    if launch_backend == GraphicsBackend::D3DMetal {
+        cmd.env("DYLD_LIBRARY_PATH", &dyld_path);
+    } else {
+        cmd.env_remove("DYLD_LIBRARY_PATH");
+    }
 
     // ── Sync mode ─────────────────────────────────────────────────────────
     // MSYNC trick from Whisky: D3DMetal checks for WINEESYNC internally,
@@ -297,13 +281,50 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         cmd.env("WINEESYNC", "1");
     }
 
-    // ── DXVK ──────────────────────────────────────────────────────────────
-    if opts.use_dxvk {
-        // Full override list from Whisky — includes dxgi and d3d9
-        cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11,user32=n,b");
-        // Async shader compilation — reduces stutter on first render
-        cmd.env("DXVK_ASYNC", "1");
-        // Optional HUD
+    // ── Graphics backend DLL overrides ───────────────────────────────────
+    match &launch_backend {
+        GraphicsBackend::D3DMetal => {
+            // Prefer GPTK/D3DMetal's D3D/DXGI modules when a GPTK Wine lib
+            // directory is configured. This keeps launcher-launched games on
+            // the high-performance Metal path instead of WineD3D/DXVK.
+            if let Some(gptk_base) = gptk_wine_lib_base(&opts.gptk_lib_path) {
+                let gptk_dlls = gptk_base.join("wine/x86_64-windows");
+                if gptk_dlls.is_dir() {
+                    let existing = std::env::var("WINEDLLPATH").unwrap_or_default();
+                    let mut dll_path = gptk_dlls.to_string_lossy().to_string();
+                    if !existing.is_empty() {
+                        dll_path.push(':');
+                        dll_path.push_str(&existing);
+                    }
+                    cmd.env("WINEDLLPATH", dll_path);
+                }
+            }
+            cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b");
+        }
+        GraphicsBackend::Dxvk => {
+            cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11,user32=n,b");
+            cmd.env("DXVK_ASYNC", "1");
+        }
+        GraphicsBackend::Vkd3d => {
+            cmd.env("WINEDLLOVERRIDES", "d3d12,dxgi,user32=n,b");
+        }
+        GraphicsBackend::DxvkVkd3d => {
+            cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b");
+            cmd.env("DXVK_ASYNC", "1");
+        }
+        GraphicsBackend::WineBuiltin => {
+            // Force Wine builtin D3D/DXGI for explicit compatibility mode only.
+            // Do not use this for Steam when games will inherit the environment.
+            cmd.env("WINEDLLOVERRIDES", "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml=");
+            // Wine 11 wined3d defaults to Vulkan on macOS. OpenGL is safer for
+            // legacy launcher UI compatibility mode, but slower for games.
+            cmd.env("WINE_D3D_CONFIG", "renderer=gl");
+            cmd.env("LIBGL_ALWAYS_SOFTWARE", "1");
+        }
+        GraphicsBackend::None => {}
+    }
+
+    if launch_backend == GraphicsBackend::Dxvk || launch_backend == GraphicsBackend::DxvkVkd3d {
         match opts.dxvk_hud {
             DxvkHud::Full => {
                 cmd.env("DXVK_HUD", "full");
@@ -319,12 +340,6 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
     }
 
     // ── D3DMetal / GPTK extras ────────────────────────────────────────────
-
-    // Force native-first on user32 for missing functions like IsMouseInPointerEnabled
-    // (DXVK path above already includes user32; here we set it standalone for D3DMetal)
-    if !opts.use_dxvk {
-        cmd.env("WINEDLLOVERRIDES", "user32=n,b");
-    }
 
     if opts.enable_dxr {
         cmd.env("D3DM_SUPPORT_DXR", "1");
@@ -356,15 +371,50 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         cmd.env("METAL_CAPTURE_ENABLED", "1");
     }
 
+    // Apply resolved env late: global -> profile -> bottle -> app/game.
+    for (key, value) in &opts.env {
+        cmd.env(key, value);
+    }
+
+    if is_steam {
+        let game_dll_overrides = match game_backend {
+            GraphicsBackend::D3DMetal => "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b",
+            GraphicsBackend::Dxvk => "dxgi,d3d9,d3d10core,d3d11,user32=n,b",
+            GraphicsBackend::Vkd3d => "d3d12,dxgi,user32=n,b",
+            GraphicsBackend::DxvkVkd3d => "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b",
+            GraphicsBackend::WineBuiltin => "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml=",
+            GraphicsBackend::None => "",
+        };
+        let game_vk_icd = opts
+            .env
+            .get("VK_ICD_FILENAMES")
+            .map(|value| value.as_str())
+            .unwrap_or("");
+
+        // Steam's Chromium UI needs safe WineD3D/OpenGL mode, but games
+        // launched from Steam must keep acceleration. Forge Wine sees this
+        // marker and restores FORGE_GAME_* for non-Steam child processes.
+        cmd.env("FORGE_STEAM_SAFE_MODE", "1")
+            .env("FORGE_GAME_WINEDLLOVERRIDES", game_dll_overrides)
+            .env("FORGE_GAME_VK_ICD_FILENAMES", game_vk_icd)
+            .env("FORGE_GAME_MTL_HUD_ENABLED", if opts.show_hud { "1" } else { "0" })
+            .env("MOLTENVK_CONFIG_LOG_LEVEL", "0")
+            .env("WINEDLLOVERRIDES", "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml=")
+            .env("WINE_D3D_CONFIG", "renderer=gl")
+            .env("LIBGL_ALWAYS_SOFTWARE", "1")
+            .env("VK_ICD_FILENAMES", "/dev/null")
+            .env("VK_DRIVER_FILES", "/dev/null")
+            .env("DXVK_FILTER_DEVICE_NAME", "__forge_disable_dxvk_for_steam__")
+            .env("MTL_HUD_ENABLED", "0");
+    }
+
     // Check wine64 exists before spawning to give a clear actionable error
     if !std::path::Path::new(&opts.wine64_path).exists() {
         return Err(format!(
             "wine64 not found at '{}'.\n\n\
              Wine is not installed. Run this in Terminal to install:\n\
              brew install --cask gcenx/wine/game-porting-toolkit\n\n\
-             Then restart Forge Launcher — it will detect wine64 automatically.\n\
-             Alternatively install wine-crossover for DX9/10/11 games:\n\
-             brew install --cask gcenx/wine/wine-crossover",
+             Then restart Forge Launcher — it will detect Wine automatically.",
             opts.wine64_path
         ));
     }
@@ -409,6 +459,8 @@ pub fn init_wine_prefix(prefix_path: &str, wine64_path: &str) -> Result<(), Stri
         .env("WINEPREFIX", &prefix_path)
         .env("WINEDEBUG", "fixme-all")
         .env("GST_DEBUG", "1")
+        // Avoid first-run Mono/Gecko prompts blocking unattended bottle setup.
+        .env("WINEDLLOVERRIDES", "mscoree,mshtml=")
         .status()
         .map_err(|e| format!("Failed to run wineboot: {}", e))?;
 
@@ -426,13 +478,75 @@ pub fn init_wine_prefix(prefix_path: &str, wine64_path: &str) -> Result<(), Stri
 // Helpers
 // ---------------------------------------------------------------------------
 
+pub fn merge_env(
+    global: &HashMap<String, String>,
+    profile: &HashMap<String, String>,
+    bottle: &HashMap<String, String>,
+    app: &HashMap<String, String>,
+) -> HashMap<String, String> {
+    let mut merged = HashMap::new();
+    for source in [global, profile, bottle, app] {
+        for (key, value) in source {
+            merged.insert(key.clone(), value.clone());
+        }
+    }
+    merged
+}
+
 fn build_dyld_path(gptk_lib: &str, existing: &str) -> String {
-    let external = PathBuf::from(gptk_lib).join("external");
-    let mut parts = vec![gptk_lib.to_string(), external.to_string_lossy().to_string()];
+    let mut parts = Vec::new();
+    if !gptk_lib.trim().is_empty() {
+        let configured = PathBuf::from(gptk_lib);
+        parts.push(configured.to_string_lossy().to_string());
+
+        // Accept either GPTK's base Wine lib directory:
+        //   .../Resources/wine/lib
+        // or the external directory directly:
+        //   .../Resources/wine/lib/external
+        if configured
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.eq_ignore_ascii_case("external"))
+            .unwrap_or(false)
+        {
+            if let Some(parent) = configured.parent() {
+                parts.push(parent.to_string_lossy().to_string());
+            }
+        } else {
+            parts.push(configured.join("external").to_string_lossy().to_string());
+        }
+    }
     if !existing.is_empty() {
         parts.push(existing.to_string());
     }
-    parts.join(":")
+    dedupe_path_parts(parts).join(":")
+}
+
+fn gptk_wine_lib_base(gptk_lib: &str) -> Option<PathBuf> {
+    if gptk_lib.trim().is_empty() {
+        return None;
+    }
+    let configured = PathBuf::from(gptk_lib);
+    if configured
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("external"))
+        .unwrap_or(false)
+    {
+        configured.parent().map(|path| path.to_path_buf())
+    } else {
+        Some(configured)
+    }
+}
+
+fn dedupe_path_parts(parts: Vec<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    for part in parts {
+        if !part.is_empty() && !out.iter().any(|existing| existing == &part) {
+            out.push(part);
+        }
+    }
+    out
 }
 
 fn resolve_work_dir(working_dir: &Option<String>, expanded_exe_path: &str) -> PathBuf {

@@ -1,23 +1,25 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
+  import { getCurrentWebview } from "@tauri-apps/api/webview";
   import Icon from "$lib/components/Icon.svelte";
   import {
+    canUseDesktopCommands,
     checkWine,
     createBottle as createBottleCommand,
-    installSteam,
     launcherStatus,
     listBottleApps,
     listBottles,
+    listRuntimeProfiles,
     loadConfig,
     loadGames,
-    openSteam,
     pickExe,
     pickFolder,
-    repairSteam,
     runExe,
     saveConfig,
+    updateBottleRuntime,
+    upsertGame,
   } from "$lib/tauri";
-  import type { AppConfig, Bottle, BottleApp, Game, LauncherStatus, WineStatus } from "$lib/types";
+  import type { AppConfig, Bottle, BottleApp, Game, GraphicsBackend, LauncherStatus, RuntimeProfile, WineStatus } from "$lib/types";
 
   type Toast = {
     id: number;
@@ -25,64 +27,96 @@
     text: string;
   };
 
-  const launcherRows = [
-    "Epic Games Launcher",
-    "Battle.net",
-    "EA App",
-    "Ubisoft Connect",
-    "Rockstar Launcher",
+  type ExeEntry = {
+    key: string;
+    id: string;
+    name: string;
+    path: string;
+    kind: string;
+    source: "library" | "scan";
+    starred: boolean;
+    app?: BottleApp;
+    game?: Game;
+  };
+
+  type RuntimeStackId = "wine11-moltenvk";
+  type RuntimeChoiceId = RuntimeStackId | "custom";
+
+  const graphicsBackends: GraphicsBackend[] = ["dxvk_vkd3d", "dxvk", "vkd3d", "wine_builtin", "none"];
+  const steamSafeArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"];
+  const runtimeStacks: {
+    id: RuntimeStackId;
+    label: string;
+    bottleName: string;
+    profileId: string;
+    backend: GraphicsBackend;
+  }[] = [
+    {
+      id: "wine11-moltenvk",
+      label: "Wine 11 + MoltenVK",
+      bottleName: "Wine 11 Vulkan",
+      profileId: "wine-vulkan",
+      backend: "dxvk_vkd3d",
+    },
   ];
+  const starredStorageKey = "forge-launcher.starred-exes";
 
   let bottles: Bottle[] = [];
   let selectedBottleId = "";
   let apps: BottleApp[] = [];
   let games: Game[] = [];
+  let runtimeProfiles: RuntimeProfile[] = [];
   let config: AppConfig | null = null;
   let wine: WineStatus | null = null;
   let status: LauncherStatus | null = null;
   let selectedBottle: Bottle | undefined;
-  let selectedGames: Game[] = [];
+  let exeRows: ExeEntry[] = [];
+  let favoriteCount = 0;
   let loading = true;
   let appLoading = false;
   let busy = "";
   let appFilter = "";
   let createName = "";
   let createPrefix = "";
-  let exePath = "";
-  let exeArgs = "";
   let settingsOpen = false;
+  let dragOverExe = false;
+  let starredExePaths: string[] = [];
   let toasts: Toast[] = [];
   let toastId = 1;
+  let unlistenDrop: (() => void) | null = null;
+  const desktopCommandsAvailable = canUseDesktopCommands();
 
   $: selectedBottle = bottles.find((bottle) => bottle.id === selectedBottleId) || bottles[0];
-  $: selectedGames =
-    selectedBottle && config
-      ? games.filter((game) => samePath(game.wine_prefix || config?.default_prefix, selectedBottle?.prefix_path))
-      : [];
-  $: filteredApps = apps.filter((app) => {
-    const needle = appFilter.trim().toLowerCase();
-    if (!needle) return true;
-    return `${app.name} ${app.kind} ${app.path}`.toLowerCase().includes(needle);
-  });
+  $: activeRuntimeProfile = runtimeProfiles.find((profile) => profile.id === selectedBottle?.runtime_profile_id);
+  $: exeRows = buildExeRows(apps, games, appFilter, starredExePaths);
+  $: favoriteCount = exeRows.filter((entry) => entry.starred).length;
 
   onMount(() => {
+    starredExePaths = loadStarredExePaths();
     void refreshAll();
+    void setupFileDrop();
+  });
+
+  onDestroy(() => {
+    unlistenDrop?.();
   });
 
   async function refreshAll() {
     loading = true;
     try {
-      const [nextConfig, nextWine, nextBottles, nextGames] = await Promise.all([
+      const [nextConfig, nextWine, nextBottles, nextGames, nextProfiles] = await Promise.all([
         loadConfig(),
         checkWine(),
         listBottles(),
         loadGames(),
+        listRuntimeProfiles(),
       ]);
 
       config = nextConfig;
       wine = nextWine;
       games = nextGames;
       bottles = nextBottles;
+      runtimeProfiles = nextProfiles;
 
       if (!selectedBottleId || !bottles.some((bottle) => bottle.id === selectedBottleId)) {
         selectedBottleId = bottles[0]?.id || "";
@@ -147,86 +181,176 @@
 
   async function chooseExe() {
     const picked = await pickExe();
-    if (picked) exePath = picked;
+    if (picked) await addExePath(picked);
   }
 
-  async function chooseLauncherExe(name: string) {
-    const picked = await pickExe();
-    const bottle = currentBottle();
-    if (!picked || !bottle) return;
+  async function addExePath(path: string) {
+    const exePath = path.trim();
 
-    await withBusy(`launcher-${name}`, async () => {
-      await runExe(bottle.prefix_path, picked);
-      notify("ok", `${name} started.`);
-      await refreshSelectedBottle();
+    if (!exePath.toLowerCase().endsWith(".exe")) {
+      notify("bad", "Choose a Windows .exe file.");
+      return;
+    }
+
+    await withBusy("add-exe", async () => {
+      const bottle = await ensureRuntimeBottle("wine11-moltenvk");
+      const game: Game = {
+        id: manualGameId(exePath),
+        name: exeDisplayName(exePath),
+        exe_path: exePath,
+        working_dir: parentPath(exePath),
+        wine_prefix: bottle.prefix_path,
+        source: "manual",
+        env_overrides: {},
+      };
+      games = await upsertGame(game);
+      notify("ok", `${game.name} added to GPTK 7.7.`);
     });
   }
 
-  async function runCustomExe() {
+  async function runExePath(path: string, args: string[] = []) {
     const bottle = currentBottle();
-    if (!bottle || !exePath.trim()) return;
-    const args = parseArgs(exeArgs);
+    if (!bottle) return;
+
+    if (!desktopCommandsAvailable) {
+      notify("bad", "Launch is only available in the Tauri desktop app.");
+      return;
+    }
 
     await withBusy("custom-exe", async () => {
-      await runExe(bottle.prefix_path, exePath.trim(), args);
+      await runExe(bottle.prefix_path, path, args);
       notify("ok", "App started.");
       await refreshSelectedBottle();
     });
+  }
+
+  async function setupFileDrop() {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+
+    unlistenDrop = await getCurrentWebview().onDragDropEvent((event) => {
+      const payload = event.payload as { type: string; paths?: string[] };
+      if (payload.type !== "drop") {
+        dragOverExe = payload.type === "over" || payload.type === "enter";
+        return;
+      }
+
+      dragOverExe = false;
+      const exe = (payload.paths || []).find((droppedPath: string) => droppedPath.toLowerCase().endsWith(".exe"));
+      if (!exe) {
+        notify("bad", "Drop a Windows .exe file.");
+        return;
+      }
+
+      void addExePath(exe);
+    });
+  }
+
+  function isSteamPath(path: string) {
+    return path.replace(/\\/g, "/").toLowerCase().endsWith("/steam.exe");
+  }
+
+  function isSteamApp(app: BottleApp) {
+    return app.name.toLowerCase() === "steam" || isSteamPath(app.path);
   }
 
   async function runBottleApp(app: BottleApp) {
     const bottle = currentBottle();
     if (!bottle) return;
 
+    if (!desktopCommandsAvailable) {
+      notify("bad", "Launch is only available in the Tauri desktop app.");
+      return;
+    }
+
     await withBusy(`app-${app.id}`, async () => {
-      await runExe(bottle.prefix_path, app.path);
+      await runExe(bottle.prefix_path, app.path, isSteamApp(app) ? steamSafeArgs : []);
       notify("ok", `${app.name} started.`);
     });
   }
 
   async function runRegisteredGame(game: Game, mode: "steam" | "direct") {
-    const bottle = currentBottle();
-    if (!bottle || !config) return;
+    if (!config) return;
+    const prefixPath = game.wine_prefix || config.default_prefix;
+
+    if (!desktopCommandsAvailable) {
+      notify("bad", "Launch is only available in the Tauri desktop app.");
+      return;
+    }
 
     await withBusy(`${mode}-${game.id}`, async () => {
-      if (mode === "steam" && game.steam_app_id && status?.steam_path) {
-        await runExe(bottle.prefix_path, status.steam_path, ["-applaunch", String(game.steam_app_id)]);
+      const targetStatus = mode === "steam" ? await launcherStatus(prefixPath) : null;
+      if (mode === "steam" && game.steam_app_id && targetStatus?.steam_path) {
+        await runExe(prefixPath, targetStatus.steam_path, [...steamSafeArgs, "-applaunch", String(game.steam_app_id)]);
       } else {
-        await runExe(bottle.prefix_path, game.exe_path);
+        await runExe(prefixPath, game.exe_path, isSteamPath(game.exe_path) ? steamSafeArgs : []);
       }
       notify("ok", `${game.name} started.`);
     });
   }
 
-  async function installWindowsSteam() {
+  async function runExeEntry(entry: ExeEntry) {
+    if (entry.game) {
+      await runRegisteredGame(entry.game, "direct");
+      return;
+    }
+
+    if (entry.app) {
+      await runBottleApp(entry.app);
+      return;
+    }
+
+    await runExePath(entry.path);
+  }
+
+  function updateSelectedBottle(patch: Partial<Bottle>) {
+    if (!selectedBottle) return;
+    bottles = bottles.map((bottle) =>
+      bottle.id === selectedBottle?.id ? { ...bottle, ...patch } : bottle,
+    );
+  }
+
+  async function persistBottleRuntime(force = false) {
     const bottle = currentBottle();
     if (!bottle) return;
 
-    await withBusy("install-steam", async () => {
-      await installSteam(bottle.prefix_path);
-      notify("ok", "Steam installer started.");
+    await withBusy("save-bottle-runtime", async () => {
+      bottles = await updateBottleRuntime(
+        bottle.prefix_path,
+        bottle.runtime_profile_id,
+        bottle.graphics_backend || null,
+        bottle.env_overrides || {},
+        force,
+      );
+      notify("ok", "Bottle runtime saved.");
       await refreshSelectedBottle();
     });
   }
 
-  async function openWindowsSteam() {
-    const bottle = currentBottle();
-    if (!bottle) return;
+  async function assignEntryRuntime(entry: ExeEntry, stackId: RuntimeStackId) {
+    await withBusy(`runtime-${entry.key}`, async () => {
+      const bottle = await ensureRuntimeBottle(stackId);
+      const game = entry.game || gameFromEntry(entry, bottle.prefix_path);
+      const nextGame: Game = {
+        ...game,
+        id: game.id || manualGameId(entry.path),
+        name: game.name || entry.name,
+        exe_path: entry.path,
+        working_dir: game.working_dir || parentPath(entry.path),
+        wine_prefix: bottle.prefix_path,
+        source: game.source || "manual",
+        env_overrides: game.env_overrides || {},
+      };
 
-    await withBusy("open-steam", async () => {
-      await openSteam(bottle.prefix_path);
-      notify("ok", "Steam started.");
-      await refreshSelectedBottle();
+      games = await upsertGame(nextGame);
+      bottles = await listBottles();
+      notify("ok", `${entry.name} will use ${runtimeStackLabel(stackId)}.`);
     });
   }
 
-  async function repairWindowsSteam() {
-    const bottle = currentBottle();
-    if (!bottle) return;
-
-    await withBusy("repair-steam", async () => {
-      await repairSteam(bottle.prefix_path);
-      notify("ok", "Steam repair started.");
+  async function selectRuntimeStack(stackId: RuntimeStackId) {
+    await withBusy(`stack-${stackId}`, async () => {
+      const bottle = await ensureRuntimeBottle(stackId);
+      selectedBottleId = bottle.id;
       await refreshSelectedBottle();
     });
   }
@@ -264,11 +388,6 @@
     toasts = toasts.filter((toast) => toast.id !== id);
   }
 
-  function parseArgs(raw: string) {
-    const matches = raw.match(/"[^"]+"|\S+/g) || [];
-    return matches.map((arg) => arg.replace(/^"|"$/g, ""));
-  }
-
   function currentBottle() {
     return bottles.find((bottle) => bottle.id === selectedBottleId) || bottles[0];
   }
@@ -291,9 +410,204 @@
 
   function statusText() {
     if (!status) return "Checking";
-    if (!status.prefix_exists) return "Missing";
+    if (!status.prefix_exists) return "Bottle missing";
     if (!status.steam_installed) return "Steam off";
     return "Steam ready";
+  }
+
+  async function ensureRuntimeBottle(stackId: RuntimeStackId) {
+    const existing = bottleForRuntimeStack(stackId);
+    if (existing) return existing;
+
+    const stack = runtimeStacks.find((candidate) => candidate.id === stackId);
+    if (!stack) throw new Error("Unknown runtime stack.");
+
+    const nextBottles = await createBottleCommand(stack.bottleName);
+    const created =
+      nextBottles.find((bottle) => bottle.name === stack.bottleName) ||
+      nextBottles[nextBottles.length - 1];
+
+    if (!created) {
+      throw new Error(`Could not create ${stack.bottleName}.`);
+    }
+
+    bottles = await updateBottleRuntime(
+      created.prefix_path,
+      stack.profileId,
+      stack.backend,
+      created.env_overrides || {},
+      true,
+    );
+
+    return bottleForRuntimeStack(stackId) || bottleForPrefix(created.prefix_path) || created;
+  }
+
+  function bottleForRuntimeStack(stackId: RuntimeStackId) {
+    return bottles.find((bottle) => runtimeStackIdForBottle(bottle) === stackId);
+  }
+
+  function bottleForPrefix(prefix?: string | null) {
+    return bottles.find((bottle) => samePath(bottle.prefix_path, prefix));
+  }
+
+  function runtimeStackIdForBottle(bottle?: Bottle): RuntimeChoiceId {
+    if (!bottle) return "custom";
+
+    if (bottle.runtime_profile_id === "wine-vulkan") {
+      return "wine11-moltenvk";
+    }
+
+    return "custom";
+  }
+
+  function runtimeStackIdForEntry(entry: ExeEntry): RuntimeChoiceId {
+    const prefix = entry.game?.wine_prefix || (entry.app ? selectedBottle?.prefix_path : config?.default_prefix);
+    return runtimeStackIdForBottle(bottleForPrefix(prefix));
+  }
+
+  function runtimeStackLabel(stackId: RuntimeChoiceId) {
+    return runtimeStacks.find((stack) => stack.id === stackId)?.label || "Custom";
+  }
+
+  function gameFromEntry(entry: ExeEntry, prefixPath: string): Game {
+    return {
+      id: manualGameId(entry.path),
+      name: entry.name,
+      exe_path: entry.path,
+      working_dir: parentPath(entry.path),
+      wine_prefix: prefixPath,
+      source: "manual",
+      env_overrides: {},
+    };
+  }
+
+  function runtimeStackCount(stackId: RuntimeStackId) {
+    return games.filter((game) => runtimeStackIdForBottle(bottleForPrefix(game.wine_prefix || config?.default_prefix)) === stackId).length;
+  }
+
+  function buildExeRows(scannedApps: BottleApp[], libraryGames: Game[], filter: string, stars: string[]) {
+    const rows = new Map<string, ExeEntry>();
+    const starSet = new Set(stars);
+
+    for (const app of scannedApps) {
+      const key = starKey(app.path);
+      rows.set(key, {
+        key,
+        id: `app-${app.id}`,
+        name: app.name,
+        path: app.path,
+        kind: app.kind,
+        source: "scan",
+        starred: starSet.has(key),
+        app,
+      });
+    }
+
+    for (const game of libraryGames) {
+      const key = starKey(game.exe_path);
+      rows.set(key, {
+        key,
+        id: `game-${game.id}`,
+        name: game.name,
+        path: game.exe_path,
+        kind: game.source || "manual",
+        source: "library",
+        starred: starSet.has(key),
+        game,
+      });
+    }
+
+    const needle = filter.trim().toLowerCase();
+    return Array.from(rows.values())
+      .filter((entry) => {
+        if (!needle) return true;
+        return `${entry.name} ${entry.kind} ${entry.path}`.toLowerCase().includes(needle);
+      })
+      .sort((a, b) => {
+        if (a.starred !== b.starred) return a.starred ? -1 : 1;
+        if (a.source !== b.source) return a.source === "library" ? -1 : 1;
+        return kindRank(a.kind) - kindRank(b.kind) || a.name.localeCompare(b.name);
+      });
+  }
+
+  function kindRank(kind: string) {
+    const normalized = kind.toLowerCase();
+    if (normalized === "manual") return 0;
+    if (normalized === "launcher") return 1;
+    if (normalized === "app") return 2;
+    if (normalized === "setup") return 3;
+    return 4;
+  }
+
+  function toggleStar(path: string) {
+    const key = starKey(path);
+    starredExePaths = starredExePaths.includes(key)
+      ? starredExePaths.filter((starredPath) => starredPath !== key)
+      : [...starredExePaths, key];
+    persistStarredExePaths();
+  }
+
+  function loadStarredExePaths() {
+    try {
+      const raw = window.localStorage.getItem(starredStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function persistStarredExePaths() {
+    try {
+      window.localStorage.setItem(starredStorageKey, JSON.stringify(starredExePaths));
+    } catch {
+      notify("bad", "Could not save starred apps.");
+    }
+  }
+
+  function starKey(path: string) {
+    return path.trim().replace(/\/+$/, "").toLowerCase();
+  }
+
+  function manualGameId(path: string) {
+    return `manual-${stableHash(starKey(path))}`;
+  }
+
+  function stableHash(value: string) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16);
+  }
+
+  function exeDisplayName(path: string) {
+    const file = path.split(/[\\/]/).pop()?.replace(/\.exe$/i, "") || "Windows App";
+    return humanize(file);
+  }
+
+  function humanize(value: string) {
+    const normalized = value
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return normalized
+      ? normalized.replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
+      : "Windows App";
+  }
+
+  function parentPath(path: string) {
+    const normalized = path.replace(/\\/g, "/");
+    const index = normalized.lastIndexOf("/");
+    return index > 0 ? normalized.slice(0, index) : null;
+  }
+
+  function handleDropZoneKey(event: KeyboardEvent) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    void chooseExe();
   }
 </script>
 
@@ -301,233 +615,82 @@
   <title>Forge Launcher</title>
 </svelte:head>
 
-<div class="app-shell">
-  <aside class="sidebar" aria-label="Bottles">
-    <div class="brand-row">
-      <div class="brand-mark">
-        <Icon name="bottleWine" size={20} />
-      </div>
-      <div class="brand-copy">
-        <strong>Forge</strong>
-        <span>Bottles</span>
-      </div>
-      <button class="icon-button" title="Settings" aria-label="Settings" on:click={() => (settingsOpen = true)}>
-        <Icon name="settings" size={17} />
-      </button>
-    </div>
-
-    <div class="tool-row">
-      <button class="secondary-button" on:click={refreshAll} disabled={loading || busy !== ""}>
-        <span class:spin={loading}>
-          <Icon name="refreshCw" size={15} />
-        </span>
-        Refresh
-      </button>
-    </div>
-
-    <div class="bottle-list">
-      {#if bottles.length === 0 && !loading}
-        <div class="empty-state compact">No bottles</div>
-      {/if}
-
-      {#each bottles as bottle (bottle.id)}
-        <button
-          class="bottle-item"
-          class:active={selectedBottle?.id === bottle.id}
-          aria-pressed={selectedBottle?.id === bottle.id}
-          on:click={() => selectBottle(bottle.id)}
-        >
-          <Icon name="bottleWine" size={18} />
-          <span class="bottle-text">
-            <strong>{bottle.name}</strong>
-            <small>{shortPath(bottle.prefix_path)}</small>
-          </span>
-          <span class="dot" class:ok={bottle.exists && bottle.steam_installed} class:warn={bottle.exists && !bottle.steam_installed}></span>
-        </button>
-      {/each}
-    </div>
-
-    <form class="create-box" on:submit|preventDefault={submitCreate}>
-      <label>
-        <span>Name</span>
-        <input bind:value={createName} placeholder="Default" />
-      </label>
-      <label>
-        <span>Path</span>
-        <div class="input-button">
-          <input bind:value={createPrefix} placeholder="Auto" />
-          <button type="button" class="icon-button" title="Choose folder" aria-label="Choose folder" on:click={chooseCreatePrefix}>
-            <Icon name="folderPlus" size={16} />
-          </button>
-        </div>
-      </label>
-      <button class="primary-button" type="submit" disabled={busy !== ""}>
-        <Icon name="plus" size={15} />
-        Create
-      </button>
-    </form>
-  </aside>
-
-  <main class="main-surface">
+<div class="app-shell single-bottle-shell">
+  <main class="workspace">
     <header class="topbar">
+      <div class="brand-mark">
+        <Icon name="bottleWine" size={24} />
+      </div>
       <div class="title-block">
-        <span class="eyebrow">Selected Bottle</span>
-        <h1>{selectedBottle?.name || "Bottle"}</h1>
+        <span class="eyebrow">Wine Bottle</span>
+        <h1>{selectedBottle?.name || "Default"}</h1>
         <p>{shortPath(selectedBottle?.prefix_path)}</p>
       </div>
       <div class="topbar-actions">
         <span class="system-pill" class:ok={wine?.installed} class:bad={!wine?.installed}>
-          {#if wine?.installed}
-            <Icon name="circleCheck" size={15} />
-          {:else}
-            <Icon name="circleAlert" size={15} />
-          {/if}
-          Wine
+          <Icon name={wine?.installed ? "circleCheck" : "circleAlert"} size={15} />
+          Wine 11 + MoltenVK
         </span>
-        <span class="system-pill" class:ok={status?.steam_installed} class:bad={status && !status.steam_installed}>
-          <Icon name="disc3" size={15} />
-          {statusText()}
-        </span>
+        <button class="icon-button" title="Refresh" aria-label="Refresh" on:click={refreshAll} disabled={loading || busy !== ""}>
+          <span class:spin={loading || appLoading}>
+            <Icon name="refreshCw" size={16} />
+          </span>
+        </button>
+        <button class="icon-button" title="Settings" aria-label="Settings" on:click={() => (settingsOpen = true)}>
+          <Icon name="settings" size={17} />
+        </button>
       </div>
     </header>
 
-    <div class="content-grid">
-      <section class="panel runtime-panel" aria-label="Runtime controls">
-        <div class="panel-heading">
-          <div>
-            <span class="eyebrow">Runtime</span>
-            <h2>Windows Steam</h2>
-          </div>
-          <span class="status-label" class:ok={status?.steam_installed}>
-            {status?.steam_installed ? "Installed" : "Not installed"}
-          </span>
+    <section class="exe-panel full-exe-panel" aria-label="Executables">
+      <div class="panel-heading">
+        <div>
+          <span class="eyebrow">Installed apps</span>
+          <h2>Executables</h2>
         </div>
+        <button class="primary-button" on:click={chooseExe} disabled={busy !== ""}>
+          <Icon name="folderOpen" size={16} />
+          Add .exe
+        </button>
+      </div>
 
-        <div class="steam-actions">
-          <button class="primary-button" on:click={installWindowsSteam} disabled={!selectedBottle || busy !== ""}>
-            <Icon name="download" size={16} />
-            Install Steam
-          </button>
-          <button class="secondary-button" on:click={openWindowsSteam} disabled={!status?.steam_installed || busy !== ""}>
-            <Icon name="play" size={16} />
-            Open Steam
-          </button>
-          <button class="icon-button strong" title="Repair Steam" aria-label="Repair Steam" on:click={repairWindowsSteam} disabled={!status?.steam_installed || busy !== ""}>
-            <Icon name="wrench" size={17} />
-          </button>
-        </div>
+      <div class="search-box">
+        <Icon name="search" size={16} />
+        <input bind:value={appFilter} placeholder="Search installed .exe files" />
+      </div>
 
-        <div class="runtime-meta">
-          <div>
-            <span>Prefix</span>
-            <strong>{status?.prefix_exists ? "Ready" : "Missing"}</strong>
+      <div class="exe-list">
+        {#if exeRows.length === 0}
+          <div class="empty-state">
+            <Icon name="hardDrive" size={24} />
+            <span>{appLoading ? "Scanning bottle" : "No user-installed .exe files found"}</span>
           </div>
-          <div>
-            <span>Steam</span>
-            <strong>{status?.steam_path ? shortPath(status.steam_path) : "None"}</strong>
-          </div>
-        </div>
+        {/if}
 
-        <div class="launcher-list" aria-label="Other launchers">
-          {#each launcherRows as launcher}
-            <div class="launcher-row">
-              <div class="launcher-name">
-                <Icon name="appWindow" size={16} />
-                <span>{launcher}</span>
-              </div>
-              <button class="ghost-button" on:click={() => chooseLauncherExe(launcher)} disabled={!selectedBottle || busy !== ""}>
-                <Icon name="filePlus" size={15} />
-                Run .exe
-              </button>
+        {#each exeRows as entry (entry.key)}
+          <article class="exe-row">
+            <div class="app-icon">
+              <Icon name="appWindow" size={18} />
             </div>
-          {/each}
-        </div>
-
-        <div class="custom-runner">
-          <div class="section-title">
-            <Icon name="slidersHorizontal" size={16} />
-            <span>Standalone .exe</span>
-          </div>
-          <div class="input-button">
-            <input bind:value={exePath} placeholder="Executable path" />
-            <button class="icon-button" type="button" title="Choose executable" aria-label="Choose executable" on:click={chooseExe}>
-              <Icon name="folderOpen" size={16} />
+            <div class="app-copy">
+              <strong>{entry.name}</strong>
+              <span>{entry.kind}</span>
+              <small>{shortPath(entry.path)}</small>
+            </div>
+            <button
+              class="run-button"
+              title={desktopCommandsAvailable ? `Run ${entry.name}` : "Open the Tauri desktop app to launch"}
+              aria-label={desktopCommandsAvailable ? `Run ${entry.name}` : "Open the Tauri desktop app to launch"}
+              on:click={() => runExeEntry(entry)}
+              disabled={busy !== ""}
+            >
+              <Icon name="play" size={16} />
+              <span>Play</span>
             </button>
-          </div>
-          <input bind:value={exeArgs} placeholder="Arguments" />
-          <button class="secondary-button" on:click={runCustomExe} disabled={!selectedBottle || !exePath.trim() || busy !== ""}>
-            <Icon name="play" size={15} />
-            Run
-          </button>
-        </div>
-      </section>
-
-      <section class="panel apps-panel" aria-label="Apps">
-        <div class="panel-heading">
-          <div>
-            <span class="eyebrow">Bottle Apps</span>
-            <h2>Apps</h2>
-          </div>
-          <button class="icon-button" title="Refresh apps" aria-label="Refresh apps" on:click={refreshSelectedBottle} disabled={appLoading || busy !== ""}>
-            <span class:spin={appLoading}>
-              <Icon name="refreshCw" size={16} />
-            </span>
-          </button>
-        </div>
-
-        <div class="search-box">
-          <Icon name="search" size={16} />
-          <input bind:value={appFilter} placeholder="Search apps" />
-        </div>
-
-        <div class="app-list">
-          {#if filteredApps.length === 0 && selectedGames.length === 0}
-            <div class="empty-state">
-              <Icon name="hardDrive" size={24} />
-              <span>{appLoading ? "Scanning" : "No apps found"}</span>
-            </div>
-          {/if}
-
-          {#each filteredApps as app (app.id)}
-            <article class="app-row">
-              <div class="app-icon">
-                <Icon name="appWindow" size={18} />
-              </div>
-              <div class="app-copy">
-                <strong>{app.name}</strong>
-                <span>{app.kind}</span>
-                <small>{shortPath(app.path)}</small>
-              </div>
-              <button class="icon-button strong" title={`Run ${app.name}`} aria-label={`Run ${app.name}`} on:click={() => runBottleApp(app)} disabled={busy !== ""}>
-                <Icon name="play" size={16} />
-              </button>
-            </article>
-          {/each}
-
-          {#each selectedGames as game (game.id)}
-            <article class="app-row registered">
-              <div class="app-icon">
-                <Icon name="shieldCheck" size={18} />
-              </div>
-              <div class="app-copy">
-                <strong>{game.name}</strong>
-                <span>{game.source || "library"}</span>
-                <small>{shortPath(game.exe_path)}</small>
-              </div>
-              {#if game.steam_app_id && status?.steam_path}
-                <button class="secondary-button compact-button" on:click={() => runRegisteredGame(game, "steam")} disabled={busy !== ""}>
-                  <Icon name="disc3" size={15} />
-                  Steam
-                </button>
-              {/if}
-              <button class="icon-button strong" title={`Run ${game.name} directly`} aria-label={`Run ${game.name} directly`} on:click={() => runRegisteredGame(game, "direct")} disabled={busy !== ""}>
-                <Icon name="play" size={16} />
-              </button>
-            </article>
-          {/each}
-        </div>
-      </section>
-    </div>
+          </article>
+        {/each}
+      </div>
+    </section>
   </main>
 
   {#if settingsOpen && config}
@@ -535,7 +698,7 @@
       <div class="drawer-heading">
         <div>
           <span class="eyebrow">Settings</span>
-          <h2>Runtime Paths</h2>
+          <h2>Wine 11 + MoltenVK</h2>
         </div>
         <button class="icon-button" title="Close settings" aria-label="Close settings" on:click={() => (settingsOpen = false)}>
           <Icon name="x" size={17} />
@@ -543,26 +706,14 @@
       </div>
 
       <label>
-        <span>Wine binary</span>
-        <input bind:value={config.wine64_path} />
-      </label>
-      <label>
-        <span>GPTK library</span>
-        <input bind:value={config.gptk_lib_path} />
+        <span>Wine 11 binary</span>
+        <input bind:value={config.wine64_path} placeholder="/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine" />
       </label>
       <label>
         <span>Default bottle</span>
         <input bind:value={config.default_prefix} />
       </label>
 
-      <div class="toggle-row">
-        <span>Metal HUD</span>
-        <input type="checkbox" bind:checked={config.global_hud} />
-      </div>
-      <div class="toggle-row">
-        <span>MetalFX</span>
-        <input type="checkbox" bind:checked={config.metalfx_enabled} />
-      </div>
       <div class="toggle-row">
         <span>Quiet Wine logs</span>
         <input type="checkbox" bind:checked={config.suppress_wine_debug} />
@@ -588,456 +739,218 @@
 </div>
 
 <style>
-  :global(*) {
-    box-sizing: border-box;
+  :global(*) { box-sizing: border-box; }
+  :global(html), :global(body), :global(#app) {
+    width: 100%; height: 100%; margin: 0;
   }
-
-  :global(html),
-  :global(body),
-  :global(#app) {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-  }
-
   :global(body) {
     overflow: hidden;
-    background: #eef2f0;
-    color: #18211e;
-    font-family:
-      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #000;
+    color: #f5f5f5;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
-  button,
-  input {
-    font: inherit;
-  }
-
-  button {
-    border: 0;
-  }
+  button, input { font: inherit; }
+  button { border: 0; }
+  h1, h2, p { margin: 0; }
 
   .app-shell {
-    display: grid;
-    grid-template-columns: 292px minmax(0, 1fr);
-    width: 100%;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+  }
+
+  .workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: min(1120px, 100%);
     height: 100%;
-    min-width: 860px;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0) 360px),
-      #eef2f0;
+    margin: 0 auto;
+    padding: 28px;
+    overflow: hidden;
   }
 
-  .sidebar {
+  .topbar, .panel-heading, .drawer-heading, .search-box, .toggle-row, .topbar-actions {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+  }
+
+  .topbar {
     gap: 14px;
+  }
+
+  .title-block {
     min-width: 0;
-    padding: 18px;
-    border-right: 1px solid #cfd7d2;
-    background: #f7f8f6;
-  }
-
-  .brand-row,
-  .topbar,
-  .panel-heading,
-  .drawer-heading,
-  .tool-row,
-  .steam-actions,
-  .section-title,
-  .launcher-row,
-  .search-box,
-  .input-button,
-  .toggle-row {
-    display: flex;
-    align-items: center;
-  }
-
-  .brand-row {
-    gap: 10px;
-    min-height: 38px;
-  }
-
-  .brand-mark,
-  .app-icon {
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    border: 1px solid #c7d3cc;
-    background: #ffffff;
-    color: #1f6f5b;
-  }
-
-  .brand-mark {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-  }
-
-  .brand-copy {
-    display: grid;
     flex: 1;
-    min-width: 0;
-    line-height: 1.1;
   }
 
-  .brand-copy strong {
-    font-size: 15px;
-  }
-
-  .brand-copy span,
-  .eyebrow,
-  label span,
-  .runtime-meta span,
-  .app-copy span,
-  .app-copy small,
-  .bottle-text small {
-    color: #66716c;
-    font-size: 12px;
-  }
-
-  .tool-row {
-    justify-content: stretch;
-  }
-
-  .tool-row > button {
-    width: 100%;
-  }
-
-  .bottle-list {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 8px;
-    min-height: 0;
-    overflow: auto;
-    padding-right: 2px;
-  }
-
-  .bottle-item {
-    display: grid;
-    grid-template-columns: 22px minmax(0, 1fr) 10px;
-    gap: 9px;
-    align-items: center;
-    width: 100%;
-    min-height: 58px;
-    padding: 10px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: transparent;
-    color: #23302b;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .bottle-item:hover,
-  .bottle-item.active {
-    border-color: #b7cac0;
-    background: #ffffff;
-  }
-
-  .bottle-item.active {
-    box-shadow: inset 3px 0 0 #22735e;
-  }
-
-  .bottle-text {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .bottle-text strong,
-  .bottle-text small,
-  .app-copy strong,
-  .app-copy span,
-  .app-copy small,
-  .title-block p,
-  .runtime-meta strong {
+  .title-block p, .app-copy strong, .app-copy span, .app-copy small {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: #c6ccc8;
-  }
-
-  .dot.ok,
-  .system-pill.ok,
-  .status-label.ok {
-    color: #12674f;
-    background: #e2f4ec;
-  }
-
-  .dot.ok {
-    background: #1d8f6e;
-  }
-
-  .dot.warn {
-    background: #c98c22;
-  }
-
-  .create-box {
+  .brand-mark, .app-icon {
     display: grid;
-    gap: 10px;
-    padding-top: 12px;
-    border-top: 1px solid #d8dfdb;
+    place-items: center;
+    flex: 0 0 auto;
+    border: 1px solid #202020;
+    background: #080808;
+    color: #2bf0a1;
   }
 
-  label {
-    display: grid;
-    gap: 6px;
-    min-width: 0;
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
   }
 
-  input {
-    width: 100%;
-    min-width: 0;
-    height: 36px;
-    padding: 0 11px;
-    border: 1px solid #c8d1cc;
-    border-radius: 8px;
-    outline: none;
-    background: #ffffff;
-    color: #17211d;
+  .app-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
   }
 
-  input:focus {
-    border-color: #2c8069;
-    box-shadow: 0 0 0 3px rgba(44, 128, 105, 0.13);
-  }
-
-  .input-button {
-    gap: 7px;
-    min-width: 0;
-  }
-
-  .main-surface {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-    padding: 22px;
-  }
-
-  .topbar {
-    justify-content: space-between;
-    gap: 18px;
-    min-height: 72px;
-    margin-bottom: 18px;
-  }
-
-  .title-block {
-    min-width: 0;
+  .eyebrow, label span, .title-block p, .app-copy span, .app-copy small {
+    color: #8a8a8a;
+    font-size: 12px;
   }
 
   .eyebrow {
     display: block;
     margin-bottom: 5px;
     text-transform: uppercase;
-  }
-
-  h1,
-  h2,
-  p {
-    margin: 0;
+    letter-spacing: 0.04em;
   }
 
   h1 {
-    font-size: 28px;
-    font-weight: 720;
-    line-height: 1.1;
+    color: #fff;
+    font-size: clamp(24px, 4vw, 40px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
   }
 
   h2 {
+    color: #fff;
     font-size: 18px;
-    line-height: 1.2;
-  }
-
-  .title-block p {
-    max-width: 780px;
-    margin-top: 6px;
-    color: #5b6761;
-    font-size: 13px;
+    font-weight: 750;
   }
 
   .topbar-actions {
-    display: flex;
     flex: 0 0 auto;
     gap: 8px;
   }
 
-  .system-pill,
-  .status-label {
+  .system-pill {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    min-height: 30px;
-    padding: 0 10px;
-    border: 1px solid #ccd7d1;
+    height: 36px;
+    padding: 0 11px;
+    border: 1px solid #202020;
     border-radius: 999px;
-    background: #ffffff;
-    color: #4f5d56;
+    background: #080808;
+    color: #d8d8d8;
     font-size: 12px;
-    font-weight: 650;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .system-pill.ok {
+    border-color: rgba(43, 240, 161, 0.25);
+    background: rgba(43, 240, 161, 0.08);
+    color: #9ff7d1;
   }
 
   .system-pill.bad {
-    color: #9b3028;
-    background: #fdecea;
+    border-color: rgba(255, 92, 92, 0.35);
+    background: rgba(255, 92, 92, 0.1);
+    color: #ffaaaa;
   }
 
-  .content-grid {
-    display: grid;
-    flex: 1;
-    grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-    gap: 16px;
-    min-height: 0;
-  }
-
-  .panel,
-  .settings-drawer {
-    border: 1px solid #cfd8d2;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.84);
-    box-shadow: 0 14px 40px rgba(36, 51, 45, 0.08);
-  }
-
-  .panel {
-    min-width: 0;
-    min-height: 0;
-    padding: 16px;
-  }
-
-  .runtime-panel,
-  .apps-panel {
+  .exe-panel {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-  }
-
-  .runtime-panel {
-    overflow: auto;
-  }
-
-  .apps-panel {
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+    padding: 18px;
+    border: 1px solid #171717;
+    border-radius: 18px;
+    background: #050505;
     overflow: hidden;
   }
 
   .panel-heading {
     justify-content: space-between;
-    gap: 12px;
-    min-height: 42px;
-  }
-
-  .steam-actions {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .runtime-meta {
-    display: grid;
-    grid-template-columns: 96px minmax(0, 1fr);
-    gap: 8px;
-    padding: 12px;
-    border: 1px solid #dde5e0;
-    border-radius: 8px;
-    background: #f8faf8;
-  }
-
-  .runtime-meta div {
-    display: grid;
-    min-width: 0;
-    gap: 3px;
-  }
-
-  .runtime-meta div:nth-child(2) {
-    min-width: 0;
-  }
-
-  .launcher-list,
-  .custom-runner {
-    display: grid;
-    gap: 8px;
-  }
-
-  .launcher-row {
-    justify-content: space-between;
-    gap: 8px;
-    min-height: 42px;
-    padding: 8px 0;
-    border-top: 1px solid #e4ebe7;
-  }
-
-  .launcher-name {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    min-width: 0;
-    color: #24322d;
-    font-size: 13px;
-    font-weight: 650;
-  }
-
-  .section-title {
-    gap: 8px;
-    color: #39453f;
-    font-size: 13px;
-    font-weight: 700;
+    gap: 14px;
   }
 
   .search-box {
-    gap: 8px;
+    gap: 9px;
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid #202020;
+    border-radius: 12px;
+    background: #000;
+    color: #8a8a8a;
+  }
+
+  input {
+    width: 100%;
+    min-width: 0;
     height: 38px;
     padding: 0 11px;
-    border: 1px solid #c8d1cc;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #65716b;
+    border: 1px solid #202020;
+    border-radius: 12px;
+    outline: none;
+    background: #000;
+    color: #f5f5f5;
+  }
+
+  input::placeholder { color: #666; }
+  input:focus, button:focus-visible {
+    border-color: #2bf0a1;
+    box-shadow: 0 0 0 3px rgba(43, 240, 161, 0.14);
+    outline: none;
   }
 
   .search-box input {
-    height: 34px;
+    height: 40px;
     padding: 0;
     border: 0;
+    background: transparent;
     box-shadow: none;
   }
 
-  .app-list {
+  .exe-list {
     display: flex;
-    flex: 1;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    flex: 1;
     min-height: 0;
     overflow: auto;
-    padding-right: 2px;
+    padding-right: 4px;
   }
 
-  .app-row {
+  .exe-row {
     display: grid;
-    grid-template-columns: 38px minmax(0, 1fr) auto auto;
-    gap: 10px;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 14px;
     align-items: center;
-    min-height: 64px;
-    padding: 10px;
-    border: 1px solid #dce4df;
-    border-radius: 8px;
-    background: #ffffff;
+    min-height: 74px;
+    padding: 12px 14px;
+    border: 1px solid #171717;
+    border-radius: 14px;
+    background: #0a0a0a;
   }
 
-  .app-row.registered {
-    border-color: #ccd8e4;
-    background: #fbfdff;
-  }
-
-  .app-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
+  .exe-row:hover {
+    border-color: #2a2a2a;
+    background: #0f0f0f;
   }
 
   .app-copy {
@@ -1047,11 +960,50 @@
   }
 
   .app-copy strong {
-    font-size: 14px;
+    color: #fff;
+    font-size: 16px;
   }
 
-  .app-copy span {
-    text-transform: capitalize;
+  .primary-button, .run-button, .icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .primary-button, .run-button {
+    min-width: 92px;
+    padding: 0 14px;
+    background: #2bf0a1;
+    color: #000;
+  }
+
+  .primary-button:hover, .run-button:hover { background: #78ffd0; }
+
+  .icon-button {
+    width: 40px;
+    flex: 0 0 auto;
+    border: 1px solid #202020;
+    background: #080808;
+    color: #f2f2f2;
+  }
+
+  .icon-button:hover { background: #121212; }
+  .icon-button.small {
+    width: 26px;
+    height: 26px;
+    border: 0;
+    background: transparent;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
   }
 
   .empty-state {
@@ -1059,15 +1011,11 @@
     place-items: center;
     gap: 8px;
     min-height: 140px;
-    border: 1px dashed #c8d2cc;
-    border-radius: 8px;
-    color: #6a756f;
-    background: #f8faf8;
+    border: 1px dashed #242424;
+    border-radius: 14px;
+    background: #080808;
+    color: #8a8a8a;
     font-size: 13px;
-  }
-
-  .empty-state.compact {
-    min-height: 80px;
   }
 
   .settings-drawer {
@@ -1079,111 +1027,15 @@
     gap: 14px;
     width: min(420px, calc(100vw - 32px));
     padding: 16px;
+    border: 1px solid #202020;
+    border-radius: 18px;
+    background: #050505;
   }
 
-  .drawer-heading {
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .toggle-row {
-    justify-content: space-between;
-    min-height: 38px;
-    padding: 0 2px;
-    color: #26322d;
-    font-size: 13px;
-    font-weight: 650;
-  }
-
-  .toggle-row input {
-    width: 18px;
-    height: 18px;
-    accent-color: #22735e;
-  }
-
-  .primary-button,
-  .secondary-button,
-  .ghost-button,
-  .icon-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    height: 36px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition:
-      background 120ms ease,
-      border-color 120ms ease,
-      color 120ms ease,
-      transform 120ms ease;
-  }
-
-  .primary-button {
-    padding: 0 13px;
-    background: #22735e;
-    color: #ffffff;
-  }
-
-  .primary-button:hover {
-    background: #1a604e;
-  }
-
-  .secondary-button {
-    padding: 0 12px;
-    border: 1px solid #bdcbc4;
-    background: #ffffff;
-    color: #25322d;
-  }
-
-  .secondary-button:hover,
-  .ghost-button:hover,
-  .icon-button:hover {
-    background: #edf4f0;
-  }
-
-  .ghost-button {
-    padding: 0 10px;
-    background: transparent;
-    color: #266652;
-  }
-
-  .icon-button {
-    width: 36px;
-    flex: 0 0 auto;
-    border: 1px solid #cbd6d0;
-    background: #ffffff;
-    color: #27342f;
-  }
-
-  .icon-button.strong {
-    color: #17664f;
-  }
-
-  .icon-button.small {
-    width: 26px;
-    height: 26px;
-    border: 0;
-    background: transparent;
-  }
-
-  .compact-button {
-    height: 34px;
-    padding: 0 10px;
-  }
-
-  button:disabled {
-    cursor: not-allowed;
-    opacity: 0.48;
-    transform: none;
-  }
-
-  .spin {
-    display: inline-flex;
-    animation: spin 1s linear infinite;
-  }
+  .drawer-heading, .toggle-row { justify-content: space-between; gap: 12px; }
+  label { display: grid; gap: 6px; min-width: 0; }
+  .toggle-row { color: #d8d8d8; font-size: 13px; font-weight: 700; }
+  .toggle-row input { width: 18px; height: 18px; accent-color: #2bf0a1; }
 
   .toast-stack {
     position: fixed;
@@ -1202,39 +1054,27 @@
     gap: 12px;
     min-height: 42px;
     padding: 8px 8px 8px 12px;
-    border: 1px solid #cfd8d2;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #25312c;
-    box-shadow: 0 10px 30px rgba(23, 37, 31, 0.14);
+    border: 1px solid #202020;
+    border-radius: 12px;
+    background: #080808;
+    color: #f2f2f2;
     font-size: 13px;
   }
 
-  .toast.ok {
-    border-color: #9dceb9;
-    background: #eef9f3;
-  }
+  .toast.ok { border-color: rgba(43, 240, 161, 0.34); }
+  .toast.bad { border-color: rgba(255, 92, 92, 0.42); }
 
-  .toast.bad {
-    border-color: #e2aca8;
-    background: #fff3f1;
-  }
+  .spin { display: inline-flex; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @media (max-width: 1040px) {
-    .app-shell {
-      grid-template-columns: 248px minmax(0, 1fr);
-      min-width: 720px;
-    }
-
-    .content-grid {
-      grid-template-columns: 1fr;
-      overflow: auto;
-    }
+  @media (max-width: 720px) {
+    .workspace { padding: 16px; }
+    .topbar { display: grid; grid-template-columns: 44px minmax(0, 1fr); }
+    .topbar-actions { grid-column: 1 / -1; justify-content: space-between; }
+    .system-pill { flex: 1; justify-content: center; }
+    .exe-panel { padding: 14px; }
+    .panel-heading { align-items: flex-start; }
+    .exe-row { grid-template-columns: 44px minmax(0, 1fr); }
+    .run-button { grid-column: 1 / -1; width: 100%; }
   }
 </style>

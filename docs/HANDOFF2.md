@@ -230,7 +230,7 @@ wine64: /opt/homebrew/bin/wine64 (wine-7.7 GPTK 1.1)
 DepotDownloader: /opt/homebrew/bin/DepotDownloader v3.4.0
 Firefox Steam login: little__leviathan (steamLoginSecure cookie present)
 Steam user ID: 76561199048601059 / accountid: 1088335331
-Wine prefix: ~/Wine/Bottles/default (Wine username: "crossover")
+Wine prefix: ~/Wine/Bottles/default
 Games installed: Storebound (3417410), ULTRAKILL (1229490)
 ```
 

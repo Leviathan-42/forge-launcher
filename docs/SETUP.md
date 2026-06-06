@@ -1,186 +1,130 @@
 # Setup Guide
 
-## Prerequisites
+Forge is now bottle-first: the normal Steam flow is **Windows Steam inside Wine**, not DepotDownloader/direct `.exe` launches. This fixes games that expect a real Steam session and avoids the fake `hostname.local`-style Steam persona that can appear when launching game files directly.
 
-### 1. macOS requirements
+## One-command setup on a new Apple Silicon Mac
 
-| Requirement | Version |
-|---|---|
-| macOS | 14.0 Sonoma or later |
-| Mac hardware | Apple Silicon (M1 / M2 / M3 / M4) |
-| Xcode Command Line Tools | latest |
-| Rosetta 2 | required (installed below) |
+From the project root:
 
-### 2. Install Rosetta 2
+```sh
+./scripts/setup-macos.sh
+```
+
+The script installs/checks:
+
+- Rosetta 2
+- Game Porting Toolkit Wine (`/opt/homebrew/bin/wine64`)
+- DepotDownloader as an optional advanced/fallback tool
+- Rust/Cargo via rustup
+- Node dependencies
+
+It then runs `npm run check` and `cargo check`.
+
+## Manual setup
+
+### 1. Rosetta 2
 
 ```sh
 softwareupdate --install-rosetta --agree-to-license
 ```
 
-### 3. Install x86_64 Homebrew (required for GPTK)
+### 2. Homebrew
 
-GPTK's wine64 binary is x86_64, so you need the Intel version of Homebrew
-installed alongside the native ARM64 one.
+Install Homebrew from <https://brew.sh> if needed.
+
+### 3. Game Porting Toolkit Wine
 
 ```sh
-# Open a Rosetta terminal
-arch -x86_64 zsh
-
-# Install x86_64 Homebrew to /usr/local
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew tap gcenx/wine
+brew install --cask gcenx/wine/game-porting-toolkit
 ```
 
-Verify:
+This provides:
+
+- `/opt/homebrew/bin/wine64`
+- `/opt/homebrew/bin/wineserver`
+
+### 4. Rust
+
 ```sh
-arch -x86_64 /usr/local/bin/brew --prefix
-# → /usr/local
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+. "$HOME/.cargo/env"
 ```
 
-### 4. Install Game Porting Toolkit
+### 5. Node dependencies
 
 ```sh
-arch -x86_64 /usr/local/bin/brew tap apple/apple http://formulae.brew.sh/tap/apple/
-arch -x86_64 /usr/local/bin/brew install apple/apple/game-porting-toolkit
-```
-
-This installs:
-- `wine64` at `/usr/local/bin/wine64`
-- GPTK support libraries at `/usr/local/lib/`
-
-#### Optional: copy D3DMetal from Apple's DMG (GPTK 2.1+)
-
-Download the DMG from https://developer.apple.com/games/game-porting-toolkit/
-
-```sh
-# Mount the DMG first, then:
-ditto "/Volumes/Evaluation environment for Windows games 2.1/redist/lib/" \
-      "$(arch -x86_64 /usr/local/bin/brew --prefix game-porting-toolkit)/lib/"
-```
-
-### 5. Create your first Wine prefix
-
-```sh
-WINEPREFIX=~/Wine/Bottles/default \
-  arch -x86_64 /usr/local/bin/wine64 winecfg
-```
-
-Set the Windows version to **Windows 10** in the dialog that appears.
-
-### 6. Rust toolchain
-
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup target add x86_64-apple-darwin   # optional: cross-compile target
-```
-
-### 7. Node.js (LTS)
-
-```sh
-# Using nvm (recommended)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
-nvm install --lts
-```
-
----
-
-## Project setup
-
-```sh
-# Clone the project (or open the directory you already have)
-cd "Gamehub clone"
-
-# Install JS dependencies
 npm install
+```
 
-# Generate icons from the source PNG (only needed once, or when you change app-icon.png)
-npx tauri icon app-icon.png
+## Run Forge
 
-# Run in development mode (hot reload)
+```sh
 npm run tauri dev
-
-# Build a .dmg for distribution
-npm run tauri build
 ```
 
-### How the window works
+## First-use Steam flow
 
-In **development** (`tauri dev`), the Tauri window loads from Vite's HMR
-server at `http://localhost:5173`. This gives you hot reload, but it does
-appear as a native macOS window — not a browser tab. You can Cmd+Tab to it
-just like any other app.
+1. Select or create a bottle in the sidebar.
+2. Click **Install Steam**.
+3. Sign into the Windows Steam client that opens inside Wine.
+4. Install your Windows games from that Steam client.
+5. Launch games from Steam, or use Forge's app list once Steam/game executables are detected.
 
-In **production** (`tauri build`), the compiled frontend (`dist/`) is
-embedded inside the `.app` bundle and served via Tauri's internal
-`asset://localhost` custom protocol. There is no web server, no port, and
-no `localhost` in the process list. The app is fully self-contained and
-behaves identically to a native macOS application.
+For Steam games, prefer Steam-owned launching:
 
-### Common build errors and fixes
-
-| Error | Cause | Fix |
-|---|---|---|
-| `OUT_DIR env var is not set` | `build.rs` is missing | Ensure `src-tauri/build.rs` exists with `fn main() { tauri_build::build() }` |
-| `failed to open icon *.png` | `icons/` directory missing | Run `npx tauri icon app-icon.png` |
-| `key must be a string` in tauri.conf.json | JSON comments (`//`) are not valid JSON | Remove all `//` comments from `tauri.conf.json` |
-| `Permission fs:default not found` | Plugin added to capabilities but not Cargo.toml | Either add the plugin crate or remove the permission |
-
----
-
-## Configuring the launcher
-
-On first run, `config.json` is created at:
-
-```
-~/Library/Application Support/com.forgelauncher.app/config.json
+```text
+steam.exe -applaunch <appid>
 ```
 
-Default values assume a standard GPTK Homebrew install. If your paths differ,
-update them via **Settings** in the UI or edit the file directly.
+Direct `.exe` launching remains available as an escape hatch, but it is not the recommended Steam path.
 
-| Key | Default | Notes |
-|---|---|---|
-| `wine64_path` | `/usr/local/bin/wine64` | Path to GPTK wine64 binary |
-| `gptk_lib_path` | `/usr/local/lib/external` | D3DMetal + libd3dshared dir |
-| `default_prefix` | `~/Wine/Bottles/default` | Default Wine bottle |
+## Optional: DepotDownloader
 
----
+DepotDownloader is still useful for advanced depot downloads or file repair, but it is no longer the main user workflow.
+
+```sh
+brew tap steamre/tools
+brew install --cask steamre/tools/depotdownloader
+xattr -dr com.apple.quarantine /opt/homebrew/bin/depotdownloader 2>/dev/null || true
+```
+
+## Runtime settings
+
+Forge auto-detects these on first run when possible:
+
+| Setting | Typical value |
+|---|---|
+| Wine binary | `/opt/homebrew/bin/wine64` |
+| GPTK library | `/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external` or detected GPTK lib dir |
+| Default bottle | `~/Wine/Bottles/default` |
+
+If Wine is not detected, open **Settings** and set the Wine binary manually.
 
 ## Troubleshooting
 
-### Game immediately exits / no window
-
-1. Open a terminal and run the command manually to see raw output:
-   ```sh
-   WINEPREFIX=~/Wine/Bottles/default \
-   DYLD_LIBRARY_PATH=/usr/local/lib/external \
-   WINEDEBUG="" \
-   arch -x86_64 /usr/local/bin/wine64 /path/to/game.exe
-   ```
-
-2. Turn off `suppress_wine_debug` in Settings to see Wine stderr.
-
-### D3DMetal not found
-
-```
-Assertion failed: (GFXTHandle && "Failed to dlopen D3DMetal")
-```
-
-The GPTK library files are not in the expected location. Run:
+### Wine command is missing
 
 ```sh
-ls /usr/local/lib/external/D3DMetal.framework
+brew reinstall --cask gcenx/wine/game-porting-toolkit
 ```
 
-If missing, re-run step 4 (copy D3DMetal from the DMG).
+### DepotDownloader is killed immediately
 
-### `arch -x86_64` fails
+Remove Gatekeeper quarantine:
 
-Rosetta 2 is not installed. Run step 2 above.
-
-### Wine prefix not initialised
-
-The game cannot find `c:\windows`. Run `create_prefix` or use:
 ```sh
-WINEPREFIX=~/Wine/Bottles/default \
-  arch -x86_64 /usr/local/bin/wine64 wineboot --init
+xattr -dr com.apple.quarantine /opt/homebrew/Caskroom/depotdownloader /opt/homebrew/bin/depotdownloader
 ```
+
+### Cargo command is missing in a new terminal
+
+```sh
+. "$HOME/.cargo/env"
+```
+
+Add that line to `~/.zshrc` if it is not already there.
+
+### Steam installer opens but Steam does not finish installing
+
+Use **Repair Steam**, or run the installer again from Forge. If the bottle is badly broken, create a fresh bottle and install Steam there.

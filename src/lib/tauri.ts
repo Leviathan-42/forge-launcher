@@ -5,7 +5,9 @@ import type {
   Bottle,
   BottleApp,
   Game,
+  GraphicsBackend,
   LauncherStatus,
+  RuntimeProfile,
   WineStatus,
 } from "$lib/types";
 
@@ -17,6 +19,10 @@ function homeHint() {
 
 function hasTauri() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+export function canUseDesktopCommands() {
+  return hasTauri();
 }
 
 async function command<T>(name: string, args?: Record<string, unknown>, fallback?: T): Promise<T> {
@@ -39,6 +45,9 @@ export async function listBottles() {
         prefix_path: mockPrefix,
         exists: false,
         steam_installed: false,
+        runtime_profile_id: "gptk-d3dmetal",
+        graphics_backend: null,
+        env_overrides: {},
         app_count: 0,
       },
     ],
@@ -53,9 +62,56 @@ export async function createBottle(name: string, prefixPath?: string) {
       prefix_path: prefixPath || `${homeHint()}/Wine/Bottles/${name.toLowerCase().replace(/\s+/g, "-")}`,
       exists: true,
       steam_installed: false,
+      runtime_profile_id: "gptk-d3dmetal",
+      graphics_backend: null,
+      env_overrides: {},
       app_count: 0,
     },
   ]);
+}
+
+export async function listRuntimeProfiles() {
+  return command<RuntimeProfile[]>("list_runtime_profiles", undefined, [
+    {
+      id: "gptk-d3dmetal",
+      name: "GPTK D3DMetal",
+      wine64_path: "/opt/homebrew/bin/wine64",
+      gptk_lib_path: "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external",
+      default_backend: "d3dmetal",
+      env: {},
+    },
+    {
+      id: "wine-vulkan",
+      name: "Wine Vulkan",
+      wine64_path: "/opt/homebrew/bin/wine64",
+      default_backend: "dxvk_vkd3d",
+      env: {},
+    },
+  ]);
+}
+
+export async function saveRuntimeProfiles(profiles: RuntimeProfile[]) {
+  return command<void>("save_runtime_profiles", { profiles });
+}
+
+export async function updateBottleRuntime(
+  prefixPath: string,
+  runtimeProfileId: string,
+  graphicsBackend: GraphicsBackend | null,
+  envOverrides: Record<string, string> = {},
+  force = false,
+) {
+  return command<Bottle[]>("update_bottle_runtime", {
+    prefixPath,
+    runtimeProfileId,
+    graphicsBackend,
+    envOverrides,
+    force,
+  });
+}
+
+export async function createPeakTestBottle() {
+  return command<Bottle[]>("create_peak_test_bottle");
 }
 
 export async function launcherStatus(prefixPath: string) {
@@ -103,6 +159,7 @@ export async function loadConfig() {
       theme: "system",
       global_hud: false,
       metalfx_enabled: false,
+      env: {},
     },
   );
 }
@@ -126,6 +183,10 @@ export async function checkWine() {
 
 export async function loadGames() {
   return command<Game[]>("load_games", undefined, []);
+}
+
+export async function upsertGame(game: Game) {
+  return command<Game[]>("upsert_game", { game }, [game]);
 }
 
 export async function pickExe() {

@@ -27,7 +27,7 @@
   <!--   • Read ~/Library/Application Support/Steam outside its container  -->
   <!--   • Set DYLD_LIBRARY_PATH on child processes                        -->
   <!--                                                                      -->
-  <!-- Whisky and CrossOver ship without the sandbox for the same reason.  -->
+  <!-- Wine game launchers generally ship without the sandbox for this reason. -->
   <!-- If you plan to distribute on the Mac App Store, you will need a     -->
   <!-- helper tool architecture — see docs/ARCHITECTURE.md.                -->
   <key>com.apple.security.app-sandbox</key>
