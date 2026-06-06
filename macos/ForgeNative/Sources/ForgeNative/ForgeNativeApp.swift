@@ -1362,7 +1362,7 @@ final class ForgeStore: ObservableObject {
         let gameBackend = backendOverride ?? bottle.graphicsBackend ?? profile.defaultBackend
         let launchBackend: GraphicsBackend = isSteam ? .wineBuiltin : gameBackend
         let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
-        let winePath = launchBackend == .d3dMetal ? gptkWinePath(gptkLibPath: gptkLibPath) ?? configuredWinePath : configuredWinePath
+        let winePath = configuredWinePath
         guard FileManager.default.fileExists(atPath: winePath) else {
             throw ForgeError.message("wine not found at \(winePath)")
         }
@@ -1406,7 +1406,7 @@ final class ForgeStore: ObservableObject {
                 }
             }
             try removeStagedD3DMetalDlls(exePath: exePath)
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b"
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=b"
         case .dxvk:
             env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
             env["DXVK_ASYNC"] = "1"
@@ -1460,7 +1460,7 @@ final class ForgeStore: ObservableObject {
             let gameDllOverrides: String
             switch gameBackend {
             case .d3dMetal:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b"
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=b"
             case .dxvk:
                 gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
             case .vkd3d:
