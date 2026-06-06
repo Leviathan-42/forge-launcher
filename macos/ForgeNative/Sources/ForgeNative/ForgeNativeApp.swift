@@ -961,10 +961,9 @@ final class ForgeStore: ObservableObject {
     }
 
     nonisolated static func backendOverride(for app: BottleAppItem) -> GraphicsBackend? {
-        // PEAK is currently unstable on both DXVK/MoltenVK and WineD3D's
-        // Vulkan renderer on this setup. Use WineD3D/OpenGL as the safest
-        // compatibility path for now.
-        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame { return .wineBuiltin }
+        // Do not fall back to WineD3D/OpenGL for PEAK. Stage GPTK D3DMetal DLLs
+        // next to the game so native D3DMetal wins over DXVK DLLs in the prefix.
+        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame { return .d3dMetal }
         return nil
     }
 
@@ -1406,7 +1405,8 @@ final class ForgeStore: ObservableObject {
                     }
                 }
             }
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b,n;user32=n,b"
+            try stageD3DMetalDllsIfNeeded(exePath: exePath, gptkLibPath: gptkLibPath)
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b"
         case .dxvk:
             env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
             env["DXVK_ASYNC"] = "1"
@@ -1450,7 +1450,7 @@ final class ForgeStore: ObservableObject {
             let gameDllOverrides: String
             switch gameBackend {
             case .d3dMetal:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b,n;user32=n,b"
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b"
             case .dxvk:
                 gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
             case .vkd3d:
@@ -1569,6 +1569,32 @@ final class ForgeStore: ObservableObject {
 
     nonisolated static func steamSafeArgs(_ extra: [String]) -> [String] {
         ["-no-cef-sandbox", "-cef-disable-sandbox"] + extra
+    }
+
+    nonisolated static func stageD3DMetalDllsIfNeeded(exePath: String, gptkLibPath: String?) throws {
+        guard let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) else { return }
+        let sourceDir = gptkBase.appendingPathComponent("wine/x86_64-windows")
+        guard FileManager.default.fileExists(atPath: sourceDir.path) else { return }
+
+        let gameDir = URL(fileURLWithPath: exePath).deletingLastPathComponent()
+        for dll in ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "d3d12.dll"] {
+            let source = sourceDir.appendingPathComponent(dll)
+            let target = gameDir.appendingPathComponent(dll)
+            guard FileManager.default.fileExists(atPath: source.path) else { continue }
+
+            if FileManager.default.fileExists(atPath: target.path) {
+                let attrs = try? FileManager.default.attributesOfItem(atPath: target.path)
+                if attrs?[.type] as? FileAttributeType == .typeSymbolicLink,
+                   (try? FileManager.default.destinationOfSymbolicLink(atPath: target.path)) == source.path {
+                    continue
+                }
+                // Do not overwrite game-provided DLLs. PEAK does not ship these,
+                // but this keeps staging safe for future titles.
+                continue
+            }
+
+            try FileManager.default.createSymbolicLink(at: target, withDestinationURL: source)
+        }
     }
 
     nonisolated static func configureMoltenVK(profile: RuntimeProfile, config: AppConfig, env: inout [String: String]) {
