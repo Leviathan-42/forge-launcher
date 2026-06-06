@@ -911,7 +911,8 @@ final class ForgeStore: ObservableObject {
                     config: await MainActor.run { self.config },
                     profile: await MainActor.run { self.profile(for: bottle) },
                     extraArgs: [],
-                    forceSteamMode: false
+                    forceSteamMode: false,
+                    steamAppId: nil
                 )
                 await MainActor.run {
                     self.isLaunching = false
@@ -950,6 +951,11 @@ final class ForgeStore: ObservableObject {
         launch(BottleAppItem(name: Self.displayName(for: url.path), path: url.path, kind: "app"))
     }
 
+    func launchArgs(for app: BottleAppItem) -> [String] {
+        guard app.steamAppId != nil else { return [] }
+        return ["-screen-fullscreen", "1"]
+    }
+
     func launch(_ app: BottleAppItem) {
         guard let bottle else { return }
         isLaunching = true
@@ -960,8 +966,9 @@ final class ForgeStore: ObservableObject {
                     bottle: bottle,
                     config: await MainActor.run { self.config },
                     profile: await MainActor.run { self.profile(for: bottle) },
-                    extraArgs: [],
-                    forceSteamMode: app.isSteamClient
+                    extraArgs: await MainActor.run { self.launchArgs(for: app) },
+                    forceSteamMode: app.isSteamClient,
+                    steamAppId: app.steamAppId
                 )
                 await MainActor.run {
                     self.isLaunching = false
@@ -1118,6 +1125,8 @@ final class ForgeStore: ObservableObject {
             push(path: path, kind: "launcher", into: &apps, seen: &seen)
         }
 
+        scanSteamGames(prefixPath: prefixPath, into: &apps, seen: &seen)
+
         for root in programRoots(prefixPath: prefixPath) {
             collectExes(URL(fileURLWithPath: root), depth: 0, into: &apps, seen: &seen)
             if apps.count >= 120 { break }
@@ -1155,10 +1164,59 @@ final class ForgeStore: ObservableObject {
         }
     }
 
-    nonisolated static func push(path: String, kind: String, into apps: inout [BottleAppItem], seen: inout Set<String>) {
+    nonisolated static func push(path: String, kind: String, into apps: inout [BottleAppItem], seen: inout Set<String>, name: String? = nil, steamAppId: String? = nil) {
         let normalized = path.standardizingPath
         guard seen.insert(normalized.lowercased()).inserted else { return }
-        apps.append(BottleAppItem(name: displayName(for: normalized), path: normalized, kind: kind))
+        apps.append(BottleAppItem(name: name ?? displayName(for: normalized), path: normalized, kind: kind, steamAppId: steamAppId))
+    }
+
+    nonisolated static func scanSteamGames(prefixPath: String, into apps: inout [BottleAppItem], seen: inout Set<String>) {
+        let steamApps = URL(fileURLWithPath: prefixPath)
+            .appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps")
+        guard let manifests = try? FileManager.default.contentsOfDirectory(
+            at: steamApps,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return }
+
+        for manifest in manifests where manifest.lastPathComponent.hasPrefix("appmanifest_") && manifest.pathExtension == "acf" {
+            guard let text = try? String(contentsOf: manifest, encoding: .utf8) else { continue }
+            let appId = acfValue("appid", in: text)
+            let name = acfValue("name", in: text)
+            guard let installDir = acfValue("installdir", in: text), let appId else { continue }
+            let gameDir = steamApps.appendingPathComponent("common").appendingPathComponent(installDir)
+            guard let exe = primaryGameExe(in: gameDir) else { continue }
+            push(path: exe.path, kind: "game", into: &apps, seen: &seen, name: name, steamAppId: appId)
+        }
+    }
+
+    nonisolated static func acfValue(_ key: String, in text: String) -> String? {
+        let pattern = "\\\"\(NSRegularExpression.escapedPattern(for: key))\\\"\\s+\\\"([^\\\"]+)\\\""
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(match.range(at: 1), in: text) else { return nil }
+        return String(text[range])
+    }
+
+    nonisolated static func primaryGameExe(in dir: URL) -> URL? {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+
+        let exes = entries.filter { entry in
+            let file = entry.lastPathComponent.lowercased()
+            return entry.pathExtension.caseInsensitiveCompare("exe") == .orderedSame
+                && !file.contains("unitycrashhandler")
+                && !file.contains("crash")
+                && !file.hasPrefix("unins")
+                && file != "uninstall.exe"
+        }
+        if let exact = exes.first(where: { $0.deletingPathExtension().lastPathComponent.caseInsensitiveCompare(dir.lastPathComponent) == .orderedSame }) {
+            return exact
+        }
+        return exes.sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }.first
     }
 
     nonisolated static func shouldDescendForUserApps(_ path: String) -> Bool {
@@ -1283,7 +1341,8 @@ final class ForgeStore: ObservableObject {
         config: AppConfig,
         profile: RuntimeProfile,
         extraArgs: [String],
-        forceSteamMode: Bool
+        forceSteamMode: Bool,
+        steamAppId: String?
     ) async throws {
         let winePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
         guard FileManager.default.fileExists(atPath: winePath) else {
@@ -1312,6 +1371,10 @@ final class ForgeStore: ObservableObject {
         env["WINE_MOUSE_WARP"] = "1"
         env["WINEESYNC"] = "1"
         env["WINEMSYNC"] = "1"
+        if let steamAppId {
+            env["SteamAppId"] = steamAppId
+            env["SteamGameId"] = steamAppId
+        }
         if launchBackend == .dxvk || launchBackend == .vkd3d || launchBackend == .dxvkVkd3d {
             configureMoltenVK(profile: profile, config: config, env: &env)
         }
@@ -1420,6 +1483,7 @@ final class ForgeStore: ObservableObject {
         VK_ICD_FILENAMES=\(env["VK_ICD_FILENAMES"] ?? "")
         DYLD_LIBRARY_PATH=\(env["DYLD_LIBRARY_PATH"] ?? "")
         MTL_HUD_ENABLED=\(env["MTL_HUD_ENABLED"] ?? "")
+        SteamAppId=\(env["SteamAppId"] ?? "")
 
         """
         if let data = launchSummary.data(using: .utf8) {
@@ -1638,6 +1702,7 @@ struct BottleAppItem: Identifiable, Hashable {
     var name: String
     var path: String
     var kind: String
+    var steamAppId: String? = nil
 
     var isSteamClient: Bool {
         URL(fileURLWithPath: path).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
