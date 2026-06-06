@@ -138,8 +138,14 @@ struct ContentView: View {
                 StatusLine(icon: "shippingbox.fill", title: store.prefixExists ? "Bottle ready" : "Bottle missing", value: bottle.name)
                 StatusLine(icon: "app.badge.fill", title: "Launchable apps", value: "\(store.apps.count)")
                 StatusLine(icon: "display", title: "Backend", value: backendText(for: bottle))
-                StatusLine(icon: "scope", title: "Metal HUD", value: store.config.globalHud ? "On" : "Off")
             }
+
+            HudToggleCard(
+                isOn: Binding(
+                    get: { store.config.globalHud },
+                    set: { store.setMetalHud($0) }
+                )
+            )
 
             Spacer()
 
@@ -441,6 +447,40 @@ struct DropExeCard: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .stroke(.white.opacity(isTargeted ? 0.38 : 0), lineWidth: 1.4)
         )
+    }
+}
+
+struct HudToggleCard: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Toggle(isOn: $isOn) {
+                HStack(spacing: 10) {
+                    Image(systemName: "scope")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.58))
+                        .frame(width: 24)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Metal HUD")
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.78))
+                        Text(isOn ? "Shown on next launch" : "Hidden on next launch")
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.40))
+                    }
+                }
+            }
+            .toggleStyle(.switch)
+
+            Text("Only appears for Metal-backed rendering. Steam itself may hide it; games launched after toggling should inherit it.")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(.white.opacity(0.34))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(13)
+        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
     }
 }
 
@@ -890,6 +930,15 @@ final class ForgeStore: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: bottle.prefixPath)])
     }
 
+    func setMetalHud(_ enabled: Bool) {
+        config.globalHud = enabled
+        do {
+            try Self.saveConfig(config, to: Self.appSupportDir())
+        } catch {
+            alertMessage = "Metal HUD changed for this session, but Forge could not save config: \(error.localizedDescription)"
+        }
+    }
+
     private func refreshBottleState() {
         guard let bottle else {
             apps = []
@@ -920,6 +969,13 @@ final class ForgeStore: ObservableObject {
         let url = support.appendingPathComponent("config.json")
         guard FileManager.default.fileExists(atPath: url.path) else { return .defaults }
         return try JSONDecoder.forge.decode(AppConfig.self, from: Data(contentsOf: url))
+    }
+
+    nonisolated static func saveConfig(_ config: AppConfig, to support: URL) throws {
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let url = support.appendingPathComponent("config.json")
+        let data = try JSONEncoder.forge.encode(config)
+        try data.write(to: url, options: .atomic)
     }
 
     nonisolated static func loadProfiles(from support: URL, config: AppConfig) throws -> [RuntimeProfile] {
@@ -1240,7 +1296,7 @@ final class ForgeStore: ObservableObject {
             env["VK_ICD_FILENAMES"] = "/dev/null"
             env["VK_DRIVER_FILES"] = "/dev/null"
             env["DXVK_FILTER_DEVICE_NAME"] = "__forge_disable_dxvk_for_steam__"
-            env["MTL_HUD_ENABLED"] = "0"
+            env["MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
         }
 
         let process = Process()
@@ -1460,6 +1516,15 @@ extension JSONDecoder {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return decoder
+    }
+}
+
+extension JSONEncoder {
+    static var forge: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
     }
 }
 
