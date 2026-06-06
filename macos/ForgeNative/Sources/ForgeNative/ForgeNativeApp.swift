@@ -93,20 +93,20 @@ struct ContentView: View {
     }
 
     private func appShell(_ bottle: BottleEntry) -> some View {
-        HStack(spacing: 18) {
+        HStack(spacing: 16) {
             sidebar(bottle)
-                .frame(width: 260)
+                .frame(width: 244)
 
-            VStack(spacing: 18) {
+            VStack(spacing: 14) {
                 topBar
                 runtimePanel(bottle)
                 appsPanel(bottle)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(.top, 22)
-        .padding(.horizontal, 24)
-        .padding(.bottom, 24)
+        .padding(.top, 34)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
     }
 
     private func sidebar(_ bottle: BottleEntry) -> some View {
@@ -162,19 +162,19 @@ struct ContentView: View {
             }
             .buttonStyle(ForgeButtonStyle(tint: .white.opacity(0.14)))
         }
-        .padding(18)
-        .liquidGlass(cornerRadius: 30, opacity: 0.34)
+        .padding(16)
+        .liquidGlass(cornerRadius: 24, opacity: 0.22)
     }
 
     private var topBar: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Library")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text("Drop a Windows EXE, select one manually, or launch the main app in your bottle.")
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.48))
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("Launch Windows apps from your Forge bottle.")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -295,9 +295,9 @@ struct ContentView: View {
                 .scrollIndicators(.hidden)
             }
         }
-        .padding(18)
+        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .liquidGlass(cornerRadius: 30, opacity: 0.28)
+        .liquidGlass(cornerRadius: 24, opacity: 0.20)
     }
 
     private var emptyAppsCard: some View {
@@ -577,12 +577,19 @@ struct LiquidBackground: View {
                 .ignoresSafeArea()
 
             Rectangle()
-                .fill(.ultraThinMaterial.opacity(0.48))
+                .fill(.regularMaterial)
                 .ignoresSafeArea()
 
-            Rectangle()
-                .fill(.black.opacity(0.08))
-                .ignoresSafeArea()
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.055),
+                    Color.cyan.opacity(0.030),
+                    Color.black.opacity(0.10)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
         }
     }
 }
@@ -641,19 +648,18 @@ struct GlassSearchField: View {
     @Binding var text: String
 
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(.white.opacity(0.46))
-            TextField("Search Library", text: $text)
-                .textFieldStyle(.plain)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.90))
+                .foregroundStyle(.secondary)
+            TextField("Search", text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .regular))
         }
-        .padding(.horizontal, 13)
-        .frame(height: 38)
-        .background(.black.opacity(0.14), in: Capsule())
-        .overlay(Capsule().stroke(.white.opacity(0.12), lineWidth: 1))
+        .padding(.horizontal, 12)
+        .frame(height: 34)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(.white.opacity(0.11), lineWidth: 1))
     }
 }
 
@@ -739,46 +745,25 @@ struct StatusPill: View {
 }
 
 struct ForgeButtonStyle: ButtonStyle {
-    var tint: Color = .white.opacity(0.12)
-    var foreground: Color = .white.opacity(0.92)
+    var tint: Color = .white.opacity(0.10)
+    var foreground: Color = .primary
 
     func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+
         configuration.label
             .font(.system(size: 12.5, weight: .semibold))
             .foregroundStyle(foreground)
-            .padding(.horizontal, 15)
-            .padding(.vertical, 9.5)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
             .background {
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        tint.opacity(configuration.isPressed ? 0.40 : 0.92),
-                                        .white.opacity(configuration.isPressed ? 0.035 : 0.11),
-                                        .cyan.opacity(configuration.isPressed ? 0.02 : 0.06)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    )
+                shape
+                    .fill(.thinMaterial)
+                    .overlay(shape.fill(tint.opacity(configuration.isPressed ? 0.45 : 0.88)))
             }
-            .overlay(
-                Capsule()
-                    .stroke(
-                        LinearGradient(
-                            colors: [.white.opacity(0.46), .white.opacity(0.09)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(color: .black.opacity(configuration.isPressed ? 0.10 : 0.20), radius: configuration.isPressed ? 8 : 16, x: 0, y: configuration.isPressed ? 4 : 10)
-            .scaleEffect(configuration.isPressed ? 0.972 : 1)
+            .overlay(shape.stroke(.white.opacity(configuration.isPressed ? 0.08 : 0.16), lineWidth: 1))
+            .shadow(color: .black.opacity(configuration.isPressed ? 0.08 : 0.14), radius: configuration.isPressed ? 4 : 10, x: 0, y: configuration.isPressed ? 2 : 5)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
     }
 }
 
@@ -796,47 +781,29 @@ struct LiquidGlassModifier: ViewModifier {
                     .opacity(opacity)
             }
             .background {
-                shape
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                .white.opacity(0.20),
-                                .white.opacity(0.055),
-                                .cyan.opacity(0.055),
-                                .black.opacity(0.10)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                shape.fill(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.105),
+                            .white.opacity(0.035),
+                            .black.opacity(0.035)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
+                )
             }
-            .overlay(alignment: .topLeading) {
-                shape
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                .white.opacity(0.58),
-                                .white.opacity(0.16),
-                                .white.opacity(0.045),
-                                .cyan.opacity(0.18)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.15
-                    )
-                    .blendMode(.screen)
+            .overlay {
+                shape.stroke(
+                    LinearGradient(
+                        colors: [.white.opacity(0.28), .white.opacity(0.07)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
             }
-            .overlay(alignment: .topLeading) {
-                Capsule()
-                    .fill(.white.opacity(0.30))
-                    .frame(width: 86, height: 2)
-                    .blur(radius: 1.4)
-                    .offset(x: 24, y: 13)
-                    .allowsHitTesting(false)
-            }
-            .shadow(color: .black.opacity(0.24), radius: 28, x: 0, y: 18)
-            .shadow(color: .white.opacity(0.035), radius: 1, x: 0, y: -1)
+            .shadow(color: .black.opacity(0.16), radius: 18, x: 0, y: 10)
     }
 }
 
@@ -972,11 +939,16 @@ final class ForgeStore: ObservableObject {
         isLaunching = true
         Task.detached(priority: .userInitiated) {
             do {
+                let launchConfig = await MainActor.run { self.config }
+                let launchProfile = await MainActor.run { self.profile(for: bottle) }
+                if app.name.caseInsensitiveCompare("PEAK") == .orderedSame {
+                    try? Self.stopWineSession(bottle: bottle, config: launchConfig, profile: launchProfile)
+                }
                 try await Self.spawn(
                     exePath: app.path,
                     bottle: bottle,
-                    config: await MainActor.run { self.config },
-                    profile: await MainActor.run { self.profile(for: bottle) },
+                    config: launchConfig,
+                    profile: launchProfile,
                     extraArgs: await MainActor.run { self.launchArgs(for: app) },
                     forceSteamMode: app.isSteamClient,
                     steamAppId: app.steamAppId,
