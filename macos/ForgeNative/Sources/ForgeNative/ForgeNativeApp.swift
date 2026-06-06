@@ -137,7 +137,12 @@ struct ContentView: View {
                 SectionLabel("Status")
                 StatusLine(icon: "shippingbox.fill", title: store.prefixExists ? "Bottle ready" : "Bottle missing", value: bottle.name)
                 StatusLine(icon: "app.badge.fill", title: "Launchable apps", value: "\(store.apps.count)")
-                StatusLine(icon: "display", title: "Backend", value: backendText(for: bottle))
+                BackendPickerCard(
+                    selection: Binding(
+                        get: { bottle.graphicsBackend ?? store.profile(for: bottle).defaultBackend },
+                        set: { store.setBackend($0) }
+                    )
+                )
             }
 
             HudToggleCard(
@@ -456,6 +461,36 @@ struct DropExeCard: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .stroke(.white.opacity(isTargeted ? 0.38 : 0), lineWidth: 1.4)
         )
+    }
+}
+
+struct BackendPickerCard: View {
+    @Binding var selection: GraphicsBackend
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Graphics Backend", systemImage: "display")
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.78))
+
+            Picker("Graphics Backend", selection: $selection) {
+                Text("DXVK/VKD3D").tag(GraphicsBackend.dxvkVkd3d)
+                Text("D3DMetal").tag(GraphicsBackend.d3dMetal)
+                Text("DXVK").tag(GraphicsBackend.dxvk)
+                Text("VKD3D").tag(GraphicsBackend.vkd3d)
+                Text("WineD3D").tag(GraphicsBackend.wineBuiltin)
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+
+            Text("For PEAK, try DXVK/VKD3D first. D3DMetal can hang on some Unity loading screens.")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(.white.opacity(0.34))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(13)
+        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
     }
 }
 
@@ -965,6 +1000,17 @@ final class ForgeStore: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: bottle.prefixPath)])
     }
 
+    func setBackend(_ backend: GraphicsBackend) {
+        guard var current = bottle else { return }
+        current.graphicsBackend = backend
+        bottle = current
+        do {
+            try Self.saveBottle(current, to: Self.appSupportDir(), config: config)
+        } catch {
+            alertMessage = "Backend changed for this session, but Forge could not save bottles.json: \(error.localizedDescription)"
+        }
+    }
+
     func setMetalHud(_ enabled: Bool) {
         config.globalHud = enabled
         do {
@@ -986,7 +1032,7 @@ final class ForgeStore: ObservableObject {
         apps = Self.scanApps(prefixPath: bottle.prefixPath)
     }
 
-    private func profile(for bottle: BottleEntry) -> RuntimeProfile {
+    func profile(for bottle: BottleEntry) -> RuntimeProfile {
         profiles.first(where: { $0.id == bottle.runtimeProfileId })
             ?? profiles.first
             ?? RuntimeProfile.defaultProfile(config: config)
@@ -1023,27 +1069,39 @@ final class ForgeStore: ObservableObject {
     }
 
     nonisolated static func loadBottle(from support: URL, config: AppConfig) throws -> BottleEntry {
-        let url = support.appendingPathComponent("bottles.json")
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return BottleEntry(
-                name: "Default",
-                prefixPath: config.defaultPrefix,
-                runtimeProfileId: "wine-vulkan",
-                graphicsBackend: nil,
-                envOverrides: [:]
-            )
-        }
+        let bottles = try loadBottles(from: support, config: config)
+        return bottles.first(where: { $0.prefixPath == config.defaultPrefix })
+            ?? bottles.first
+            ?? defaultBottle(config: config)
+    }
 
+    nonisolated static func loadBottles(from support: URL, config: AppConfig) throws -> [BottleEntry] {
+        let url = support.appendingPathComponent("bottles.json")
+        guard FileManager.default.fileExists(atPath: url.path) else { return [defaultBottle(config: config)] }
         let decoded = try JSONDecoder.forge.decode([BottleEntry].self, from: Data(contentsOf: url))
-        return decoded.first(where: { $0.prefixPath == config.defaultPrefix })
-            ?? decoded.first
-            ?? BottleEntry(
-                name: "Default",
-                prefixPath: config.defaultPrefix,
-                runtimeProfileId: "wine-vulkan",
-                graphicsBackend: nil,
-                envOverrides: [:]
-            )
+        return decoded.isEmpty ? [defaultBottle(config: config)] : decoded
+    }
+
+    nonisolated static func saveBottle(_ bottle: BottleEntry, to support: URL, config: AppConfig) throws {
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        var bottles = try loadBottles(from: support, config: config)
+        if let index = bottles.firstIndex(where: { $0.prefixPath == bottle.prefixPath }) {
+            bottles[index] = bottle
+        } else {
+            bottles.insert(bottle, at: 0)
+        }
+        let data = try JSONEncoder.forge.encode(bottles)
+        try data.write(to: support.appendingPathComponent("bottles.json"), options: .atomic)
+    }
+
+    nonisolated static func defaultBottle(config: AppConfig) -> BottleEntry {
+        BottleEntry(
+            name: "Default",
+            prefixPath: config.defaultPrefix,
+            runtimeProfileId: "wine-vulkan",
+            graphicsBackend: .dxvkVkd3d,
+            envOverrides: [:]
+        )
     }
 
     // MARK: App scan
