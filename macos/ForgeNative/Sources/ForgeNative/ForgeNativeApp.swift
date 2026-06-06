@@ -1380,7 +1380,8 @@ final class ForgeStore: ObservableObject {
         env["WINEDEBUG"] = config.suppressWineDebug ? "fixme-all" : ""
         env["WINEDBG"] = "-all"
         env["GST_DEBUG"] = "1"
-        env["MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
+        let disableHudForApp = URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("PEAK.exe") == .orderedSame
+        env["MTL_HUD_ENABLED"] = (config.globalHud && !disableHudForApp) ? "1" : "0"
         env["WINE_MOUSE_WARP"] = "1"
         env["WINEESYNC"] = "1"
         env["WINEMSYNC"] = "1"
@@ -1468,7 +1469,7 @@ final class ForgeStore: ObservableObject {
             env["FORGE_STEAM_SAFE_MODE"] = "1"
             env["FORGE_GAME_WINEDLLOVERRIDES"] = gameDllOverrides
             env["FORGE_GAME_VK_ICD_FILENAMES"] = gameVkIcd
-            env["FORGE_GAME_MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
+            env["FORGE_GAME_MTL_HUD_ENABLED"] = (config.globalHud && !disableHudForApp) ? "1" : "0"
             env["FORGE_GAME_DYLD_LIBRARY_PATH"] = gameDyldPath
             env["FORGE_GAME_WINEDLLPATH"] = gameWineDllPath
             env["MOLTENVK_CONFIG_LOG_LEVEL"] = env["MOLTENVK_CONFIG_LOG_LEVEL"] ?? "0"
