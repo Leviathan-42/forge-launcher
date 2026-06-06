@@ -1406,14 +1406,14 @@ final class ForgeStore: ObservableObject {
                 }
             }
             try removeStagedD3DMetalDlls(exePath: exePath)
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=b"
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=b;mscoree,mshtml="
         case .dxvk:
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b;mscoree,mshtml="
             env["DXVK_ASYNC"] = "1"
         case .vkd3d:
-            env["WINEDLLOVERRIDES"] = "d3d12,dxgi,user32=n,b"
+            env["WINEDLLOVERRIDES"] = "d3d12,dxgi,user32=n,b;mscoree,mshtml="
         case .dxvkVkd3d:
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b"
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b;mscoree,mshtml="
             env["DXVK_ASYNC"] = "1"
         case .wineBuiltin:
             env["WINEDLLOVERRIDES"] = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
@@ -1460,13 +1460,13 @@ final class ForgeStore: ObservableObject {
             let gameDllOverrides: String
             switch gameBackend {
             case .d3dMetal:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=b"
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=b;mscoree,mshtml="
             case .dxvk:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,user32=n,b;mscoree,mshtml="
             case .vkd3d:
-                gameDllOverrides = "d3d12,dxgi,user32=n,b"
+                gameDllOverrides = "d3d12,dxgi,user32=n,b;mscoree,mshtml="
             case .dxvkVkd3d:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b"
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b;mscoree,mshtml="
             case .wineBuiltin:
                 gameDllOverrides = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
             case .none:
