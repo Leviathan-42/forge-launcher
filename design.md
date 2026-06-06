@@ -1,202 +1,109 @@
 # Forge Launcher Design
 
-Forge is a Wine bottle manager for Windows launchers and apps on macOS.
+Forge is a macOS-native Wine bottle launcher for Windows launchers and apps.
 
-It should feel closer to a polished native macOS utility than a traditional game library.
-The core object is the bottle, not the game.
+The active frontend is SwiftUI on macOS 26. The old Svelte/Tauri UI is legacy/reference only.
 
-## Product Model
+## Product direction
 
-Forge manages Wine prefixes called bottles.
+Forge manages Wine prefixes called bottles. A bottle can contain:
 
-Inside each bottle, the user can install and run Windows launchers:
-
-- Steam
+- Windows Steam
 - Epic Games Launcher
 - Battle.net
 - EA App
 - Ubisoft Connect
 - Rockstar Launcher
 - standalone `.exe` apps
+- games installed by those launchers
 
-Games are still supported, but they are not the center of the product. A game is
-usually launched by a launcher inside the bottle.
+The bottle is the core object. Games and launchers are entries inside a bottle.
 
-Example:
-
-```text
-Forge
-  -> Bottle: Default
-    -> Windows Steam
-      -> ULTRAKILL
-```
-
-The important part is that Steam owns the session. When Steam launches the game,
-the game sees the real Steam account, Steam username, Steam Cloud, and Steamworks
-APIs.
-
-## Why This Direction
-
-The old flow was:
+## Main workflow
 
 ```text
-download game files -> add exe path -> run exe directly
+Open Forge
+  -> select/use bottle
+  -> drag/drop .exe or choose Select EXE
+  -> or refresh detected installed apps/games
+  -> choose graphics backend
+  -> toggle Metal HUD if desired
+  -> Play
+  -> Stop when finished
 ```
 
-That works for some games.
+## UI principles
 
-It fails for games that expect Steam, Epic, Battle.net, or another launcher to be
-running.
+- macOS-native SwiftUI, not HTML/CSS.
+- Clean glass/material styling, not a busy web dashboard.
+- No fake/unwired buttons.
+- Every visible action should do something real.
+- Use normal system typography; avoid overly heavy/rounded text.
+- Keep the first screen useful, not a marketing page.
 
-The new flow is:
+## Current native layout
+
+1. Sidebar
+   - Forge icon/title
+   - selected bottle
+   - bottle/app status
+   - graphics backend picker
+   - Metal HUD toggle
+   - refresh action
+
+2. Action cards
+   - Add EXE drag/drop
+   - Select EXE
+   - Reveal bottle folder
+   - Rescan apps
+
+3. Apps panel
+   - detected launchers/games
+   - Steam manifest games as single entries
+   - Play/Stop action per row
+   - search
+
+## Steam behavior
+
+Windows Steam can live inside a Forge bottle. Steam itself may need a safe UI backend, but games should use the selected game backend.
+
+Forge hides Steam helper EXEs and launcher-managed child EXEs so the app list shows the thing the user actually launches, not every internal executable.
+
+## Graphics backends
+
+Forge supports backend selection per bottle:
+
+- DXVK/VKD3D through MoltenVK
+- DXVK through MoltenVK
+- VKD3D through MoltenVK
+- GPTK D3DMetal
+- Wine builtin fallback
+
+OpenGL/WineD3D should be treated as a fallback, not the preferred path.
+
+## Compatibility expectations
+
+Works best:
+
+- single-player Windows games
+- games with no kernel anti-cheat
+- launchers that work under Wine
+- games known to work through Wine/Proton-like stacks
+
+Likely not supported:
+
+- kernel anti-cheat
+- Windows drivers/services
+- Vanguard/EAC/BattlEye/Ricochet-protected games when they require kernel support
+
+## Active code
 
 ```text
-create bottle -> install launcher -> sign in once -> launch from that launcher
+macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift
 ```
 
-This is more plug-and-play.
+Run with:
 
-## Main UI
-
-The app should have three main areas:
-
-1. Bottle sidebar
-2. Runtime/launcher controls
-3. Apps inside the selected bottle
-
-The first screen should be usable. It should not be a marketing page.
-
-## Bottle Sidebar
-
-The sidebar lists Wine bottles.
-
-Each bottle shows:
-
-- bottle name
-- prefix path
-- selected state
-
-Actions:
-
-- create bottle
-- select bottle
-
-Future actions:
-
-- duplicate bottle
-- delete bottle
-- open bottle folder
-- repair bottle
-
-## Runtime Panel
-
-The runtime panel is for launchers.
-
-Steam should be first-class:
-
-- Install Steam
-- Open Steam
-- Repair Steam
-- Show whether Steam is installed in the selected bottle
-
-Other launchers can start as generic `.exe` entries:
-
-- Epic Games Launcher
-- Battle.net
-- EA App
-- Ubisoft Connect
-- Rockstar Launcher
-
-Future versions can add one-click installers for these.
-
-## Apps Panel
-
-The apps panel shows Windows apps that are known inside the selected bottle.
-
-These can be:
-
-- a launcher
-- a game executable
-- a setup executable
-- a tool
-
-For Steam games, the preferred action is not direct launch. The preferred action
-is:
-
-```text
-steam.exe -applaunch <appid>
+```sh
+npm run native:dev
 ```
-
-Direct launch should remain available as a fallback.
-
-## Settings
-
-Settings should be quiet and practical.
-
-Keep:
-
-- Wine binary path
-- GPTK library path
-- default bottle path
-- global HUD options
-- MetalFX option
-
-Settings should not dominate the main workflow.
-
-## Save Files
-
-Save sync is still useful.
-
-It should move from being a central game feature to being an app/bottle utility.
-
-Future model:
-
-```text
-Bottle
-  -> App
-    -> Save mappings
-```
-
-Steam Cloud should usually be handled by Windows Steam when possible.
-
-The browser-cookie Steam Cloud downloader can stay as a fallback tool.
-
-## Downloading
-
-DepotDownloader and SteamCMD are useful, but they should not define the app.
-
-They are advanced tools for:
-
-- pre-downloading Steam depots
-- repairing files
-- avoiding Steam download issues
-
-Normal users should be guided toward:
-
-```text
-Install Windows Steam -> sign in -> install/play games through Steam
-```
-
-## UX Rules
-
-- Use short labels.
-- Prefer buttons that do the obvious thing.
-- Avoid asking the user to understand Wine internals.
-- Make Steam-in-bottle the default for Steam games.
-- Keep direct `.exe` launch as an escape hatch.
-- Treat each bottle like a small Windows environment.
-
-## Current Implementation Direction
-
-The frontend is being remade around bottles.
-
-The Rust backend still has older game-library commands. Keep them for now.
-
-New commands should be prefix-first where possible:
-
-- setup Windows Steam for a prefix
-- open Windows Steam for a prefix
-- run any `.exe` in a prefix
-- check launcher status for a prefix
-
-The older game commands can later be renamed or wrapped as app commands.

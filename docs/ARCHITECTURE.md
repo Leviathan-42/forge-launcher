@@ -1,101 +1,77 @@
 # Architecture
 
-## Overview
+Forge Launcher is now a macOS-native SwiftUI app. The old Svelte/Tauri UI is kept only as legacy/reference code while the active product lives in `macos/ForgeNative`.
 
-Forge Launcher is a two-process Tauri 2 application:
+## Current app model
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  WebView (Svelte + Vite)                                         │
-│  ┌───────────┐  ┌──────────────┐  ┌────────────────────────┐   │
-│  │  Stores   │  │  Components  │  │  Types (mirrors Rust)  │   │
-│  │  games.ts │  │  GameCard    │  │  Game, AppConfig,       │   │
-│  │  launcher │  │  SteamImport │  │  SteamGame, ...         │   │
-│  │  config   │  │  Toast       │  │                        │   │
-│  └─────┬─────┘  └──────────────┘  └────────────────────────┘   │
-│        │  invoke("command", args)                               │
-└────────│────────────────────────────────────────────────────────┘
-         │  Tauri IPC bridge (JSON serialisation)
-┌────────▼────────────────────────────────────────────────────────┐
-│  Rust backend (src-tauri/)                                       │
-│  ┌──────────┐  ┌───────────┐  ┌──────────┐  ┌──────────────┐  │
-│  │ main.rs  │  │ config.rs │  │launcher  │  │  steam.rs    │  │
-│  │ (router) │  │ (persist) │  │  .rs     │  │  (ACF parse) │  │
-│  └──────────┘  └───────────┘  └────┬─────┘  └──────────────┘  │
-│                                    │                            │
-│                         std::process::Command                   │
-└────────────────────────────────────│────────────────────────────┘
-                                     ▼
-                          arch -x86_64 wine64 game.exe
-                               │
-                    ┌──────────▼──────────────────────┐
-                    │  Rosetta 2  (x86_64 translation) │
-                    │  Wine (Windows API layer)        │
-                    │  GPTK D3DMetal / libd3dshared    │
-                    │  Metal GPU (Apple Silicon)       │
-                    └─────────────────────────────────┘
+```text
+Forge.app / ForgeNative
+  -> SwiftUI Liquid Glass-style UI
+  -> ForgeStore reads JSON config from Application Support
+  -> Wine bottle + runtime profile resolver
+  -> Process launches Windows .exe files through Wine
+  -> DXVK/VKD3D/MoltenVK, GPTK D3DMetal, or Wine builtin backend
 ```
 
-## Process model
+## Important paths
 
-| Layer | Technology | Memory budget |
-|---|---|---|
-| WebView | WKWebView (system, shared) | ~15 MB |
-| Rust binary | Tauri 2 + stripped release build | ~5–8 MB |
-| Wine (per game) | GPTK wine64 | ~80–200 MB (game-dependent) |
-
-The Tauri binary itself targets **< 10 MB** via `opt-level = "z"`, `lto = true`, `strip = true` and `panic = "abort"` in `Cargo.toml`.
-
-## IPC design
-
-All frontend→backend calls use `invoke()` from `@tauri-apps/api/core`.  
-All commands return `Result<T, String>` on the Rust side, which Tauri serialises to a rejected Promise on the TS side.
-
-Commands are defined in `main.rs` and wired via `tauri::generate_handler![]`.
-
-## State management
-
-```
-Svelte stores (writable<T>)
-  ├── games        — full library array
-  ├── runningGameIds — Set<string> of live PIDs
-  ├── selectedGameId — currently focused game
-  ├── appConfig    — global settings
-  ├── steamGames   — scan results
-  └── notifications — toast queue
-```
-
-All stores are mutated exclusively through exported **action functions** (e.g. `loadGames`, `upsertGame`, `launchGame`).  
-Components never call `store.set()` directly.
-
-## Data flow: launching a game
-
-```
-User clicks "Launch"
-  → GameCard calls launchGame(id)
-  → runningGameIds updated optimistically
-  → invoke("launch_game", { gameId })
-  → Rust: load game from games.json
-  → Rust: build LaunchOptions (env vars, paths)
-  → Rust: Command::new("arch").arg("-x86_64")...spawn()
-  → GameProcess stored in RunningGames state
-  → Poll loop (every 3s) reaps finished processes
-  → runningGameIds synced
-```
-
-## Module responsibilities
-
-| File | Responsibility |
+| Path | Purpose |
 |---|---|
-| `src-tauri/src/main.rs` | Tauri command registration, global state, entry point |
-| `src-tauri/src/config.rs` | `Game` + `AppConfig` structs, JSON read/write |
-| `src-tauri/src/launcher.rs` | `LaunchOptions` builder, `spawn()`, `init_wine_prefix()` |
-| `src-tauri/src/steam.rs` | ACF manifest parser, library scanner, Steam URI launch |
-| `src/lib/stores/games.ts` | Library CRUD, running-state polling |
-| `src/lib/stores/launcher.ts` | Launch/kill actions, toast notifications |
-| `src/lib/stores/config.ts` | Config + Steam scan actions |
-| `src/lib/types/index.ts` | TypeScript interfaces mirroring Rust structs |
-| `src/lib/components/GameCard.svelte` | Single game tile in the grid |
-| `src/lib/components/SteamImport.svelte` | Steam library scan + import modal |
-| `src/lib/components/Toast.svelte` | Toast notification renderer |
-| `src/App.svelte` | Root layout: sidebar, grid, detail panel, settings |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift` | Active SwiftUI app, store, scanning, launch logic |
+| `macos/ForgeNative/Package.swift` | Swift package targeting macOS 26 |
+| `scripts/run-native-app.sh` | Builds and opens `dist/Forge.app` for Cmd-Tab/Dock behavior |
+| `~/Library/Application Support/com.forgelauncher.app/` | Runtime config, bottles, profiles, logs |
+| `src-tauri/` | Legacy Rust/Tauri backend reference |
+| `src/` | Legacy Svelte frontend reference |
+
+## Runtime data files
+
+ForgeNative reads and writes:
+
+- `config.json` — global Wine/GPTK paths, HUD setting, env overrides
+- `bottles.json` — Wine bottles and selected graphics backend
+- `runtime_profiles.json` — Wine runner paths, MoltenVK/DXVK/VKD3D/GPTK paths
+- `Logs/swiftui-launch-*.log` — per-launch Wine stdout/stderr
+
+## Launch flow
+
+```text
+User drops/selects an .exe or clicks Play
+  -> ForgeStore resolves selected BottleEntry
+  -> RuntimeProfile supplies Wine path and backend resources
+  -> graphics backend builds env + DLL overrides
+  -> Wine starts the Windows app
+  -> UI switches Play to Stop
+```
+
+## Steam handling
+
+Steam itself is treated as a launcher. Steam's Chromium UI is launched in a safer builtin/WineD3D mode, while games should use the selected game backend.
+
+Forge also scans Windows Steam manifests in the bottle and exposes installed Steam games as single launchable entries. Helper EXEs such as `steamwebhelper.exe`, crash handlers, uninstallers, and secondary launcher-managed EXEs are hidden.
+
+## Graphics backends
+
+| Backend | Purpose |
+|---|---|
+| `dxvk_vkd3d` | Default Vulkan path through DXVK/VKD3D-Proton + MoltenVK |
+| `dxvk` | D3D9/10/11 through DXVK + MoltenVK |
+| `vkd3d` | D3D12 through VKD3D-Proton + MoltenVK |
+| `d3dmetal` | GPTK/D3DMetal path |
+| `wine_builtin` | Compatibility fallback; avoid for performance-sensitive games |
+| `none` | No D3D override |
+
+## Native UI responsibilities
+
+- Bottle status and selected backend
+- Drag/drop or Finder-select `.exe`
+- Installed app/game scan
+- Metal HUD toggle
+- Graphics backend selector
+- Play/Stop controls
+- Reveal bottle folder
+- Rescan library
+
+## Legacy code note
+
+The old Tauri/Svelte app is not the primary frontend anymore. Do not add new UI features there unless explicitly reviving the legacy app.

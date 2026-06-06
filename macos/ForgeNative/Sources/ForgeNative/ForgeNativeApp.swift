@@ -1357,18 +1357,17 @@ final class ForgeStore: ObservableObject {
         steamAppId: String?,
         backendOverride: GraphicsBackend?
     ) async throws {
-        let winePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
+        let configuredWinePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
+        let isSteam = forceSteamMode || URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
+        let gameBackend = backendOverride ?? bottle.graphicsBackend ?? profile.defaultBackend
+        let launchBackend: GraphicsBackend = isSteam ? .wineBuiltin : gameBackend
+        let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
+        let winePath = launchBackend == .d3dMetal ? gptkWinePath(gptkLibPath: gptkLibPath) ?? configuredWinePath : configuredWinePath
         guard FileManager.default.fileExists(atPath: winePath) else {
             throw ForgeError.message("wine not found at \(winePath)")
         }
 
         try ensurePrefix(prefixPath: bottle.prefixPath, winePath: winePath)
-
-        let isSteam = forceSteamMode || URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
-        let gameBackend = backendOverride ?? bottle.graphicsBackend ?? profile.defaultBackend
-        let launchBackend: GraphicsBackend = isSteam ? .wineBuiltin : gameBackend
-
-        let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
         var env = ProcessInfo.processInfo.environment
         env["WINEPREFIX"] = bottle.prefixPath
         if launchBackend == .d3dMetal {
@@ -1405,7 +1404,7 @@ final class ForgeStore: ObservableObject {
                     }
                 }
             }
-            try stageD3DMetalDllsIfNeeded(exePath: exePath, gptkLibPath: gptkLibPath)
+            try removeStagedD3DMetalDlls(exePath: exePath)
             env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b"
         case .dxvk:
             env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
@@ -1571,30 +1570,15 @@ final class ForgeStore: ObservableObject {
         ["-no-cef-sandbox", "-cef-disable-sandbox"] + extra
     }
 
-    nonisolated static func stageD3DMetalDllsIfNeeded(exePath: String, gptkLibPath: String?) throws {
-        guard let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) else { return }
-        let sourceDir = gptkBase.appendingPathComponent("wine/x86_64-windows")
-        guard FileManager.default.fileExists(atPath: sourceDir.path) else { return }
-
+    nonisolated static func removeStagedD3DMetalDlls(exePath: String) throws {
         let gameDir = URL(fileURLWithPath: exePath).deletingLastPathComponent()
         for dll in ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "d3d12.dll"] {
-            let source = sourceDir.appendingPathComponent(dll)
             let target = gameDir.appendingPathComponent(dll)
-            guard FileManager.default.fileExists(atPath: source.path) else { continue }
-
-            if FileManager.default.fileExists(atPath: target.path) {
-                let attrs = try? FileManager.default.attributesOfItem(atPath: target.path)
-                if attrs?[.type] as? FileAttributeType == .typeSymbolicLink,
-                   (try? FileManager.default.destinationOfSymbolicLink(atPath: target.path)) == source.path {
-                    try FileManager.default.removeItem(at: target)
-                } else {
-                    // Do not overwrite game-provided DLLs. PEAK does not ship these,
-                    // but this keeps staging safe for future titles.
-                    continue
-                }
+            guard FileManager.default.fileExists(atPath: target.path) else { continue }
+            let attrs = try? FileManager.default.attributesOfItem(atPath: target.path)
+            if attrs?[.type] as? FileAttributeType == .typeRegular || attrs?[.type] as? FileAttributeType == .typeSymbolicLink {
+                try FileManager.default.removeItem(at: target)
             }
-
-            try FileManager.default.copyItem(at: source, to: target)
         }
     }
 
@@ -1653,7 +1637,20 @@ final class ForgeStore: ObservableObject {
         if configured.lastPathComponent.caseInsensitiveCompare("external") == .orderedSame {
             return configured.deletingLastPathComponent()
         }
+        if configured.lastPathComponent.caseInsensitiveCompare("lib") == .orderedSame {
+            return configured
+        }
         return configured
+    }
+
+    nonisolated static func gptkWinePath(gptkLibPath: String?) -> String? {
+        guard let base = gptkWineLibBase(gptkLibPath: gptkLibPath) else { return nil }
+        let candidates = [
+            base.appendingPathComponent("bin/wine64").path,
+            base.deletingLastPathComponent().appendingPathComponent("bin/wine64").path,
+            "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/bin/wine64"
+        ]
+        return candidates.first(where: { FileManager.default.fileExists(atPath: $0) })
     }
 
     nonisolated static func dedupePathParts(_ parts: [String]) -> [String] {

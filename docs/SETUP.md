@@ -1,8 +1,24 @@
 # Setup Guide
 
-Forge is now bottle-first: the normal Steam flow is **Windows Steam inside Wine**, not DepotDownloader/direct `.exe` launches. This fixes games that expect a real Steam session and avoids the fake `hostname.local`-style Steam persona that can appear when launching game files directly.
+Forge is currently a macOS 26 native SwiftUI app for running Windows launchers and `.exe` apps inside Wine bottles.
 
-## One-command setup on a new Apple Silicon Mac
+The normal workflow is:
+
+```text
+create/use bottle -> install Windows launcher/game -> launch from Forge or Steam inside the bottle
+```
+
+## Requirements
+
+- macOS 26 target SDK/runtime for the native app
+- Apple Silicon Mac with Rosetta 2
+- Xcode command line tools / Swift toolchain
+- Homebrew
+- Wine runtime configured in `runtime_profiles.json` or `config.json`
+- Optional: Game Porting Toolkit for D3DMetal
+- Optional: MoltenVK/DXVK/VKD3D for Vulkan backends
+
+## One-command setup
 
 From the project root:
 
@@ -10,15 +26,7 @@ From the project root:
 ./scripts/setup-macos.sh
 ```
 
-The script installs/checks:
-
-- Rosetta 2
-- Game Porting Toolkit Wine (`/opt/homebrew/bin/wine64`)
-- DepotDownloader as an optional advanced/fallback tool
-- Rust/Cargo via rustup
-- Node dependencies
-
-It then runs `npm run check` and `cargo check`.
+The setup script checks common dependencies and prepares local config where possible.
 
 ## Manual setup
 
@@ -32,99 +40,106 @@ softwareupdate --install-rosetta --agree-to-license
 
 Install Homebrew from <https://brew.sh> if needed.
 
-### 3. Game Porting Toolkit Wine
+### 3. Swift / Xcode tools
 
 ```sh
-brew tap gcenx/wine
-brew install --cask gcenx/wine/game-porting-toolkit
+xcode-select --install
 ```
 
-This provides:
-
-- `/opt/homebrew/bin/wine64`
-- `/opt/homebrew/bin/wineserver`
-
-### 4. Rust
-
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-. "$HOME/.cargo/env"
-```
-
-### 5. Node dependencies
+### 4. Node dependencies for scripts
 
 ```sh
 npm install
 ```
 
-## Run Forge
+### 5. Wine / GPTK / MoltenVK
 
-```sh
-npm run tauri dev
-```
-
-## First-use Steam flow
-
-1. Select or create a bottle in the sidebar.
-2. Click **Install Steam**.
-3. Sign into the Windows Steam client that opens inside Wine.
-4. Install your Windows games from that Steam client.
-5. Launch games from Steam, or use Forge's app list once Steam/game executables are detected.
-
-For Steam games, prefer Steam-owned launching:
+Forge can use runtime profiles. Common paths are:
 
 ```text
-steam.exe -applaunch <appid>
+Forge Wine: ~/Wine/Runtimes/forge-wine-11-full/bin/wine
+GPTK wine64: /Applications/Game Porting Toolkit.app/Contents/Resources/wine/bin/wine64
+GPTK libs: /Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external
+MoltenVK ICD: /opt/homebrew/opt/molten-vk/etc/vulkan/icd.d/MoltenVK_icd.json
 ```
 
-Direct `.exe` launching remains available as an escape hatch, but it is not the recommended Steam path.
+## Run Forge
 
-## Optional: DepotDownloader
-
-DepotDownloader is still useful for advanced depot downloads or file repair, but it is no longer the main user workflow.
+Use the native app:
 
 ```sh
-brew tap steamre/tools
-brew install --cask steamre/tools/depotdownloader
-xattr -dr com.apple.quarantine /opt/homebrew/bin/depotdownloader 2>/dev/null || true
+npm run native:dev
 ```
 
-## Runtime settings
+This builds `dist/Forge.app` and opens it as a normal macOS app.
 
-Forge auto-detects these on first run when possible:
+Raw Swift run, without the `.app` wrapper:
 
-| Setting | Typical value |
+```sh
+npm run native:run-raw
+```
+
+Release build:
+
+```sh
+npm run native:build
+```
+
+## First-use flow
+
+1. Open Forge.
+2. Use the default bottle or configure bottles in Application Support.
+3. Drag a Windows `.exe` onto Forge or click **Select EXE**.
+4. For Steam games, install Windows Steam inside the bottle, then press **Refresh** so Forge can detect installed Steam games.
+5. Choose a graphics backend in the sidebar.
+6. Toggle Metal HUD if desired.
+7. Click **Play**. The button changes to **Stop** while a session is active.
+
+## Graphics backend guidance
+
+| Backend | Use for |
 |---|---|
-| Wine binary | `/opt/homebrew/bin/wine64` |
-| GPTK library | `/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external` or detected GPTK lib dir |
-| Default bottle | `~/Wine/Bottles/default` |
+| DXVK/VKD3D | Default Vulkan path through MoltenVK |
+| DXVK | D3D9/10/11 games |
+| VKD3D | D3D12 games |
+| D3DMetal | GPTK compatibility path |
+| WineD3D | Last-resort compatibility fallback only |
 
-If Wine is not detected, open **Settings** and set the Wine binary manually.
+Avoid OpenGL/WineD3D for performance unless a game only runs there.
+
+## Logs
+
+Launch logs are written to:
+
+```text
+~/Library/Application Support/com.forgelauncher.app/Logs/
+```
+
+Use the newest `swiftui-launch-*.log` when diagnosing crashes.
 
 ## Troubleshooting
 
-### Wine command is missing
+### Forge does not appear in Cmd-Tab
+
+Run through the `.app` wrapper:
 
 ```sh
-brew reinstall --cask gcenx/wine/game-porting-toolkit
+npm run native:dev
 ```
 
-### DepotDownloader is killed immediately
+### Steam or a game is stuck
 
-Remove Gatekeeper quarantine:
+Use the in-app **Stop** button or kill the bottle session manually:
 
 ```sh
-xattr -dr com.apple.quarantine /opt/homebrew/Caskroom/depotdownloader /opt/homebrew/bin/depotdownloader
+WINEPREFIX="$HOME/Wine/Bottles/default" \
+  "$HOME/Wine/Runtimes/forge-wine-11-full/bin/wineserver" -k
 ```
 
-### Cargo command is missing in a new terminal
+### Metal HUD does not appear
 
-```sh
-. "$HOME/.cargo/env"
-```
+The toggle applies to the next launch. The HUD only appears for Metal-backed rendering paths; it may not appear for launcher UI windows or non-Metal fallback paths.
 
-Add that line to `~/.zshrc` if it is not already there.
+### PEAK compatibility note
 
-### Steam installer opens but Steam does not finish installing
-
-Use **Repair Steam**, or run the installer again from Forge. If the bottle is badly broken, create a fresh bottle and install Steam there.
+PEAK is currently being tested. DXVK/MoltenVK, GPTK/D3DMetal, and WineD3D paths have each shown different failure modes on this machine. Check the latest launch log before assuming the UI failed to launch it.

@@ -1,107 +1,84 @@
 # Steam Integration
 
-## How game detection works
+Forge uses Windows Steam inside a Wine bottle for games that expect a real Steam session.
 
-Forge Launcher scans Steam's ACF (AppCache Format) manifest files, which are
-plain-text key-value files Steam writes for every installed game.
+## Current model
 
-```
-~/Library/Application Support/Steam/steamapps/
-  appmanifest_220.acf        ← Half-Life 2
-  appmanifest_1245620.acf    ← Elden Ring
-  libraryfolders.vdf         ← additional library paths
-  common/
-    Elden Ring/
-      Game/
-        eldenring.exe        ← detected exe
+```text
+Forge bottle
+  -> Windows Steam
+    -> installed Windows games
 ```
 
-The Rust `steam.rs` module:
+Steam owns authentication, updates, DRM, Steam Cloud, and Steamworks APIs. Forge scans the bottle and exposes launchable entries in the native SwiftUI app.
 
-1. Reads `libraryfolders.vdf` to find any additional Steam library roots
-   (external drives, etc.)
-2. Iterates every `appmanifest_*.acf` file in each root
-3. Parses `appid`, `name`, `installdir`, `oslist`, `SizeOnDisk`
-4. **Skips** any game whose `oslist` includes `"macos"` (has a native Mac build)
-5. Runs a heuristic to find the primary `.exe` in the `common/<installdir>/`
-   directory
-6. Returns a sorted `Vec<SteamGame>` to the frontend
+## Detection
+
+ForgeNative scans:
+
+```text
+<WINEPREFIX>/drive_c/Program Files (x86)/Steam/steamapps/
+  appmanifest_<appid>.acf
+  common/<install dir>/
+```
+
+For each manifest it reads:
+
+- `appid`
+- `name`
+- `installdir`
+
+It then finds a likely primary `.exe` and hides helper files such as:
+
+- `steamwebhelper.exe`
+- `UnityCrashHandler*.exe`
+- crash reporters
+- uninstallers
+- launcher-managed child EXEs where only the launcher should show
 
 ## Launch modes
 
-### Mode 1: Steam Protocol (recommended)
+### 1. Launch Steam
 
-```
-open -a Steam steam://rungameid/1245620
-```
+Steam itself is launched with a safe backend because its Chromium UI can break under full game rendering settings.
 
-- Steam handles authentication, updates, DRM, and the overlay
-- The Steam client must be running
-- Forge Launcher cannot track this process directly (Steam owns it)
-- **Use this for most games**, especially those with online components
+Forge passes `-no-cef-sandbox` and `-cef-disable-sandbox` to Steam.
 
-### Mode 2: Direct GPTK/Wine launch
+### 2. Launch detected Steam game directly
 
-```
-arch -x86_64 wine64 /path/to/game.exe -steam -steamid 1245620
+Forge can show installed Steam games as app rows. Direct launches set:
+
+```text
+SteamAppId=<appid>
+SteamGameId=<appid>
 ```
 
-- Bypasses the Steam client entirely
-- Forge Launcher tracks the process (shows running badge, can kill it)
-- Works offline
-- Steam overlay will not be available
-- **Use when**: Steam overlay crashes the game, running offline, or needing
-  fine-grained Wine environment control
+This can work for offline/simpler Steamworks games, but some titles still require Steam's full process/session to be running.
 
-## Import workflow
+### 3. Launch from inside Steam
 
-1. Click **"+ Steam"** in the sidebar
-2. Click **"Re-scan"** if your library is not showing
-3. Select games you want to add to Forge Launcher's library
-4. Click **"Import N Games"**
+For games with strict Steamworks/DRM behavior, open Windows Steam in the bottle and launch the game from Steam itself.
 
-Each imported game is added as a `GameSource::Steam` entry with:
-- `translation_backend: d3dmetal` (default; change per-game in settings)
-- `esync: true`
-- `wine_prefix: null` → falls back to the global default prefix
+## Steam safe mode split
 
-## Per-game Wine prefix for Steam games
+Steam UI safe mode should not become the game backend. Forge uses `FORGE_GAME_*` variables so a patched Forge Wine runtime can restore the intended game backend for child game processes.
 
-Many Steam games use DRM that writes to the Windows registry inside the Wine
-prefix. It's generally safest to give Steam games their own dedicated prefix:
+## Compatibility limits
 
-```sh
-WINEPREFIX=~/Wine/Bottles/steam \
-  arch -x86_64 /usr/local/bin/wine64 wineboot --init
-```
+Likely not supported:
 
-Then set `wine_prefix` to `~/Wine/Bottles/steam` when importing Steam games.
+- kernel-level anti-cheat
+- Windows drivers/services
+- games requiring EAC/BattlEye/Ricochet/Vanguard in kernel mode
 
-## Steam Runtime / Proton note
+Examples that usually fail on Wine/macOS:
 
-Forge Launcher does **not** use Steam's Proton or the Steam Linux Runtime.
-It uses Apple's GPTK wine64 binary directly. For best results:
+- Valorant
+- Fortnite
+- Call of Duty / Warzone
+- Destiny 2
+- many modern competitive shooters with kernel anti-cheat
 
-- GPTK works best with **DirectX 12** titles
-- DX9/DX10/DX11 games may work better with the `dxvk` backend
-- Anti-cheat (EasyAntiCheat, BattlEye) **will not work** via Wine on macOS
+## PEAK note
 
-## ACF field reference
-
-| Field | Example | Used for |
-|---|---|---|
-| `appid` | `1245620` | Unique game identifier |
-| `name` | `"ELDEN RING"` | Display name |
-| `installdir` | `"ELDEN RING"` | Subfolder under `common/` |
-| `oslist` | `"windows"` | Filter: skip if includes "macos" |
-| `SizeOnDisk` | `44000000000` | Displayed in import UI |
-| `StateFlags` | `4` | `4` = fully installed |
-
-## Known limitations
-
-- Games installed via **Family Sharing** may have incomplete manifests
-- **Workshop content** directories are not scanned for exes
-- Some games have their `.exe` in a subdirectory — the heuristic may pick the
-  wrong one. You can correct it manually in the game detail panel.
-- Games that require **Visual C++ Redistributables** or **DirectX** must have
-  those installed inside the Wine prefix first. See SETUP.md for details.
+PEAK is currently a test case. It is detected from Steam manifests and can be launched directly, but current logs show backend-specific failures on this machine. Keep testing DXVK/VKD3D, D3DMetal/GPTK, and Steam-owned launch behavior from logs rather than assuming one universal fix.

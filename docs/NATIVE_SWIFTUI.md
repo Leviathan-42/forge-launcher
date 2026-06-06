@@ -1,26 +1,54 @@
-# Native SwiftUI UI
+# Native SwiftUI App
 
-Forge can keep the existing Tauri/Svelte UI while a native macOS SwiftUI shell is developed in parallel.
+Forge's active frontend is the macOS 26 SwiftUI app in:
 
-Current prototype:
+```text
+macos/ForgeNative
+```
 
-- Path: `macos/ForgeNative`
-- Reads existing Forge app data from `~/Library/Application Support/com.forgelauncher.app/`
-- Uses Forge-owned Wine bottles only
-- Shows one bottle and user-visible EXEs
-- Gives each app a `Play` button
-- Applies the same Steam-safe launch split: Steam UI uses builtin/safe mode; games keep the bottle/profile backend
+The previous Svelte/Tauri UI is legacy/reference code. New UI work should happen in SwiftUI unless the project explicitly reactivates Tauri.
 
-Run it:
+## Run
 
 ```sh
 npm run native:dev
 ```
 
-Build it:
+This builds and opens `dist/Forge.app`, giving Forge a Dock/Cmd-Tab identity and app icon.
+
+## Build
 
 ```sh
 npm run native:build
 ```
 
-This prototype uses Forge-owned/free runtime paths. Keep launcher configuration independent of any paid app runtime or bottle.
+## Current UI features
+
+- native SwiftUI glass-style layout
+- bottle status sidebar
+- graphics backend picker
+- Metal HUD toggle
+- drag/drop `.exe`
+- Finder **Select EXE**
+- installed app/Steam game list
+- Play/Stop buttons
+- Reveal bottle folder
+- Refresh/rescan
+
+## Design rules
+
+- Keep the UI clean and native, not web-like.
+- Avoid decorative controls that are not wired to actions.
+- Prefer system font/weights over overly rounded/heavy text.
+- Use glass/material subtly; no colorful fake gradient background.
+- All game/launcher actions should flow through `ForgeStore`.
+
+## Implementation note
+
+Most native code currently lives in one file:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift
+```
+
+This includes UI views, config models, scanning, backend resolution, and launch/stop behavior. It can be split later once compatibility work stabilizes.

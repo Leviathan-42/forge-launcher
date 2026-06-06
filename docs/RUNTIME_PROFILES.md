@@ -1,69 +1,83 @@
 # Runtime Profiles
 
-Forge supports per-bottle runtime profiles so newer Wine runners can be tested without changing existing GPTK bottles.
+Forge uses runtime profiles to separate Wine runner paths from bottle settings.
 
 ## Model
 
 ```text
 RuntimeProfile
-  -> Wine runner paths
-  -> graphics resource paths
+  -> Wine / wineserver paths
+  -> optional GPTK lib path
+  -> optional DXVK/VKD3D/MoltenVK paths
   -> default graphics backend
-  -> profile env
+  -> environment overrides
 
-Bottle
+BottleEntry
+  -> prefix path
   -> runtime_profile_id
   -> optional graphics_backend override
-  -> optional env_overrides
-
-Launch
-  -> resolved LaunchOptions generated at launch time
+  -> environment overrides
 ```
-
-Resolved launch options are not persisted.
-
-## Default profiles
-
-- `gptk-d3dmetal` — current GPTK Wine + D3DMetal compatibility path.
-- `wine-vulkan` — intended for Wine 10/11+ with DXVK/VKD3D-Proton/MoltenVK.
-
-If no Wine 10/11 runner is detected, `wine-vulkan` points at the expected Forge/Wine path and launch will fail with a clear missing-wine error until configured.
 
 ## Backends
 
-```ts
-type GraphicsBackend =
-  | "d3dmetal"
-  | "dxvk"
-  | "vkd3d"
-  | "dxvk_vkd3d"
-  | "wine_builtin"
-  | "none";
+```swift
+enum GraphicsBackend {
+  case d3dMetal
+  case dxvk
+  case vkd3d
+  case dxvkVkd3d
+  case wineBuiltin
+  case none
+}
 ```
 
-Backend handling currently resolves env/DLL overrides only. It does not install DXVK, VKD3D-Proton, or MoltenVK into prefixes yet.
+## Recommended defaults
 
-## Env merge order
+- General default: `dxvk_vkd3d`
+- D3D11-only games: `dxvk`
+- D3D12-only games: `vkd3d` or `d3dmetal`
+- GPTK-specific testing: `d3dmetal`
+- Last resort only: `wine_builtin`
+
+## MoltenVK
+
+DXVK/VKD3D paths require a MoltenVK ICD. Common Homebrew path:
 
 ```text
-global AppConfig env
-runtime profile env
-bottle env_overrides
-app/game env_overrides
+/opt/homebrew/opt/molten-vk/etc/vulkan/icd.d/MoltenVK_icd.json
 ```
 
-Later entries override earlier entries.
-
-## Prefix safety
-
-Forge prevents changing an existing GPTK/D3DMetal bottle to another runtime unless `force=true` is passed to the backend command. Prefer creating a cloned/test bottle for Wine 10/11 experiments.
-
-For PEAK:
+Forge attempts to configure both:
 
 ```text
-Bottle: PEAK Test
-Profile: wine-vulkan
-Backend: dxvk_vkd3d
+VK_ICD_FILENAMES
+VK_DRIVER_FILES
 ```
 
-Existing GPTK/D3DMetal bottles should stay unchanged.
+## D3DMetal
+
+D3DMetal uses GPTK resources, commonly:
+
+```text
+/Applications/Game Porting Toolkit.app/Contents/Resources/wine/bin/wine64
+/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external
+/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/wine/x86_64-windows
+```
+
+Forge may use GPTK's `wine64` for D3DMetal launches so GPTK's builtin DLL/unix library pairing is consistent.
+
+## Merge order
+
+```text
+AppConfig.env
+  -> RuntimeProfile.env
+  -> BottleEntry.envOverrides
+  -> backend-specific launch cleanup
+```
+
+Direct game launches clear Steam-only DXVK filters so Steam safe mode does not leak into games.
+
+## Compatibility notes
+
+Per-game overrides may be necessary. PEAK is currently forced toward D3DMetal testing because DXVK/MoltenVK hit adapter/crash issues and OpenGL fallback is undesirable.
