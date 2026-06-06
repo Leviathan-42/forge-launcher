@@ -1236,7 +1236,7 @@ final class ForgeStore: ObservableObject {
 
         let isSteam = forceSteamMode || URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
         let gameBackend = bottle.graphicsBackend ?? profile.defaultBackend
-        let launchBackend: GraphicsBackend = gameBackend
+        let launchBackend: GraphicsBackend = isSteam ? .wineBuiltin : gameBackend
 
         let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
         var env = ProcessInfo.processInfo.environment
@@ -1292,6 +1292,9 @@ final class ForgeStore: ObservableObject {
         for (key, value) in bottle.envOverrides { env[key] = value }
 
         if isSteam {
+            if gameBackend == .dxvk || gameBackend == .vkd3d || gameBackend == .dxvkVkd3d {
+                configureMoltenVK(profile: profile, config: config, env: &env)
+            }
             let gameVkIcd = env["VK_ICD_FILENAMES"] ?? ""
             let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(gptkLibPath: gptkLibPath, existing: env["DYLD_LIBRARY_PATH"] ?? "") : ""
             var gameWineDllPath = ""
