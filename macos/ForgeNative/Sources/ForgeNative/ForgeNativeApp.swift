@@ -1406,7 +1406,7 @@ final class ForgeStore: ObservableObject {
                 }
             }
             try removeStagedD3DMetalDlls(exePath: exePath)
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b"
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b"
         case .dxvk:
             env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
             env["DXVK_ASYNC"] = "1"
@@ -1434,6 +1434,16 @@ final class ForgeStore: ObservableObject {
             env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
         }
 
+        if launchBackend == .d3dMetal {
+            // D3DMetal must not inherit Vulkan/DXVK profile settings. If VK_ICD or
+            // DXVK variables survive here, Wine can load DXVK instead of GPTK's
+            // builtin D3DMetal DLLs and Unity games crash before rendering.
+            env.removeValue(forKey: "VK_ICD_FILENAMES")
+            env.removeValue(forKey: "VK_DRIVER_FILES")
+            env.removeValue(forKey: "DXVK_ASYNC")
+            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+        }
+
         if isSteam {
             if gameBackend == .dxvk || gameBackend == .vkd3d || gameBackend == .dxvkVkd3d {
                 configureMoltenVK(profile: profile, config: config, env: &env)
@@ -1450,7 +1460,7 @@ final class ForgeStore: ObservableObject {
             let gameDllOverrides: String
             switch gameBackend {
             case .d3dMetal:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b"
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b"
             case .dxvk:
                 gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
             case .vkd3d:
