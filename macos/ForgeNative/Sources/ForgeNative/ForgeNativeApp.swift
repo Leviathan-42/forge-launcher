@@ -198,7 +198,9 @@ struct ContentView: View {
             DropExeCard(
                 isTargeted: isDropTarget,
                 isDisabled: store.isLaunching,
-                selectAction: { store.selectExe() }
+                isRunning: store.runningAppPath != nil,
+                selectAction: { store.selectExe() },
+                stopAction: { store.stopRunningApp() }
             )
             .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTarget) { providers in
                 handleExeDrop(providers)
@@ -272,10 +274,15 @@ struct ContentView: View {
                                 app: app,
                                 backendText: backendText(for: bottle),
                                 hudText: store.config.globalHud ? "Metal HUD" : "Off",
-                                isLaunching: store.isLaunching
-                            ) {
-                                store.launch(app)
-                            }
+                                isLaunching: store.isLaunching,
+                                isRunning: store.runningAppPath == app.path,
+                                launch: {
+                                    store.launch(app)
+                                },
+                                stop: {
+                                    store.stopRunningApp()
+                                }
+                            )
                         }
                     }
                     .padding(.bottom, 4)
@@ -411,7 +418,9 @@ struct StatusLine: View {
 struct DropExeCard: View {
     let isTargeted: Bool
     let isDisabled: Bool
+    let isRunning: Bool
     let selectAction: () -> Void
+    let stopAction: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -436,9 +445,9 @@ struct DropExeCard: View {
 
             Spacer(minLength: 0)
 
-            Button("Select EXE", action: selectAction)
-                .buttonStyle(ForgeButtonStyle(tint: .white.opacity(0.15)))
-                .disabled(isDisabled)
+            Button(isRunning ? "Stop" : "Select EXE", action: isRunning ? stopAction : selectAction)
+                .buttonStyle(ForgeButtonStyle(tint: isRunning ? .red.opacity(0.26) : .white.opacity(0.15)))
+                .disabled(isDisabled && !isRunning)
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 145, alignment: .leading)
@@ -618,7 +627,9 @@ struct LiquidAppRow: View {
     let backendText: String
     let hudText: String
     let isLaunching: Bool
+    let isRunning: Bool
     let launch: () -> Void
+    let stop: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -662,9 +673,12 @@ struct LiquidAppRow: View {
                 .foregroundStyle(hudText == "Off" ? Color.white.opacity(0.38) : Color.white.opacity(0.70))
                 .frame(width: 112, alignment: .leading)
 
-            Button("Play", action: launch)
-                .buttonStyle(ForgeButtonStyle(tint: .white.opacity(0.18), foreground: .white.opacity(0.94)))
-                .disabled(isLaunching)
+            Button(isRunning ? "Stop" : "Play", action: isRunning ? stop : launch)
+                .buttonStyle(ForgeButtonStyle(
+                    tint: isRunning ? .red.opacity(0.26) : .white.opacity(0.18),
+                    foreground: .white.opacity(0.94)
+                ))
+                .disabled(isLaunching && !isRunning)
                 .frame(width: 86, alignment: .trailing)
         }
         .padding(.horizontal, 18)
@@ -821,6 +835,7 @@ final class ForgeStore: ObservableObject {
     @Published var steamPath: String?
     @Published var prefixExists = false
     @Published var isLaunching = false
+    @Published var runningAppPath: String?
     @Published var alertMessage: String?
 
     var statusText: String {
@@ -915,10 +930,30 @@ final class ForgeStore: ObservableObject {
                 )
                 await MainActor.run {
                     self.isLaunching = false
+                    self.runningAppPath = app.path
                 }
             } catch {
                 await MainActor.run {
                     self.isLaunching = false
+                    self.alertMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    func stopRunningApp() {
+        guard let bottle else { return }
+        let profile = profile(for: bottle)
+        let config = config
+        Task.detached(priority: .userInitiated) {
+            do {
+                try Self.stopWineSession(bottle: bottle, config: config, profile: profile)
+                await MainActor.run {
+                    self.runningAppPath = nil
+                    self.isLaunching = false
+                }
+            } catch {
+                await MainActor.run {
                     self.alertMessage = error.localizedDescription
                 }
             }
@@ -1299,7 +1334,7 @@ final class ForgeStore: ObservableObject {
             env["VK_ICD_FILENAMES"] = "/dev/null"
             env["VK_DRIVER_FILES"] = "/dev/null"
             env["DXVK_FILTER_DEVICE_NAME"] = "__forge_disable_dxvk_for_steam__"
-            env["MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
+            env["MTL_HUD_ENABLED"] = "0"
         }
 
         let process = Process()
@@ -1332,6 +1367,29 @@ final class ForgeStore: ObservableObject {
         process.standardOutput = log
         process.standardError = log
         try process.run()
+    }
+
+    nonisolated static func stopWineSession(bottle: BottleEntry, config: AppConfig, profile: RuntimeProfile) throws {
+        let winePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
+        let wineserverPath = profile.wineserverPath?.isEmpty == false
+            ? profile.wineserverPath!
+            : URL(fileURLWithPath: winePath).deletingLastPathComponent().appendingPathComponent("wineserver").path
+        guard FileManager.default.fileExists(atPath: wineserverPath) else {
+            throw ForgeError.message("wineserver not found next to Wine at \(wineserverPath)")
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: wineserverPath)
+        process.arguments = ["-k"]
+        process.environment = ProcessInfo.processInfo.environment.merging([
+            "WINEPREFIX": bottle.prefixPath,
+            "WINEDEBUG": "fixme-all"
+        ]) { _, new in new }
+        let log = try launchLogHandle()
+        process.standardOutput = log
+        process.standardError = log
+        try process.run()
+        process.waitUntilExit()
     }
 
     nonisolated static func ensurePrefix(prefixPath: String, winePath: String) throws {
