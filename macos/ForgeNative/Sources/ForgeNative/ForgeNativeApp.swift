@@ -1366,6 +1366,7 @@ final class ForgeStore: ObservableObject {
             env.removeValue(forKey: "DYLD_LIBRARY_PATH")
         }
         env["WINEDEBUG"] = config.suppressWineDebug ? "fixme-all" : ""
+        env["WINEDBG"] = "-all"
         env["GST_DEBUG"] = "1"
         env["MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
         env["WINE_MOUSE_WARP"] = "1"
@@ -1411,6 +1412,13 @@ final class ForgeStore: ObservableObject {
         for (key, value) in config.env { env[key] = value }
         for (key, value) in profile.env { env[key] = value }
         for (key, value) in bottle.envOverrides { env[key] = value }
+
+        if !isSteam {
+            // Steam safe mode intentionally sets this to an impossible value to keep
+            // DXVK out of Steam's Chromium helpers. Direct game launches must always
+            // clear it or DXVK reports "No adapters found" and Unity games crash.
+            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+        }
 
         if isSteam {
             if gameBackend == .dxvk || gameBackend == .vkd3d || gameBackend == .dxvkVkd3d {
@@ -1483,6 +1491,7 @@ final class ForgeStore: ObservableObject {
         VK_ICD_FILENAMES=\(env["VK_ICD_FILENAMES"] ?? "")
         DYLD_LIBRARY_PATH=\(env["DYLD_LIBRARY_PATH"] ?? "")
         MTL_HUD_ENABLED=\(env["MTL_HUD_ENABLED"] ?? "")
+        DXVK_FILTER_DEVICE_NAME=\(env["DXVK_FILTER_DEVICE_NAME"] ?? "")
         SteamAppId=\(env["SteamAppId"] ?? "")
 
         """
