@@ -912,7 +912,8 @@ final class ForgeStore: ObservableObject {
                     profile: await MainActor.run { self.profile(for: bottle) },
                     extraArgs: [],
                     forceSteamMode: false,
-                    steamAppId: nil
+                    steamAppId: nil,
+                    backendOverride: nil
                 )
                 await MainActor.run {
                     self.isLaunching = false
@@ -953,7 +954,18 @@ final class ForgeStore: ObservableObject {
 
     func launchArgs(for app: BottleAppItem) -> [String] {
         guard app.steamAppId != nil else { return [] }
+        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame {
+            return ["-force-d3d11", "-screen-fullscreen", "1"]
+        }
         return ["-screen-fullscreen", "1"]
+    }
+
+    nonisolated static func backendOverride(for app: BottleAppItem) -> GraphicsBackend? {
+        // DXVK currently rejects MoltenVK for PEAK on this setup with
+        // "No adapters found", then Unity crashes in dxgi. D3DMetal is the
+        // better compatibility path for this Unity title.
+        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame { return .d3dMetal }
+        return nil
     }
 
     func launch(_ app: BottleAppItem) {
@@ -968,7 +980,8 @@ final class ForgeStore: ObservableObject {
                     profile: await MainActor.run { self.profile(for: bottle) },
                     extraArgs: await MainActor.run { self.launchArgs(for: app) },
                     forceSteamMode: app.isSteamClient,
-                    steamAppId: app.steamAppId
+                    steamAppId: app.steamAppId,
+                    backendOverride: Self.backendOverride(for: app)
                 )
                 await MainActor.run {
                     self.isLaunching = false
@@ -1342,7 +1355,8 @@ final class ForgeStore: ObservableObject {
         profile: RuntimeProfile,
         extraArgs: [String],
         forceSteamMode: Bool,
-        steamAppId: String?
+        steamAppId: String?,
+        backendOverride: GraphicsBackend?
     ) async throws {
         let winePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
         guard FileManager.default.fileExists(atPath: winePath) else {
@@ -1352,7 +1366,7 @@ final class ForgeStore: ObservableObject {
         try ensurePrefix(prefixPath: bottle.prefixPath, winePath: winePath)
 
         let isSteam = forceSteamMode || URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
-        let gameBackend = bottle.graphicsBackend ?? profile.defaultBackend
+        let gameBackend = backendOverride ?? bottle.graphicsBackend ?? profile.defaultBackend
         let launchBackend: GraphicsBackend = isSteam ? .wineBuiltin : gameBackend
 
         let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
