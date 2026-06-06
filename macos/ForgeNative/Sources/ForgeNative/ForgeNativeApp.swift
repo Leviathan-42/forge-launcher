@@ -1406,7 +1406,7 @@ final class ForgeStore: ObservableObject {
                     }
                 }
             }
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b"
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b,n;user32=n,b"
         case .dxvk:
             env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
             env["DXVK_ASYNC"] = "1"
@@ -1450,7 +1450,7 @@ final class ForgeStore: ObservableObject {
             let gameDllOverrides: String
             switch gameBackend {
             case .d3dMetal:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b"
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b,n;user32=n,b"
             case .dxvk:
                 gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,user32=n,b"
             case .vkd3d:
@@ -1505,6 +1505,7 @@ final class ForgeStore: ObservableObject {
         VK_ICD_FILENAMES=\(env["VK_ICD_FILENAMES"] ?? "")
         DYLD_LIBRARY_PATH=\(env["DYLD_LIBRARY_PATH"] ?? "")
         MTL_HUD_ENABLED=\(env["MTL_HUD_ENABLED"] ?? "")
+        WINEDLLPATH=\(env["WINEDLLPATH"] ?? "")
         DXVK_FILTER_DEVICE_NAME=\(env["DXVK_FILTER_DEVICE_NAME"] ?? "")
         SteamAppId=\(env["SteamAppId"] ?? "")
 
