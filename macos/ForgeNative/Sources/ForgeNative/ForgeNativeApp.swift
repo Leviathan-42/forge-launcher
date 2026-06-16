@@ -1802,15 +1802,16 @@ final class ForgeStore: ObservableObject {
             }
             let gameVkIcd = env["VK_ICD_FILENAMES"] ?? ""
             let gameVkDriverFiles = env["VK_DRIVER_FILES"] ?? gameVkIcd
-            let gameWineD3DConfig = env["WINE_D3D_CONFIG"] ?? ""
-            let gameLibGLAlwaysSoftware = env["LIBGL_ALWAYS_SOFTWARE"] ?? ""
+            let preserveWineD3DEnv = gameBackend == .wineBuiltin || gameBackend == .none
+            let gameWineD3DConfig = preserveWineD3DEnv ? (env["WINE_D3D_CONFIG"] ?? "") : ""
+            let gameLibGLAlwaysSoftware = preserveWineD3DEnv ? (env["LIBGL_ALWAYS_SOFTWARE"] ?? "") : ""
             let gameMetalHudEnabled = config.globalHud ? "1" : "0"
             let gameMetalHudLayer = config.globalHud ? "1" : "0"
             let gameDXVKAsync = (gameBackend == .dxvk || gameBackend == .dxvkVkd3d) ? (env["DXVK_ASYNC"] ?? "1") : ""
             let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(
                 gptkLibPath: gptkLibPath,
                 existing: dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
-            ) : ""
+            ) : (env["DYLD_LIBRARY_PATH"] ?? "")
             var gameWineDllPath = ""
             if gameBackend == .d3dMetal, let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {
                 gameWineDllPath = [
@@ -1898,6 +1899,7 @@ final class ForgeStore: ObservableObject {
         FORGE_D3DMETAL_RUNTIME=\(env["FORGE_D3DMETAL_RUNTIME"] ?? "")
         D3DMETAL_FRAMEWORK_PATH=\(env["D3DMETAL_FRAMEWORK_PATH"] ?? "")
         SteamAppId=\(env["SteamAppId"] ?? "")
+        FORGE_STACK_GUARANTEE_BYTES=\(env["FORGE_STACK_GUARANTEE_BYTES"] ?? "")
         FORGE_STEAM_SAFE_MODE=\(env["FORGE_STEAM_SAFE_MODE"] ?? "")
         FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP=\(env["FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP"] ?? "")
         FORGE_GAME_WINEDLLOVERRIDES=\(env["FORGE_GAME_WINEDLLOVERRIDES"] ?? "")
