@@ -118,12 +118,13 @@ if [[ "$MODE" == "steam-dxvk" ]]; then
     FORGE_GAME_VK_DRIVER_FILES="/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
     FORGE_GAME_DXVK_ASYNC=1
     FORGE_GAME_DYLD_LIBRARY_PATH="$RUNTIME/lib:/opt/homebrew/lib"
-    WINEDLLOVERRIDES="*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
-    WINE_D3D_CONFIG="renderer=gl"
-    LIBGL_ALWAYS_SOFTWARE=1
-    VK_ICD_FILENAMES="/dev/null"
-    VK_DRIVER_FILES="/dev/null"
-    DXVK_FILTER_DEVICE_NAME="__forge_disable_dxvk_for_steam__"
+    # Do not put D3D/Vulkan-disabling overrides in the Unix environment here:
+    # Steam-launched games inherit that Unix env before Wine's Windows env block
+    # exists. Steam UI safety is handled with Wine AppDefaults/CEF flags.
+    WINEDLLOVERRIDES="user32=n,b;mscoree,mshtml="
+    VK_ICD_FILENAMES="/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+    VK_DRIVER_FILES="/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+    DXVK_ASYNC=1
     MOLTENVK_CONFIG_LOG_LEVEL=0
   )
 else

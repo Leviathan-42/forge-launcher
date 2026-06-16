@@ -1856,12 +1856,12 @@ final class ForgeStore: ObservableObject {
             env["FORGE_GAME_WINEDLLPATH"] = gameWineDllPath
             env["MOLTENVK_CONFIG_LOG_LEVEL"] = env["MOLTENVK_CONFIG_LOG_LEVEL"] ?? "0"
 
-            env["WINEDLLOVERRIDES"] = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
-            env["WINE_D3D_CONFIG"] = "renderer=gl"
-            env["LIBGL_ALWAYS_SOFTWARE"] = "1"
-            env["VK_ICD_FILENAMES"] = "/dev/null"
-            env["VK_DRIVER_FILES"] = "/dev/null"
-            env["DXVK_FILTER_DEVICE_NAME"] = "__forge_disable_dxvk_for_steam__"
+            // Do not put D3D/Vulkan-disabling overrides in the Unix environment:
+            // Steam-launched games inherit that Unix env before Wine's Windows env
+            // block exists. Steam UI safety is handled by CEF flags and Wine
+            // AppDefaults; the process env stays compatible with the child game.
+            env["WINEDLLOVERRIDES"] = "user32=n,b;mscoree,mshtml="
+            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
             env["MTL_HUD_ENABLED"] = "0"
             env["MTL_HUD_LAYER"] = "0"
         }

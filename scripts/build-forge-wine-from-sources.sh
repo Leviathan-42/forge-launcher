@@ -107,10 +107,19 @@ static BOOL forge_env_flag_enabled( const WCHAR *name )
     return len && len < ARRAY_SIZE( value ) && value[0] == '1';
 }
 
+static BOOL forge_has_steam_game_env(void)
+{
+    return GetEnvironmentVariableW( L"FORGE_GAME_WINEDLLOVERRIDES", NULL, 0 ) ||
+           GetEnvironmentVariableW( L"FORGE_GAME_WINE_D3D_CONFIG", NULL, 0 ) ||
+           GetEnvironmentVariableW( L"FORGE_GAME_VK_ICD_FILENAMES", NULL, 0 ) ||
+           GetEnvironmentVariableW( L"FORGE_GAME_DYLD_LIBRARY_PATH", NULL, 0 );
+}
+
 static BOOL forge_is_steam_ui_process( const WCHAR *app_name, const WCHAR *cmdline )
 {
     if (containsiW( app_name, L"steam.exe" ) || containsiW( cmdline, L"steam.exe" )) return TRUE;
     if (containsiW( app_name, L"steamwebhelper.exe" ) || containsiW( cmdline, L"steamwebhelper.exe" )) return TRUE;
+    if (containsiW( app_name, L"steamservice.exe" ) || containsiW( cmdline, L"steamservice.exe" )) return TRUE;
     if (containsiW( app_name, L"steamerrorreporter.exe" ) || containsiW( cmdline, L"steamerrorreporter.exe" )) return TRUE;
     if (containsiW( app_name, L"crashhandler" ) || containsiW( cmdline, L"crashhandler" )) return TRUE;
     if (containsiW( app_name, L"gldriverquery.exe" ) || containsiW( cmdline, L"gldriverquery.exe" )) return TRUE;
@@ -323,14 +332,14 @@ insert = '''    {
             HeapFree( GetProcessHeap(), 0, old_cmdline );
     }
 
-    if (forge_env_flag_enabled( L"FORGE_STEAM_SAFE_MODE" ) &&
+    if ((forge_env_flag_enabled( L"FORGE_STEAM_SAFE_MODE" ) || forge_has_steam_game_env()) &&
         !forge_is_steam_ui_process( app_name, tidy_cmdline ))
     {
         if ((forge_game_env = forge_make_steam_game_env( env, flags )))
         {
             env = forge_game_env;
             flags |= CREATE_UNICODE_ENVIRONMENT;
-            FIXME( "HACK: restoring Forge game graphics env for Steam child process %s\\n", debugstr_w(app_name) );
+            WARN( "HACK: restoring Forge game graphics env for Steam child process %s\\n", debugstr_w(app_name) );
         }
     }
 
