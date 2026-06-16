@@ -380,6 +380,27 @@ Current system32/syswow64 may contain staged DXMT files from testing. WineD3D ba
 
 ## Current caveats / next tasks
 
+### Overwatch current investigation
+
+Steam appid `2357570` currently starts `Overwatch.exe` but no window appears. Use bounded tests only:
+
+```sh
+scripts/overwatch-test-once.sh dxvk 30
+npm run kill
+```
+
+Findings so far:
+
+- CrossOver app profile for Overwatch uses `win7_64` and dependencies Core Fonts + VC++ 2005/2008 x64; those DLLs/fonts are present in the Forge bottle.
+- CrossOver/Wine sources have an Overwatch-specific `KernelCallbackTable`/`user32.dll` patch in `include/ntuser.h`; Forge runtime callback-table entries were verified to point inside `user32.dll`.
+- DXVK app-local staging works (`dxgi.dll`/`d3d11.dll` native load from game directory).
+- D3DMetal, WineD3D Vulkan/GL, win7/win10 app defaults, no-sync, and thread-count/windowed args have not opened a window.
+- Consistent original failure: `Overwatch_loader.dll` triggers `EXCEPTION_STACK_OVERFLOW`/`virtual_setup_exception stack overflow` before rendering.
+- Experimental ntdll emergency-stack patches got past the immediate abort but caused a CPU spin in `__wine_syscall_dispatcher`/loader lock, so they were reverted and the runtime ntdll was restored from backup.
+- Do not copy/use CrossOver proprietary `cxcompatdb.so`/compatdb as product direction. A reference test with it failed signature checks and did not fix the loader.
+
+Next useful work: inspect the `Overwatch_loader.dll` exception/VEH path and Wine's `KiUserExceptionDispatcher`/stack-overflow dispatch semantics rather than swapping graphics backends.
+
 1. **Steam auth handoff for Among Us**
    - Direct WineD3D/Vulkan launch works but has no Steam auth.
    - Need to verify launching via `steam.exe -applaunch 945360` correctly applies the Among Us WineD3D/Vulkan child-game env.
