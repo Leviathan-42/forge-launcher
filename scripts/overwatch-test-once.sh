@@ -93,23 +93,50 @@ else
   ARGS=(-tank_WorkerThreadCount 2)
 fi
 
+ENV_VARS=(
+  WINEPREFIX="$PREFIX"
+  WINEDEBUG="$WINEDEBUG_VALUE"
+  WINEDBG="-all"
+  WINEESYNC=1
+  WINEMSYNC=1
+  FORGE_STACK_GUARANTEE_BYTES="$FORGE_STACK_GUARANTEE_BYTES"
+  SteamAppId=2357570
+  SteamGameId=2357570
+  DYLD_LIBRARY_PATH="$RUNTIME/lib:/opt/homebrew/lib"
+  DYLD_FALLBACK_LIBRARY_PATH="$RUNTIME/lib:/opt/homebrew/lib:/usr/local/lib"
+)
+
+if [[ "$MODE" == "steam-dxvk" ]]; then
+  # Keep Steam's Chromium UI on a safe builtin path, and let the patched
+  # kernelbase hand the intended DXVK env back to non-Steam child game EXEs.
+  ENV_VARS+=(
+    FORGE_STEAM_SAFE_MODE=1
+    FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP=steamwebhelper.exe
+    FORGE_GAME_WINEDLLOVERRIDES="$DLL_OVERRIDES"
+    FORGE_GAME_WINE_D3D_CONFIG="$WINE_D3D"
+    FORGE_GAME_VK_ICD_FILENAMES="/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+    FORGE_GAME_VK_DRIVER_FILES="/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+    FORGE_GAME_DXVK_ASYNC=1
+    FORGE_GAME_DYLD_LIBRARY_PATH="$RUNTIME/lib:/opt/homebrew/lib"
+    WINEDLLOVERRIDES="*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
+    WINE_D3D_CONFIG="renderer=gl"
+    LIBGL_ALWAYS_SOFTWARE=1
+    VK_ICD_FILENAMES="/dev/null"
+    VK_DRIVER_FILES="/dev/null"
+    DXVK_FILTER_DEVICE_NAME="__forge_disable_dxvk_for_steam__"
+    MOLTENVK_CONFIG_LOG_LEVEL=0
+  )
+else
+  ENV_VARS+=(
+    WINEDLLOVERRIDES="$DLL_OVERRIDES"
+    WINE_D3D_CONFIG="$WINE_D3D"
+    VK_ICD_FILENAMES="/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+    VK_DRIVER_FILES="/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+  )
+fi
+
 (
-  env \
-    WINEPREFIX="$PREFIX" \
-    WINEDEBUG="$WINEDEBUG_VALUE" \
-    WINEDBG="-all" \
-    WINEESYNC=1 \
-    WINEMSYNC=1 \
-    FORGE_STACK_GUARANTEE_BYTES="$FORGE_STACK_GUARANTEE_BYTES" \
-    SteamAppId=2357570 \
-    SteamGameId=2357570 \
-    DYLD_LIBRARY_PATH="$RUNTIME/lib:/opt/homebrew/lib" \
-    DYLD_FALLBACK_LIBRARY_PATH="$RUNTIME/lib:/opt/homebrew/lib:/usr/local/lib" \
-    WINEDLLOVERRIDES="$DLL_OVERRIDES" \
-    WINE_D3D_CONFIG="$WINE_D3D" \
-    VK_ICD_FILENAMES="/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json" \
-    VK_DRIVER_FILES="/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json" \
-    "$RUNTIME/bin/wine" "$EXE" "${ARGS[@]}"
+  env "${ENV_VARS[@]}" "$RUNTIME/bin/wine" "$EXE" "${ARGS[@]}"
 ) >"$LOG" 2>&1 &
 
 sleep "$SECONDS_TO_RUN"
