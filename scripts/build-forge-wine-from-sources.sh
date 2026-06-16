@@ -573,9 +573,159 @@ if "virtual_handle_stack_overflow_retry" not in text:
         if (!virtual_handle_fault( &rec, (void *)RSP_sig(ucontext) ) || check_invalid_gsbase( ucontext ))'''
     if old not in text:
         raise SystemExit("Could not locate page-fault virtual_handle_fault call in signal_x86_64.c")
-    signal_c.write_text(text.replace(old, new, 1))
+    text = text.replace(old, new, 1)
+
+
+signal_c.write_text(text)
 
 print("Applied Forge low-stack retry Wine patch")
+PY
+}
+
+apply_forge_win32u_desktop_bootstrap_patch() {
+  local class_c="$WINE_SRC/dlls/win32u/class.c"
+  local winstation_c="$WINE_SRC/dlls/win32u/winstation.c"
+  python3 - "$class_c" "$winstation_c" <<'PY'
+import pathlib, re, sys
+
+class_c = pathlib.Path(sys.argv[1])
+winstation_c = pathlib.Path(sys.argv[2])
+
+class_helper = '''static BOOL forge_wstr_contains_ascii( const WCHAR *haystack, const char *needle )
+{
+    SIZE_T len, i;
+
+    if (!haystack || !needle || !*needle) return FALSE;
+    len = strlen( needle );
+    for (; *haystack; haystack++)
+    {
+        for (i = 0; i < len && haystack[i]; i++)
+        {
+            WCHAR ch = haystack[i];
+            char c = needle[i];
+            if (ch >= 'A' && ch <= 'Z') ch += 'a' - 'A';
+            if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+            if (ch != (unsigned char)c) break;
+        }
+        if (i == len) return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL forge_skip_desktop_window_bootstrap(void)
+{
+    const char *mode = getenv( "FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP" );
+    UNICODE_STRING *image;
+
+    if (!mode || !*mode) return FALSE;
+    if (!strcmp( mode, "all" )) return TRUE;
+    image = &NtCurrentTeb()->Peb->ProcessParameters->ImagePathName;
+    return forge_wstr_contains_ascii( image->Buffer, mode );
+}
+
+'''
+
+text = class_c.read_text()
+if "forge_skip_desktop_window_bootstrap" in text:
+    text = re.sub(
+        r'SYSTEM_BASIC_INFORMATION system_info;\n\n(?:static BOOL forge_wstr_contains_ascii\(.*?\n\n)?static BOOL forge_skip_desktop_window_bootstrap\(void\)\n\{.*?\}\n\n#define MAX_ATOM_LEN',
+        'SYSTEM_BASIC_INFORMATION system_info;\n\n' + class_helper + '#define MAX_ATOM_LEN',
+        text,
+        count=1,
+        flags=re.S,
+    )
+else:
+    marker = 'SYSTEM_BASIC_INFORMATION system_info;\n\n#define MAX_ATOM_LEN'
+    if marker not in text:
+        raise SystemExit('Could not locate class.c helper insertion point')
+    text = text.replace(marker, 'SYSTEM_BASIC_INFORMATION system_info;\n\n' + class_helper + '#define MAX_ATOM_LEN', 1)
+
+text = text.replace(
+    '    if (!is_builtin) get_desktop_window();',
+    '    if (!is_builtin && !forge_skip_desktop_window_bootstrap()) get_desktop_window();',
+    1,
+)
+text = text.replace(
+    '    if (!is_desktop_class( name ) && !is_message_class( name )) get_desktop_window();',
+    '    if (!forge_skip_desktop_window_bootstrap() &&\n        !is_desktop_class( name ) && !is_message_class( name )) get_desktop_window();',
+    1,
+)
+class_c.write_text(text)
+
+winstation_helper = '''static BOOL forge_wstr_contains_ascii( const WCHAR *str, const char *needle )
+{
+    SIZE_T len, i;
+
+    if (!str || !needle || !*needle) return FALSE;
+    len = strlen( needle );
+    for (; *str; str++)
+    {
+        for (i = 0; i < len && str[i]; i++)
+        {
+            WCHAR ch = str[i];
+            char c = needle[i];
+            if (ch >= 'A' && ch <= 'Z') ch += 'a' - 'A';
+            if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+            if (ch != (unsigned char)c) break;
+        }
+        if (i == len) return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL forge_skip_desktop_window_bootstrap(void)
+{
+    const char *mode = getenv( "FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP" );
+    UNICODE_STRING *image;
+
+    if (!mode || !*mode) return FALSE;
+    if (!strcmp( mode, "all" )) return TRUE;
+    image = &NtCurrentTeb()->Peb->ProcessParameters->ImagePathName;
+    return forge_wstr_contains_ascii( image->Buffer, mode );
+}
+
+'''
+
+text = winstation_c.read_text()
+if "forge_skip_desktop_window_bootstrap" in text:
+    text = re.sub(
+        r'\nstatic BOOL forge_wstr_contains_ascii\(.*?\n\nHWND get_desktop_window\(void\)',
+        '\n' + winstation_helper + 'HWND get_desktop_window(void)',
+        text,
+        count=1,
+        flags=re.S,
+    )
+    text = re.sub(
+        r'\nstatic BOOL forge_skip_desktop_window_bootstrap\(void\)\n\{.*?\}\n\nHWND get_desktop_window\(void\)',
+        '\n' + winstation_helper + 'HWND get_desktop_window(void)',
+        text,
+        count=1,
+        flags=re.S,
+    )
+else:
+    marker = '\nHWND get_desktop_window(void)'
+    if marker not in text:
+        raise SystemExit('Could not locate winstation.c helper insertion point')
+    text = text.replace(marker, '\n' + winstation_helper + 'HWND get_desktop_window(void)', 1)
+
+text = text.replace(
+    '        req->force = is_service;',
+    '        req->force = is_service || forge_skip_desktop_window_bootstrap();',
+    1,
+)
+text = text.replace(
+    '    else user_driver->pSetDesktopWindow( UlongToHandle( thread_info->top_window ));',
+    '    else if (!forge_skip_desktop_window_bootstrap())\n        user_driver->pSetDesktopWindow( UlongToHandle( thread_info->top_window ));',
+    1,
+)
+text = text.replace(
+    '    register_builtin_classes();\n    return UlongToHandle( thread_info->top_window );',
+    '    if (!forge_skip_desktop_window_bootstrap()) register_builtin_classes();\n    return UlongToHandle( thread_info->top_window );',
+    1,
+)
+winstation_c.write_text(text)
+
+print('Applied Forge win32u desktop-bootstrap skip patch')
 PY
 }
 
@@ -583,6 +733,7 @@ apply_forge_steam_patch
 apply_forge_steam_game_env_patch
 apply_forge_user_branding_patches
 apply_forge_overwatch_stack_patch
+apply_forge_win32u_desktop_bootstrap_patch
 
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"

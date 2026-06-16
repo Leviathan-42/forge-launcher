@@ -37,6 +37,13 @@ if [[ ! -f "$STEAM_EXE" ]]; then
   exit 1
 fi
 
+WINE_ROOT="$(cd "$(dirname "$WINE")/.." && pwd)"
+WINE_RUNTIME_LIB="$WINE_ROOT/lib"
+if [[ -d "$WINE_RUNTIME_LIB" ]]; then
+  export DYLD_LIBRARY_PATH="$WINE_RUNTIME_LIB${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+  export DYLD_FALLBACK_LIBRARY_PATH="$WINE_RUNTIME_LIB:/opt/homebrew/lib:/usr/local/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
+fi
+
 WINE_VERSION="$($WINE --version 2>/dev/null || true)"
 
 # Start clean enough for a useful test. This targets this prefix and also
@@ -70,6 +77,7 @@ This test applies Forge's current Steam-specific workaround:
 - Steam CEF mode: \`$STEAM_CEF_MODE\`
 - Wined3D renderer: \`$WINE_D3D_RENDERER\`
 - Extra args: \`${EXTRA_STEAM_ARGS:-}\`
+- Runtime lib path: \`$WINE_RUNTIME_LIB\`
 
 EOF
 
@@ -79,6 +87,7 @@ export GST_DEBUG="1"
 export WINEMSYNC="1"
 export WINEESYNC="1"
 export MOLTENVK_CONFIG_LOG_LEVEL="0"
+export FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP="${FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP:-steamwebhelper.exe}"
 
 case "$STEAM_GRAPHICS_MODE" in
   builtin)

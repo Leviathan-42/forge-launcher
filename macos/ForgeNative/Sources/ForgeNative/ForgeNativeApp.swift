@@ -1792,6 +1792,10 @@ final class ForgeStore: ObservableObject {
             env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
         }
 
+        // This win32u workaround is only for Steam's Chromium helper. Do not let
+        // a shell/profile value leak into direct game launches.
+        env.removeValue(forKey: "FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP")
+
         if isSteam && steamSafeMode {
             if gameBackend == .dxvk || gameBackend == .vkd3d || gameBackend == .dxvkVkd3d {
                 configureMoltenVK(profile: profile, config: config, env: &env)
@@ -1838,6 +1842,7 @@ final class ForgeStore: ObservableObject {
             // from Steam must not inherit these variables. Forge Wine detects this
             // marker and restores the FORGE_GAME_* values for non-Steam child EXEs.
             env["FORGE_STEAM_SAFE_MODE"] = "1"
+            env["FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP"] = "steamwebhelper.exe"
             env["FORGE_GAME_WINEDLLOVERRIDES"] = gameDllOverrides
             env["FORGE_GAME_WINE_D3D_CONFIG"] = gameWineD3DConfig
             env["FORGE_GAME_LIBGL_ALWAYS_SOFTWARE"] = gameLibGLAlwaysSoftware
@@ -1894,6 +1899,7 @@ final class ForgeStore: ObservableObject {
         D3DMETAL_FRAMEWORK_PATH=\(env["D3DMETAL_FRAMEWORK_PATH"] ?? "")
         SteamAppId=\(env["SteamAppId"] ?? "")
         FORGE_STEAM_SAFE_MODE=\(env["FORGE_STEAM_SAFE_MODE"] ?? "")
+        FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP=\(env["FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP"] ?? "")
         FORGE_GAME_WINEDLLOVERRIDES=\(env["FORGE_GAME_WINEDLLOVERRIDES"] ?? "")
         FORGE_GAME_WINE_D3D_CONFIG=\(env["FORGE_GAME_WINE_D3D_CONFIG"] ?? "")
         FORGE_GAME_LIBGL_ALWAYS_SOFTWARE=\(env["FORGE_GAME_LIBGL_ALWAYS_SOFTWARE"] ?? "")
