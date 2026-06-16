@@ -69,6 +69,8 @@ but many games still fail because `SteamAPI_Init()` cannot connect to a valid St
 
 Steam UI safe mode should not become the game backend. Forge uses `FORGE_GAME_*` variables so a patched Forge Wine runtime can restore the intended game backend for child game processes.
 
+Per-game non-graphics diagnostics such as `FORGE_STACK_GUARANTEE_BYTES` may also be set from the game compatibility profile. Keep these narrowly scoped and documented; they are not a replacement for a real Steam session or a finished compatibility fix.
+
 ## Compatibility limits
 
 Likely not supported:

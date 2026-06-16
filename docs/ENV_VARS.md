@@ -15,7 +15,8 @@ ForgeNative builds the Wine environment at launch time from global config, runti
 | `WINEDLLPATH` | Additional Wine builtin DLL search path |
 | `DYLD_LIBRARY_PATH` | Native macOS library path for GPTK/D3DMetal |
 | `VK_ICD_FILENAMES` / `VK_DRIVER_FILES` | Vulkan ICD path for MoltenVK |
-| `MTL_HUD_ENABLED` | Apple Metal HUD toggle |
+| `MTL_HUD_ENABLED` / `MTL_HUD_LAYER` | Apple Metal HUD toggles |
+| `FORGE_STACK_GUARANTEE_BYTES` | Experimental Forge Wine stack-overflow handling reserve for protected loaders such as Overwatch |
 
 ## Backend behavior
 
@@ -75,12 +76,27 @@ Steam's Chromium UI can be fragile under DXVK/D3DMetal. Forge can launch Steam i
 |---|---|
 | `FORGE_STEAM_SAFE_MODE=1` | Marks Steam UI safe mode |
 | `FORGE_GAME_WINEDLLOVERRIDES` | Backend DLL overrides for child game EXEs |
+| `FORGE_GAME_WINE_D3D_CONFIG` | Game WineD3D renderer config, e.g. `renderer=vulkan` |
+| `FORGE_GAME_LIBGL_ALWAYS_SOFTWARE` | Game GL software fallback flag when intentionally needed |
 | `FORGE_GAME_VK_ICD_FILENAMES` | Game MoltenVK ICD path |
+| `FORGE_GAME_VK_DRIVER_FILES` | Game Vulkan driver file path |
 | `FORGE_GAME_MTL_HUD_ENABLED` | Game Metal HUD setting |
+| `FORGE_GAME_MTL_HUD_LAYER` | Game Metal HUD layer toggle |
+| `FORGE_GAME_DXVK_ASYNC` | Game DXVK async toggle when DXVK is selected |
 | `FORGE_GAME_DYLD_LIBRARY_PATH` | Game D3DMetal native libs |
 | `FORGE_GAME_WINEDLLPATH` | Game Wine DLL path |
 
 The custom Forge Wine patch is expected to restore these for non-Steam child EXEs.
+
+## Experimental loader stack handling
+
+`FORGE_STACK_GUARANTEE_BYTES` enables a Forge Wine patch for loaders that run exception-handler code while the guest stack is already at the final stack page. Current Overwatch investigation uses:
+
+```sh
+FORGE_STACK_GUARANTEE_BYTES=262144
+```
+
+Current status: this avoids the original immediate `virtual_setup_exception stack overflow` abort and avoids the later 100% CPU loader-lock spin in direct tests, but Overwatch still exits before rendering. Keep it per-game/diagnostic until the remaining loader path is fixed.
 
 ## Steam App IDs
 
@@ -103,6 +119,7 @@ but this is not enough for many Steamworks games. If logs show `SteamAPI_Init() 
 
 ```sh
 MTL_HUD_ENABLED=1
+MTL_HUD_LAYER=1
 ```
 
 The HUD applies on the next launch and only appears for Metal-backed rendering. It may not appear for Steam's UI, WineD3D/OpenGL, or games that fail before creating a Metal device.
@@ -111,9 +128,11 @@ The HUD applies on the next launch and only appears for Metal-backed rendering. 
 
 ```text
 process environment
+  -> backend default env
   -> AppConfig.env
   -> RuntimeProfile.env
   -> BottleEntry.envOverrides
+  -> GameCompatibilityProfile.env
   -> backend-specific safety cleanup
 ```
 

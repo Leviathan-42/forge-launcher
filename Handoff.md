@@ -33,8 +33,17 @@ Latest build status:
 
 ```text
 npm run native:build
-Build complete
+Build complete! (0.11s)
 ```
+
+Also verified:
+
+```text
+bash -n scripts/build-forge-wine-from-sources.sh
+bash -n scripts/overwatch-test-once.sh
+```
+
+Current uncommitted work includes Overwatch stack-handling investigation patches, Steam child env handoff additions, bounded test helper updates, and docs updates.
 
 Latest pushed commits:
 
@@ -44,7 +53,7 @@ c05213a Document Overwatch investigation state
 bc5d3cd Improve Forge launch profiles and diagnostics
 ```
 
-Current git status at handoff: clean.
+Current git status at continuation: dirty with Overwatch stack-retry/runtime docs changes. Run `git status --short` before committing.
 
 ## Current working model
 
@@ -126,6 +135,8 @@ Implemented/changed:
   - Vulkan/OpenGL -> None/WineD3D only if the game supports it
   - Fallback -> WineD3D
 - Steam/game launch logs include `FORGE_GAME_*` handoff vars and Metal HUD vars.
+- Steam child handoff was expanded to include `FORGE_GAME_WINE_D3D_CONFIG`, `FORGE_GAME_LIBGL_ALWAYS_SOFTWARE`, `FORGE_GAME_VK_DRIVER_FILES`, `FORGE_GAME_MTL_HUD_LAYER`, and `FORGE_GAME_DXVK_ASYNC` so WineD3D/Vulkan and HUD settings survive Steam safe-mode child launches.
+- WineD3D/Vulkan game overrides now clear `LIBGL_ALWAYS_SOFTWARE` after profile/env merge so Among Us-style `renderer=vulkan` launches do not inherit the Steam UI GL software fallback.
 - Game launch uses direct `wine exe.exe` instead of `wine start /unix exe.exe`; this was changed to preserve env propagation.
 - DXVK/DXVK-VKD3D backends stage app-local DXVK DLLs into Steam game directories when needed, via `ensureDXVKInstalled(...)`.
 - Removed the user-visible `Forge optimized` badge after user disliked it.
@@ -133,6 +144,7 @@ Implemented/changed:
 - Added robust cleanup:
   - `npm run kill` / `scripts/forge-kill.sh` now kills Windows path-shaped Wine children like `C:\windows\system32\conhost.exe`.
   - `scripts/overwatch-test-once.sh` runs bounded Overwatch tests and cleans before/after to avoid hundreds of Wine processes.
+  - `scripts/overwatch-test-once.sh` now sets `FORGE_STACK_GUARANTEE_BYTES=262144` by default for Overwatch diagnostics and includes `+virtual` logging.
 
 ## Saved compatibility profiles currently set
 
@@ -439,9 +451,19 @@ Findings so far:
 - CrossOver/Wine sources have an Overwatch-specific `KernelCallbackTable`/`user32.dll` patch in `include/ntuser.h`; Forge runtime callback-table entries were verified to point inside `user32.dll`.
 - DXVK app-local staging works (`dxgi.dll`/`d3d11.dll` native load from game directory).
 - D3DMetal, WineD3D Vulkan/GL, win7/win10 app defaults, no-sync, and thread-count/windowed args have not opened a window.
-- Consistent original failure: `Overwatch_loader.dll` triggers `EXCEPTION_STACK_OVERFLOW`/`virtual_setup_exception stack overflow` before rendering.
-- Experimental ntdll emergency-stack patches got past the immediate abort but caused a CPU spin in `__wine_syscall_dispatcher`/loader lock, so they were reverted and the runtime ntdll was restored from backup.
-- One sample during the emergency-stack experiment showed Overwatch at ~100% CPU, stuck under `__wine_syscall_dispatcher`/`segv_handler`/loader-related code; no window appeared.
+- Original failure: `Overwatch_loader.dll` triggered `EXCEPTION_STACK_OVERFLOW`/`virtual_setup_exception stack overflow` before rendering.
+- Simple `FORGE_STACK_GUARANTEE_BYTES` guarantee-only patch was read by `ntdll.so` but did **not** change the original abort.
+- Broad emergency-stack dispatch got past the abort but reproduced the bad ~100% CPU spin in `__wine_syscall_dispatcher`/loader lock.
+- Current narrower patch copies the low-stack handler call frame to the guaranteed stack band and retries the same write fault from `segv_handler`, gated by `FORGE_STACK_GUARANTEE_BYTES=262144`.
+- With the stack-frame-copy retry, direct Overwatch no longer hangs/spins; it exits after ~3 seconds with code 255 after reaching `EnumProcessModulesEx` / `QueryFullProcessImageNameW`. This is progress, **not working yet**.
+- Latest bounded DXVK rerun (`manual-overwatch-dxvk-bounded-20260616T160758Z.log`) still shows exactly one Forge low-stack retry and no `virtual_setup_exception` abort.
+- New blocker detail from `manual-overwatch-dxvk-bounded-20260616T160949Z.log`: after the retry/handled stack-overflow dispatch, Wine hits `handle_syscall_fault code=c0000005 addr=0xbad4007 ip=bad4007` while returning to `win32u.dll` at `0x6ffffdb82104` (RVA `0x12104`, the `NtUserCallNoParam` syscall stub return, syscall id `0x133c` in the stub). The loader then runs crash-report/introspection (`EnumProcessModulesEx` / `QueryFullProcessImageNameW`) and exits. This points at a win32u/user32 syscall/exception path during loader recovery, not DXVK/window creation.
+- `scripts/overwatch-test-once.sh` now accepts `WINEDEBUG=...` from the caller, e.g. `WINEDEBUG='fixme-all,+seh,+loaddll,+virtual,+syscall' scripts/overwatch-test-once.sh dxvk 12`, and highlights `handle_syscall_fault` / `NtUserCallNoParam` lines.
+- Steam `-applaunch 2357570` with the patch did launch Overwatch according to Steam `gameprocess_log.txt`, but it exited ~3 seconds later before rendering:
+  ```text
+  [2026-06-16 11:52:48] AppID 2357570 adding PID 1212 as a tracked process "...Overwatch.exe" -tank_WorkerThreadCount 2
+  [2026-06-16 11:52:51] AppID 2357570 no longer tracking PID 1212, exit code -506396673 (0xe1d0ffff)
+  ```
 - Do not copy/use CrossOver proprietary `cxcompatdb.so`/compatdb as product direction. A reference test with it failed signature checks and did not fix the loader.
 - CrossOver's Overwatch app profile in `crossover.tie` is for `win7_64`; that is a compatibility lie/profile, not a recommendation that Windows 7 is modern. Testing both win7 and win10 did not fix the current loader issue.
 
@@ -450,14 +472,26 @@ Useful Overwatch logs/samples from latest work:
 ```text
 ~/Library/Application Support/com.forgelauncher.app/Logs/manual-overwatch-emergency-nodebug-20260616T151604Z.log
 ~/Library/Application Support/com.forgelauncher.app/Logs/overwatch-sample-64047.txt
+~/Library/Application Support/com.forgelauncher.app/Logs/manual-overwatch-dxvk-bounded-20260616T155548Z.log
+~/Library/Application Support/com.forgelauncher.app/Logs/manual-overwatch-dxvk-stackretry-wait-20260616T155218Z.log
+~/Library/Application Support/com.forgelauncher.app/Logs/manual-overwatch-steam-dxvk-bounded-20260616T155234Z.log
+~/Library/Application Support/com.forgelauncher.app/Logs/manual-overwatch-dxvk-bounded-20260616T160758Z.log
+~/Library/Application Support/com.forgelauncher.app/Logs/manual-overwatch-dxvk-bounded-20260616T160949Z.log
 ```
 
-Next useful work: inspect the `Overwatch_loader.dll` exception/VEH path and Wine's `KiUserExceptionDispatcher`/stack-overflow dispatch semantics rather than swapping graphics backends.
+Active runtime `ntdll.so` was replaced during testing with the cleaned env-gated stack-frame-copy retry build. Backup before replacing:
+
+```text
+~/Library/Application Support/com.forgelauncher.app/Backups/ntdll-stack-guarantee-20260616T153803Z/ntdll.so
+```
+
+Next useful work: continue inspecting the `Overwatch_loader.dll` exception/VEH path after the stack-frame-copy retry. The next blocker appears after the loader crash-report/introspection path (`EnumProcessModulesEx` / `QueryFullProcessImageNameW`) and returns Steam exit code `0xe1d0ffff`, not in DXVK/graphics. Avoid more backend swapping unless the loader path reaches DXVK/window creation.
 
 1. **Steam auth handoff for Among Us**
    - Direct WineD3D/Vulkan launch works but has no Steam auth.
    - Need to verify launching via `steam.exe -applaunch 945360` correctly applies the Among Us WineD3D/Vulkan child-game env.
-   - If Steam child env propagation fails, fix Forge's `FORGE_GAME_*` application in the runtime/wrapper.
+   - Important: active runtime `kernelbase.dll` currently has the older Steam child-env patch only. Binary-string check found `FORGE_GAME_WINEDLLOVERRIDES` but not `FORGE_GAME_WINE_D3D_CONFIG`, `FORGE_GAME_LIBGL_ALWAYS_SOFTWARE`, `FORGE_GAME_VK_DRIVER_FILES`, `FORGE_GAME_MTL_HUD_LAYER`, or `FORGE_GAME_DXVK_ASYNC`. The repo build script now upgrades old source patches instead of skipping them, and the local Wine `dlls/kernelbase/process.c` source was upgraded in-place, but the active WoW64 runtime still needs rebuilt/replaced `kernelbase.dll` (x86 and x64) before Among Us Steam auth handoff can succeed.
+   - If Steam child env propagation still fails after rebuilding, fix Forge's `FORGE_GAME_*` application in the runtime/wrapper.
 
 2. **Metal HUD**
    - User reported no Metal HUD across games.

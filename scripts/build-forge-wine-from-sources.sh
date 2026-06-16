@@ -78,7 +78,14 @@ apply_forge_steam_game_env_patch() {
 import pathlib, sys
 path = pathlib.Path(sys.argv[1])
 text = path.read_text()
-if "forge_make_steam_game_env" in text:
+latest_game_env_vars = [
+    "FORGE_GAME_WINE_D3D_CONFIG",
+    "FORGE_GAME_LIBGL_ALWAYS_SOFTWARE",
+    "FORGE_GAME_VK_DRIVER_FILES",
+    "FORGE_GAME_MTL_HUD_LAYER",
+    "FORGE_GAME_DXVK_ASYNC",
+]
+if "forge_make_steam_game_env" in text and all(var in text for var in latest_game_env_vars):
     print("Forge Steam game-env Wine patch already present")
     raise SystemExit
 marker = '''    FIXME( "HACK: appending Steam webhelper CEF flags\\n" );
@@ -123,8 +130,13 @@ static BOOL forge_drop_steam_safe_env_entry( const WCHAR *entry )
 {
     return forge_env_entry_matches( entry, L"FORGE_STEAM_SAFE_MODE" ) ||
            forge_env_entry_matches( entry, L"FORGE_GAME_WINEDLLOVERRIDES" ) ||
+           forge_env_entry_matches( entry, L"FORGE_GAME_WINE_D3D_CONFIG" ) ||
+           forge_env_entry_matches( entry, L"FORGE_GAME_LIBGL_ALWAYS_SOFTWARE" ) ||
            forge_env_entry_matches( entry, L"FORGE_GAME_VK_ICD_FILENAMES" ) ||
+           forge_env_entry_matches( entry, L"FORGE_GAME_VK_DRIVER_FILES" ) ||
            forge_env_entry_matches( entry, L"FORGE_GAME_MTL_HUD_ENABLED" ) ||
+           forge_env_entry_matches( entry, L"FORGE_GAME_MTL_HUD_LAYER" ) ||
+           forge_env_entry_matches( entry, L"FORGE_GAME_DXVK_ASYNC" ) ||
            forge_env_entry_matches( entry, L"FORGE_GAME_DYLD_LIBRARY_PATH" ) ||
            forge_env_entry_matches( entry, L"FORGE_GAME_WINEDLLPATH" ) ||
            forge_env_entry_matches( entry, L"WINEDLLOVERRIDES" ) ||
@@ -135,6 +147,7 @@ static BOOL forge_drop_steam_safe_env_entry( const WCHAR *entry )
            forge_env_entry_matches( entry, L"DXVK_FILTER_DEVICE_NAME" ) ||
            forge_env_entry_matches( entry, L"DXVK_ASYNC" ) ||
            forge_env_entry_matches( entry, L"MTL_HUD_ENABLED" ) ||
+           forge_env_entry_matches( entry, L"MTL_HUD_LAYER" ) ||
            forge_env_entry_matches( entry, L"DYLD_LIBRARY_PATH" ) ||
            forge_env_entry_matches( entry, L"WINEDLLPATH" );
 }
@@ -178,12 +191,16 @@ static WCHAR *forge_append_env_pair( WCHAR *dst, const WCHAR *name, const WCHAR 
 
 static WCHAR *forge_make_steam_game_env( const void *env, DWORD flags )
 {
-    static const WCHAR oneW[] = L"1";
     const WCHAR *base = NULL, *p;
     WCHAR *owned_base = NULL, *ret = NULL, *dst;
     WCHAR *game_dlls = forge_dup_env_value( L"FORGE_GAME_WINEDLLOVERRIDES" );
+    WCHAR *game_wined3d = forge_dup_env_value( L"FORGE_GAME_WINE_D3D_CONFIG" );
+    WCHAR *game_libgl = forge_dup_env_value( L"FORGE_GAME_LIBGL_ALWAYS_SOFTWARE" );
     WCHAR *game_vk = forge_dup_env_value( L"FORGE_GAME_VK_ICD_FILENAMES" );
+    WCHAR *game_vk_driver = forge_dup_env_value( L"FORGE_GAME_VK_DRIVER_FILES" );
     WCHAR *game_hud = forge_dup_env_value( L"FORGE_GAME_MTL_HUD_ENABLED" );
+    WCHAR *game_hud_layer = forge_dup_env_value( L"FORGE_GAME_MTL_HUD_LAYER" );
+    WCHAR *game_dxvk_async = forge_dup_env_value( L"FORGE_GAME_DXVK_ASYNC" );
     WCHAR *game_dyld = forge_dup_env_value( L"FORGE_GAME_DYLD_LIBRARY_PATH" );
     WCHAR *game_winedllpath = forge_dup_env_value( L"FORGE_GAME_WINEDLLPATH" );
     BOOL free_env_strings = FALSE;
@@ -214,11 +231,15 @@ static WCHAR *forge_make_steam_game_env( const void *env, DWORD flags )
     for (p = base; *p; p += lstrlenW( p ) + 1)
         if (!forge_drop_steam_safe_env_entry( p )) total += lstrlenW( p ) + 1;
     total += forge_env_pair_len( L"WINEDLLOVERRIDES", game_dlls );
+    total += forge_env_pair_len( L"WINE_D3D_CONFIG", game_wined3d );
+    total += forge_env_pair_len( L"LIBGL_ALWAYS_SOFTWARE", game_libgl );
     total += forge_env_pair_len( L"VK_ICD_FILENAMES", game_vk );
+    total += forge_env_pair_len( L"VK_DRIVER_FILES", game_vk_driver );
     total += forge_env_pair_len( L"MTL_HUD_ENABLED", game_hud );
+    total += forge_env_pair_len( L"MTL_HUD_LAYER", game_hud_layer );
+    total += forge_env_pair_len( L"DXVK_ASYNC", game_dxvk_async );
     total += forge_env_pair_len( L"DYLD_LIBRARY_PATH", game_dyld );
     total += forge_env_pair_len( L"WINEDLLPATH", game_winedllpath );
-    total += forge_env_pair_len( L"DXVK_ASYNC", oneW );
 
     if (!(ret = HeapAlloc( GetProcessHeap(), 0, total * sizeof(WCHAR) ))) goto done;
 
@@ -232,11 +253,15 @@ static WCHAR *forge_make_steam_game_env( const void *env, DWORD flags )
         dst += len;
     }
     dst = forge_append_env_pair( dst, L"WINEDLLOVERRIDES", game_dlls );
+    dst = forge_append_env_pair( dst, L"WINE_D3D_CONFIG", game_wined3d );
+    dst = forge_append_env_pair( dst, L"LIBGL_ALWAYS_SOFTWARE", game_libgl );
     dst = forge_append_env_pair( dst, L"VK_ICD_FILENAMES", game_vk );
+    dst = forge_append_env_pair( dst, L"VK_DRIVER_FILES", game_vk_driver );
     dst = forge_append_env_pair( dst, L"MTL_HUD_ENABLED", game_hud );
+    dst = forge_append_env_pair( dst, L"MTL_HUD_LAYER", game_hud_layer );
+    dst = forge_append_env_pair( dst, L"DXVK_ASYNC", game_dxvk_async );
     dst = forge_append_env_pair( dst, L"DYLD_LIBRARY_PATH", game_dyld );
     dst = forge_append_env_pair( dst, L"WINEDLLPATH", game_winedllpath );
-    dst = forge_append_env_pair( dst, L"DXVK_ASYNC", oneW );
     *dst = 0;
 
  done:
@@ -246,8 +271,13 @@ static WCHAR *forge_make_steam_game_env( const void *env, DWORD flags )
         else HeapFree( GetProcessHeap(), 0, owned_base );
     }
     HeapFree( GetProcessHeap(), 0, game_dlls );
+    HeapFree( GetProcessHeap(), 0, game_wined3d );
+    HeapFree( GetProcessHeap(), 0, game_libgl );
     HeapFree( GetProcessHeap(), 0, game_vk );
+    HeapFree( GetProcessHeap(), 0, game_vk_driver );
     HeapFree( GetProcessHeap(), 0, game_hud );
+    HeapFree( GetProcessHeap(), 0, game_hud_layer );
+    HeapFree( GetProcessHeap(), 0, game_dxvk_async );
     HeapFree( GetProcessHeap(), 0, game_dyld );
     HeapFree( GetProcessHeap(), 0, game_winedllpath );
     return ret;
@@ -257,6 +287,22 @@ static WCHAR *forge_make_steam_game_env( const void *env, DWORD flags )
 /***********************************************************************
  *           create_process_params
  */'''
+if "forge_make_steam_game_env" in text:
+    create_marker = '''
+
+
+/***********************************************************************
+ *           create_process_params
+ */'''
+    helper_start = text.find("static BOOL forge_env_flag_enabled")
+    helper_end = text.find(create_marker, helper_start)
+    fresh_start = helpers.find("static BOOL forge_env_flag_enabled")
+    if helper_start < 0 or helper_end < 0 or fresh_start < 0:
+        raise SystemExit("Could not locate existing Forge Steam game-env helper block in process.c")
+    text = text[:helper_start] + helpers[fresh_start:] + text[helper_end + len(create_marker):]
+    path.write_text(text)
+    print("Upgraded Forge Steam game-env Wine patch")
+    raise SystemExit
 if marker not in text:
     raise SystemExit("Could not locate Steam helper block for game-env insertion in process.c")
 text = text.replace(marker, helpers, 1)
@@ -383,9 +429,160 @@ print("Applied Forge username/profile branding Wine patches")
 PY
 }
 
+apply_forge_overwatch_stack_patch() {
+  local virtual_c="$WINE_SRC/dlls/ntdll/unix/virtual.c"
+  local signal_c="$WINE_SRC/dlls/ntdll/unix/signal_x86_64.c"
+  local unix_private_h="$WINE_SRC/dlls/ntdll/unix/unix_private.h"
+  python3 - "$virtual_c" "$signal_c" "$unix_private_h" <<'PY'
+import pathlib, sys
+virtual_c = pathlib.Path(sys.argv[1])
+signal_c = pathlib.Path(sys.argv[2])
+unix_private_h = pathlib.Path(sys.argv[3])
+
+text = unix_private_h.read_text()
+if "virtual_handle_stack_overflow_retry" not in text:
+    old = 'extern NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack );\nextern unsigned int virtual_locked_server_call( void *req_ptr );'
+    new = 'extern NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack );\nextern BOOL virtual_handle_stack_overflow_retry( void *stack, void *addr, void **new_stack );\nextern unsigned int virtual_locked_server_call( void *req_ptr );'
+    if old not in text:
+        raise SystemExit("Could not locate virtual_handle_fault declaration in unix_private.h")
+    unix_private_h.write_text(text.replace(old, new, 1))
+
+text = virtual_c.read_text()
+if "forge_stack_guarantee_bytes" not in text:
+    marker = '''/***********************************************************************
+ *           is_inside_thread_stack
+ */
+static BOOL is_inside_thread_stack( void *ptr, struct thread_stack_info *stack )
+{'''
+    insert = '''static SIZE_T forge_stack_guarantee_bytes(void)
+{
+    const char *value = getenv( "FORGE_STACK_GUARANTEE_BYTES" );
+    char *end;
+    unsigned long long bytes;
+
+    if (!value || !*value) return 0;
+    bytes = strtoull( value, &end, 0 );
+    if (end == value) return 0;
+    if (bytes > 32 * 1024 * 1024) bytes = 32 * 1024 * 1024;
+    return (bytes + host_page_size - 1) & ~(host_page_size - 1);
+}
+
+/***********************************************************************
+ *           is_inside_thread_stack
+ */
+static BOOL is_inside_thread_stack( void *ptr, struct thread_stack_info *stack )
+{'''
+    if marker not in text:
+        raise SystemExit("Could not locate is_inside_thread_stack in virtual.c")
+    text = text.replace(marker, insert, 1)
+
+repls = [
+    ('''    stack->guaranteed = max( teb->GuaranteedStackBytes, min_guaranteed );
+    stack->is_wow = FALSE;''',
+     '''    stack->guaranteed = max( teb->GuaranteedStackBytes, min_guaranteed );
+    stack->guaranteed = max( stack->guaranteed, forge_stack_guarantee_bytes() );
+    stack->is_wow = FALSE;'''),
+    ('''    stack->guaranteed = max( wow_teb->GuaranteedStackBytes, min_guaranteed );
+    stack->is_wow = TRUE;''',
+     '''    stack->guaranteed = max( wow_teb->GuaranteedStackBytes, min_guaranteed );
+    stack->guaranteed = max( stack->guaranteed, forge_stack_guarantee_bytes() );
+    stack->is_wow = TRUE;''')
+]
+for old, new in repls:
+    if new not in text:
+        if old not in text:
+            raise SystemExit("Could not locate stack guarantee assignment in virtual.c")
+        text = text.replace(old, new, 1)
+
+if "virtual_handle_stack_overflow_retry" not in text:
+    marker = '''/***********************************************************************
+ *           virtual_handle_fault
+ */
+NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack )'''
+    insert = '''/***********************************************************************
+ *           virtual_handle_stack_overflow_retry
+ *
+ * Some protected game loaders intentionally run exception-handler code with
+ * the guest stack already at the final stack page. If the handler prolog then
+ * touches the uncommitted page, treating that write as a fresh Windows AV can
+ * deadlock or spin under the loader lock. When explicitly enabled, copy the
+ * small call frame to the guaranteed stack band, switch RSP there, and retry
+ * the original instruction instead of creating a nested exception.
+ */
+BOOL virtual_handle_stack_overflow_retry( void *stack_ptr, void *fault_addr, void **new_stack )
+{
+    char *stack = stack_ptr;
+    char *addr = ROUND_ADDR( fault_addr, host_page_mask );
+    struct thread_stack_info stack_info;
+    SIZE_T guarantee = forge_stack_guarantee_bytes();
+    char *base, *top, *dst;
+    SIZE_T copy_size = 0x100;
+
+    if (!guarantee || !is_inside_thread_stack( stack, &stack_info )) return FALSE;
+    if (addr < stack_info.start || addr >= stack_info.start + host_page_size) return FALSE;
+
+    base = stack_info.start;
+    top = stack_info.start + host_page_size + guarantee;
+    if (top > stack_info.end) top = stack_info.end;
+    if (top <= stack_info.start + host_page_size + copy_size) return FALSE;
+
+    mutex_lock( &virtual_mutex );  /* no need for signal masking inside signal handler */
+    set_page_vprot_bits( base, top - base, VPROT_COMMITTED, VPROT_GUARD );
+    mprotect_range( base, top - base, 0, 0 );
+    mutex_unlock( &virtual_mutex );
+
+    dst = (char *)((ULONG_PTR)(top - copy_size) & ~(ULONG_PTR)15);
+    memcpy( dst, stack, copy_size );
+    *new_stack = dst;
+    WARN( "Forge retrying low-stack write addr %p stack %p -> %p (%p-%p-%p)\\n",
+          fault_addr, stack, dst, stack_info.start, stack_info.limit, stack_info.end );
+    return TRUE;
+}
+
+
+/***********************************************************************
+ *           virtual_handle_fault
+ */
+NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack )'''
+    if marker not in text:
+        raise SystemExit("Could not locate virtual_handle_fault in virtual.c")
+    text = text.replace(marker, insert, 1)
+
+virtual_c.write_text(text)
+
+text = signal_c.read_text()
+if "virtual_handle_stack_overflow_retry" not in text:
+    old = '''        rec.NumberParameters = 2;
+        rec.ExceptionInformation[0] = (ERROR_sig(ucontext) >> 1) & 0x09;
+        rec.ExceptionInformation[1] = (ULONG_PTR)siginfo->si_addr;
+        if (!virtual_handle_fault( &rec, (void *)RSP_sig(ucontext) ) || check_invalid_gsbase( ucontext ))'''
+    new = '''        rec.NumberParameters = 2;
+        rec.ExceptionInformation[0] = (ERROR_sig(ucontext) >> 1) & 0x09;
+        rec.ExceptionInformation[1] = (ULONG_PTR)siginfo->si_addr;
+        if (rec.ExceptionInformation[0] == EXCEPTION_WRITE_FAULT)
+        {
+            void *new_stack;
+            if (virtual_handle_stack_overflow_retry( (void *)RSP_sig(ucontext),
+                                                     (void *)rec.ExceptionInformation[1], &new_stack ))
+            {
+                RSP_sig(ucontext) = (ULONG_PTR)new_stack;
+                leave_handler( ucontext );
+                return;
+            }
+        }
+        if (!virtual_handle_fault( &rec, (void *)RSP_sig(ucontext) ) || check_invalid_gsbase( ucontext ))'''
+    if old not in text:
+        raise SystemExit("Could not locate page-fault virtual_handle_fault call in signal_x86_64.c")
+    signal_c.write_text(text.replace(old, new, 1))
+
+print("Applied Forge low-stack retry Wine patch")
+PY
+}
+
 apply_forge_steam_patch
 apply_forge_steam_game_env_patch
 apply_forge_user_branding_patches
+apply_forge_overwatch_stack_patch
 
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"

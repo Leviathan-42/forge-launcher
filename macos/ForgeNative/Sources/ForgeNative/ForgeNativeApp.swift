@@ -1333,6 +1333,9 @@ final class ForgeStore: ObservableObject {
             } else if seed.id == "steam:2357570", profiles[seed.id]?.backendOverride == .d3dMetal {
                 // Overwatch fails D3DMetal initialization in the current runtime.
                 profiles[seed.id] = seed
+            } else if seed.id == "steam:2357570", profiles[seed.id]?.env["FORGE_STACK_GUARANTEE_BYTES"] == nil {
+                profiles[seed.id]?.env["FORGE_STACK_GUARANTEE_BYTES"] = seed.env["FORGE_STACK_GUARANTEE_BYTES"]
+                profiles[seed.id]?.notes = seed.notes
             }
         }
         return profiles
@@ -1373,8 +1376,8 @@ final class ForgeStore: ObservableObject {
                 displayName: "Overwatch 2",
                 backendOverride: .dxvkVkd3d,
                 launchArgs: [],
-                env: [:],
-                notes: "Steam build. Use DXVK/VKD3D; do not use D3DMetal for the current Forge runtime. Steam safe-mode backend handoff is bypassed for this title so the game sees DXVK directly."
+                env: ["FORGE_STACK_GUARANTEE_BYTES": "262144"],
+                notes: "Steam build. Use DXVK/VKD3D and reserve a larger stack-overflow handling guarantee for Blizzard's loader/VEH path; do not use D3DMetal for the current Forge runtime."
             ),
             GameCompatibilityProfile(
                 id: "name:peak",
@@ -1759,6 +1762,12 @@ final class ForgeStore: ObservableObject {
         for (key, value) in bottle.envOverrides { env[key] = value }
         for (key, value) in gameEnvOverrides { env[key] = value }
 
+        if (env["WINE_D3D_CONFIG"] ?? "").localizedCaseInsensitiveContains("renderer=vulkan") {
+            // WineD3D's Vulkan renderer must not inherit the GL software fallback
+            // used for Steam's Chromium UI / older WineD3D fallback launches.
+            env.removeValue(forKey: "LIBGL_ALWAYS_SOFTWARE")
+        }
+
         if !isSteam {
             // Steam safe mode intentionally sets this to an impossible value to keep
             // DXVK out of Steam's Chromium helpers. Direct game launches must always
@@ -1789,6 +1798,11 @@ final class ForgeStore: ObservableObject {
             }
             let gameVkIcd = env["VK_ICD_FILENAMES"] ?? ""
             let gameVkDriverFiles = env["VK_DRIVER_FILES"] ?? gameVkIcd
+            let gameWineD3DConfig = env["WINE_D3D_CONFIG"] ?? ""
+            let gameLibGLAlwaysSoftware = env["LIBGL_ALWAYS_SOFTWARE"] ?? ""
+            let gameMetalHudEnabled = config.globalHud ? "1" : "0"
+            let gameMetalHudLayer = config.globalHud ? "1" : "0"
+            let gameDXVKAsync = (gameBackend == .dxvk || gameBackend == .dxvkVkd3d) ? (env["DXVK_ASYNC"] ?? "1") : ""
             let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(
                 gptkLibPath: gptkLibPath,
                 existing: dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
@@ -1825,9 +1839,13 @@ final class ForgeStore: ObservableObject {
             // marker and restores the FORGE_GAME_* values for non-Steam child EXEs.
             env["FORGE_STEAM_SAFE_MODE"] = "1"
             env["FORGE_GAME_WINEDLLOVERRIDES"] = gameDllOverrides
+            env["FORGE_GAME_WINE_D3D_CONFIG"] = gameWineD3DConfig
+            env["FORGE_GAME_LIBGL_ALWAYS_SOFTWARE"] = gameLibGLAlwaysSoftware
             env["FORGE_GAME_VK_ICD_FILENAMES"] = gameVkIcd
             env["FORGE_GAME_VK_DRIVER_FILES"] = gameVkDriverFiles
-            env["FORGE_GAME_MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
+            env["FORGE_GAME_MTL_HUD_ENABLED"] = gameMetalHudEnabled
+            env["FORGE_GAME_MTL_HUD_LAYER"] = gameMetalHudLayer
+            env["FORGE_GAME_DXVK_ASYNC"] = gameDXVKAsync
             env["FORGE_GAME_DYLD_LIBRARY_PATH"] = gameDyldPath
             env["FORGE_GAME_WINEDLLPATH"] = gameWineDllPath
             env["MOLTENVK_CONFIG_LOG_LEVEL"] = env["MOLTENVK_CONFIG_LOG_LEVEL"] ?? "0"
@@ -1839,6 +1857,7 @@ final class ForgeStore: ObservableObject {
             env["VK_DRIVER_FILES"] = "/dev/null"
             env["DXVK_FILTER_DEVICE_NAME"] = "__forge_disable_dxvk_for_steam__"
             env["MTL_HUD_ENABLED"] = "0"
+            env["MTL_HUD_LAYER"] = "0"
         }
 
         let process = Process()
@@ -1876,9 +1895,13 @@ final class ForgeStore: ObservableObject {
         SteamAppId=\(env["SteamAppId"] ?? "")
         FORGE_STEAM_SAFE_MODE=\(env["FORGE_STEAM_SAFE_MODE"] ?? "")
         FORGE_GAME_WINEDLLOVERRIDES=\(env["FORGE_GAME_WINEDLLOVERRIDES"] ?? "")
+        FORGE_GAME_WINE_D3D_CONFIG=\(env["FORGE_GAME_WINE_D3D_CONFIG"] ?? "")
+        FORGE_GAME_LIBGL_ALWAYS_SOFTWARE=\(env["FORGE_GAME_LIBGL_ALWAYS_SOFTWARE"] ?? "")
         FORGE_GAME_VK_ICD_FILENAMES=\(env["FORGE_GAME_VK_ICD_FILENAMES"] ?? "")
         FORGE_GAME_VK_DRIVER_FILES=\(env["FORGE_GAME_VK_DRIVER_FILES"] ?? "")
         FORGE_GAME_MTL_HUD_ENABLED=\(env["FORGE_GAME_MTL_HUD_ENABLED"] ?? "")
+        FORGE_GAME_MTL_HUD_LAYER=\(env["FORGE_GAME_MTL_HUD_LAYER"] ?? "")
+        FORGE_GAME_DXVK_ASYNC=\(env["FORGE_GAME_DXVK_ASYNC"] ?? "")
         FORGE_GAME_DYLD_LIBRARY_PATH=\(env["FORGE_GAME_DYLD_LIBRARY_PATH"] ?? "")
         FORGE_GAME_WINEDLLPATH=\(env["FORGE_GAME_WINEDLLPATH"] ?? "")
 

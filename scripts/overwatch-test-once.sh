@@ -7,9 +7,15 @@ set -euo pipefail
 #
 # Usage:
 #   scripts/overwatch-test-once.sh [dxvk|wined3d-vulkan|wined3d-gl|steam-dxvk] [seconds]
+#   WINEDEBUG='fixme-all,+seh,+loaddll,+virtual,+syscall' scripts/overwatch-test-once.sh dxvk 12
 
 MODE="${1:-dxvk}"
 SECONDS_TO_RUN="${2:-30}"
+# Overwatch_loader uses a deep VEH/stack-overflow recovery path while the loader
+# lock is held. Forge's Wine runtime can reserve a larger guaranteed stack band
+# for the second-chance exception dispatch with this variable.
+FORGE_STACK_GUARANTEE_BYTES="${FORGE_STACK_GUARANTEE_BYTES:-262144}"
+WINEDEBUG_VALUE="${WINEDEBUG:-fixme-all,+seh,+loaddll,+virtual}"
 PREFIX="$HOME/Wine/Bottles/default"
 RUNTIME="$HOME/Wine/Runtimes/forge-cx-wine-11-open-wow64"
 GAME_DIR="$PREFIX/drive_c/Program Files (x86)/Steam/steamapps/common/Overwatch"
@@ -90,10 +96,11 @@ fi
 (
   env \
     WINEPREFIX="$PREFIX" \
-    WINEDEBUG="fixme-all,+seh,+loaddll" \
+    WINEDEBUG="$WINEDEBUG_VALUE" \
     WINEDBG="-all" \
     WINEESYNC=1 \
     WINEMSYNC=1 \
+    FORGE_STACK_GUARANTEE_BYTES="$FORGE_STACK_GUARANTEE_BYTES" \
     SteamAppId=2357570 \
     SteamGameId=2357570 \
     DYLD_LIBRARY_PATH="$RUNTIME/lib:/opt/homebrew/lib" \
@@ -113,7 +120,7 @@ ps -axo pid,etime,%cpu,%mem,rss,command \
   | grep -v egrep || true
 
 echo "-- highlights --"
-grep -Ei 'stack overflow|Overwatch_loader|Unhandled|exception|err:|failed|DXVK|vulkan|d3d11|dxgi|window|graphics|steam' "$LOG" | tail -120 || true
+grep -Ei 'stack overflow|Overwatch_loader|handle_syscall_fault|NtUserCallNoParam|NtUserEndPaint|Unhandled|exception|err:|failed|DXVK|vulkan|d3d11|dxgi|window|graphics|steam' "$LOG" | tail -120 || true
 
 kill_wine_tree
 

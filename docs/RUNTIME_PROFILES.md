@@ -28,6 +28,7 @@ enum GraphicsBackend {
   case vkd3d
   case dxvkVkd3d
   case wineBuiltin
+  case dxmt
   case none
 }
 ```
@@ -41,7 +42,7 @@ Forge-owned WoW64 Wine runtime + Windows Steam + dxvk_vkd3d/MoltenVK game backen
 ```
 
 - General Steam-game default: `dxvk_vkd3d`
-- D3D11-only games: `dxvk`
+- D3D11-only games: `dxvk` first; `dxmt` can be better when MoltenVK lacks needed D3D11 features
 - D3D12-only games: `vkd3d` or experimental `d3dmetal`
 - GPTK-specific testing: `d3dmetal`
 - Last resort only: `wine_builtin`
@@ -111,3 +112,10 @@ PEAK: -force-vulkan -force-gfx-st -disable-gpu-skinning -screen-fullscreen 1
 ```
 
 Direct-launching Steam games can fail because Steamworks is unavailable. Prefer Windows Steam `-applaunch <appid>` from the main bottle for Steam games.
+
+## Current per-game notes
+
+- Against the Storm (`steam:1336490`): DXMT; Unity D3D11 path works through D3D11 -> Metal after staging DXMT DLLs.
+- Among Us (`steam:945360`): WineD3D with `WINE_D3D_CONFIG=renderer=vulkan`; DXMT/DXVK are not viable for its 32-bit Unity build in the current WoW64 runtime.
+- PEAK (`name:peak`): native Unity Vulkan via `-force-vulkan -force-gfx-st -disable-gpu-skinning -screen-fullscreen 1`.
+- Overwatch 2 (`steam:2357570`): still under investigation. The active Wine patch behind `FORGE_STACK_GUARANTEE_BYTES=262144` changes the failure from an immediate `virtual_setup_exception stack overflow` / loader-lock spin to a short exit before rendering. Steam tracks the game briefly, then reports exit code `0xe1d0ffff`. This is progress, not a working profile yet.
