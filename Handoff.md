@@ -36,6 +36,16 @@ npm run native:build
 Build complete
 ```
 
+Latest pushed commits:
+
+```text
+c05213a Document Overwatch investigation state
+0ea46b4 Add bounded Wine cleanup helpers
+bc5d3cd Improve Forge launch profiles and diagnostics
+```
+
+Current git status at handoff: clean.
+
 ## Current working model
 
 Main bottle:
@@ -115,6 +125,14 @@ Implemented/changed:
   - DirectX 12 -> VKD3D or D3DMetal
   - Vulkan/OpenGL -> None/WineD3D only if the game supports it
   - Fallback -> WineD3D
+- Steam/game launch logs include `FORGE_GAME_*` handoff vars and Metal HUD vars.
+- Game launch uses direct `wine exe.exe` instead of `wine start /unix exe.exe`; this was changed to preserve env propagation.
+- DXVK/DXVK-VKD3D backends stage app-local DXVK DLLs into Steam game directories when needed, via `ensureDXVKInstalled(...)`.
+- Removed the user-visible `Forge optimized` badge after user disliked it.
+- Metal HUD toggle now sets `MTL_HUD_ENABLED`, `MTL_HUD_LAYER`, and global `MetalForceHudEnabled`; user still did not see HUD in D3DMetal/DXMT tests.
+- Added robust cleanup:
+  - `npm run kill` / `scripts/forge-kill.sh` now kills Windows path-shaped Wine children like `C:\windows\system32\conhost.exe`.
+  - `scripts/overwatch-test-once.sh` runs bounded Overwatch tests and cleans before/after to avoid hundreds of Wine processes.
 
 ## Saved compatibility profiles currently set
 
@@ -151,6 +169,12 @@ Important current entries:
     "display_name": "PEAK",
     "backend_override": "dxvk_vkd3d",
     "launch_args": ["-force-vulkan", "-force-gfx-st", "-disable-gpu-skinning", "-screen-fullscreen", "1"]
+  },
+  {
+    "id": "steam:2357570",
+    "display_name": "Overwatch 2",
+    "backend_override": "dxvk_vkd3d",
+    "launch_args": []
   }
 ]
 ```
@@ -360,6 +384,17 @@ Forced GfxDevice 'OpenGL Core' was not built from editor, shaders will not be av
 InitializeEngineGraphics failed
 ```
 
+## Additional first-try game results
+
+User reported these launched first try through Forge, which is important validation of the default product path:
+
+```text
+Slime Rancher
+ULTRAKILL
+```
+
+No Metal HUD appeared for ULTRAKILL on D3DMetal or Slime Rancher on DXMT, even with Forge setting HUD env/defaults.
+
 ## Important runtime/prefix mutation notes
 
 The default prefix has been heavily modified during debugging. Before testing a game/backend, remove app-local DLLs that could shadow the intended backend:
@@ -378,6 +413,12 @@ Known backup from earlier D3D/DXGI replacement experiments:
 
 Current system32/syswow64 may contain staged DXMT files from testing. WineD3D backend now removes app-local D3D DLLs, but system32/syswow64 staging may still exist.
 
+Current runtime cleanup state:
+
+- Forge runtime `ntdll.so` was restored from backup after failed emergency-stack experiments.
+- Do **not** leave CrossOver proprietary `cxcompatdb.so`, `compatdb-26.dat`, or copied `share/crossover` data in the Forge runtime. A reference test copied them briefly, failed signature checks, and they were removed.
+- Keep DXVK app-local DLLs in Overwatch if testing DXVK, but remove app-local D3D DLLs before WineD3D/DXMT/D3DMetal tests.
+
 ## Current caveats / next tasks
 
 ### Overwatch current investigation
@@ -385,9 +426,12 @@ Current system32/syswow64 may contain staged DXMT files from testing. WineD3D ba
 Steam appid `2357570` currently starts `Overwatch.exe` but no window appears. Use bounded tests only:
 
 ```sh
+npm run kill
 scripts/overwatch-test-once.sh dxvk 30
 npm run kill
 ```
+
+Do not run open-ended loops. The helper kills Wine/Steam before and after each bounded run.
 
 Findings so far:
 
@@ -397,7 +441,16 @@ Findings so far:
 - D3DMetal, WineD3D Vulkan/GL, win7/win10 app defaults, no-sync, and thread-count/windowed args have not opened a window.
 - Consistent original failure: `Overwatch_loader.dll` triggers `EXCEPTION_STACK_OVERFLOW`/`virtual_setup_exception stack overflow` before rendering.
 - Experimental ntdll emergency-stack patches got past the immediate abort but caused a CPU spin in `__wine_syscall_dispatcher`/loader lock, so they were reverted and the runtime ntdll was restored from backup.
+- One sample during the emergency-stack experiment showed Overwatch at ~100% CPU, stuck under `__wine_syscall_dispatcher`/`segv_handler`/loader-related code; no window appeared.
 - Do not copy/use CrossOver proprietary `cxcompatdb.so`/compatdb as product direction. A reference test with it failed signature checks and did not fix the loader.
+- CrossOver's Overwatch app profile in `crossover.tie` is for `win7_64`; that is a compatibility lie/profile, not a recommendation that Windows 7 is modern. Testing both win7 and win10 did not fix the current loader issue.
+
+Useful Overwatch logs/samples from latest work:
+
+```text
+~/Library/Application Support/com.forgelauncher.app/Logs/manual-overwatch-emergency-nodebug-20260616T151604Z.log
+~/Library/Application Support/com.forgelauncher.app/Logs/overwatch-sample-64047.txt
+```
 
 Next useful work: inspect the `Overwatch_loader.dll` exception/VEH path and Wine's `KiUserExceptionDispatcher`/stack-overflow dispatch semantics rather than swapping graphics backends.
 
