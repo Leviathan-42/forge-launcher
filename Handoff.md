@@ -11,6 +11,7 @@ User goals/preferences:
 - External paid/abandoned runtimes are not acceptable as product direction.
 - Per-game graphics/backend switching is desired and now partially implemented.
 - User prefers direct game launches during debugging instead of repeatedly restarting the whole Forge app.
+- Important: do not leave Wine/Steam test processes around. A previous Overwatch loop left 936 Wine/Windows child processes (~19 GB RSS). Always run `npm run kill` before/after bounded launch experiments.
 
 Active app code:
 
@@ -25,6 +26,7 @@ npm run native:dev
 npm run native:build
 npm run kill
 npm run doctor
+scripts/overwatch-test-once.sh dxvk 30
 ```
 
 Latest build status:
