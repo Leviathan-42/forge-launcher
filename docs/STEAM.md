@@ -5,12 +5,12 @@ Forge uses Windows Steam inside a Wine bottle for games that expect a real Steam
 ## Current model
 
 ```text
-Forge bottle
+One main Forge bottle
   -> Windows Steam
     -> installed Windows games
 ```
 
-Steam owns authentication, updates, DRM, Steam Cloud, and Steamworks APIs. Forge scans the bottle and exposes launchable entries in the native SwiftUI app.
+Steam owns authentication, updates, DRM, Steam Cloud, and Steamworks APIs. Forge scans the bottle and exposes launchable entries in the native SwiftUI app. Do not create separate per-game bottles for normal Steam usage; keep games in the main Steam bottle and use per-game launch options for compatibility.
 
 ## Detection
 
@@ -44,20 +44,26 @@ Steam itself is launched with a safe backend because its Chromium UI can break u
 
 Forge passes `-no-cef-sandbox` and `-cef-disable-sandbox` to Steam.
 
-### 2. Launch detected Steam game directly
+### 2. Launch detected Steam game through Steam
 
-Forge can show installed Steam games as app rows. Direct launches set:
+Forge shows installed Steam games as app rows and launches them through Windows Steam with:
+
+```text
+steam.exe -applaunch <appid> <game launch options>
+```
+
+This keeps Steamworks, DRM, Steam Cloud, and the logged-in Steam session available to the game.
+
+### 3. Direct EXE launch for diagnostics only
+
+Direct launches may set:
 
 ```text
 SteamAppId=<appid>
 SteamGameId=<appid>
 ```
 
-This can work for offline/simpler Steamworks games, but some titles still require Steam's full process/session to be running.
-
-### 3. Launch from inside Steam
-
-For games with strict Steamworks/DRM behavior, open Windows Steam in the bottle and launch the game from Steam itself.
+but many games still fail because `SteamAPI_Init()` cannot connect to a valid Steam session. Use direct launch only for diagnostics or non-Steam applications.
 
 ## Steam safe mode split
 
@@ -79,6 +85,23 @@ Examples that usually fail on Wine/macOS:
 - Destiny 2
 - many modern competitive shooters with kernel anti-cheat
 
-## PEAK note
+## Unity game launch options
 
-PEAK is currently a test case. It is detected from Steam manifests and can be launched directly, but current logs show backend-specific failures on this machine. Keep testing DXVK/VKD3D, D3DMetal/GPTK, and Steam-owned launch behavior from logs rather than assuming one universal fix.
+Unity titles can show mesh/avatar corruption under translation layers. First try keeping the game in the main Steam bottle and adding launch options rather than making a separate bottle.
+
+Useful options:
+
+```text
+-force-vulkan
+-force-gfx-st
+-disable-gpu-skinning
+-screen-fullscreen 1
+```
+
+Known local example:
+
+```text
+PEAK: -force-vulkan -force-gfx-st -disable-gpu-skinning -screen-fullscreen 1
+```
+
+This fixed PEAK's avatar/character mesh corruption on the Forge WoW64 + MoltenVK path.

@@ -84,14 +84,20 @@ The custom Forge Wine patch is expected to restore these for non-Steam child EXE
 
 ## Steam App IDs
 
-Direct Steam game entries detected from manifests get:
+Steam game entries detected from manifests are launched through Windows Steam when possible:
+
+```sh
+steam.exe -applaunch <appid> <launch options>
+```
+
+Direct diagnostic launches may also set:
 
 ```sh
 SteamAppId=<appid>
 SteamGameId=<appid>
 ```
 
-This helps some Steamworks games initialize when launched outside the Steam UI.
+but this is not enough for many Steamworks games. If logs show `SteamAPI_Init() failed`, launch through Windows Steam in the main bottle.
 
 ## Metal HUD
 
@@ -112,3 +118,16 @@ process environment
 ```
 
 Later values override earlier values. Direct game launches clear Steam-only filters such as `DXVK_FILTER_DEVICE_NAME`.
+
+## Unity compatibility launch options
+
+These are command-line arguments, not environment variables, but they are important enough to track with runtime settings:
+
+```text
+-force-vulkan
+-force-gfx-st
+-disable-gpu-skinning
+-screen-fullscreen 1
+```
+
+`-disable-gpu-skinning` can fix avatar/character mesh corruption in some Unity games under MoltenVK. PEAK currently uses all four options in Forge's per-game launch profile.

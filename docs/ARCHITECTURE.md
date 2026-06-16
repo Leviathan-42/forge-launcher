@@ -2,14 +2,17 @@
 
 Forge Launcher is now a macOS-native SwiftUI app. The old Svelte/Tauri UI is kept only as legacy/reference code while the active product lives in `macos/ForgeNative`.
 
+Forge is very experimental. The current runtime work builds on open-source Wine code, including Wine sources published with CodeWeavers/CrossOver releases, plus Forge-specific launcher/runtime patches.
+
 ## Current app model
 
 ```text
 Forge.app / ForgeNative
   -> SwiftUI Liquid Glass-style UI
   -> ForgeStore reads JSON config from Application Support
-  -> Wine bottle + runtime profile resolver
-  -> Process launches Windows .exe files through Wine
+  -> one main Wine bottle for Windows Steam and installed games
+  -> Forge-owned WoW64 Wine runtime profile resolver
+  -> Steam safe UI launch + game backend handoff
   -> DXVK/VKD3D/MoltenVK, GPTK D3DMetal, or Wine builtin backend
 ```
 
@@ -46,15 +49,15 @@ User drops/selects an .exe or clicks Play
 
 ## Steam handling
 
-Steam itself is treated as a launcher. Steam's Chromium UI is launched in a safer builtin/WineD3D mode, while games should use the selected game backend.
+Steam itself is treated as a launcher. Steam's Chromium UI is launched in a safer builtin/WineD3D mode, while games use the selected game backend through the patched `FORGE_GAME_*` handoff.
 
-Forge also scans Windows Steam manifests in the bottle and exposes installed Steam games as single launchable entries. Helper EXEs such as `steamwebhelper.exe`, crash handlers, uninstallers, and secondary launcher-managed EXEs are hidden.
+Forge also scans Windows Steam manifests in the main bottle and exposes installed Steam games as single launchable entries. Helper EXEs such as `steamwebhelper.exe`, crash handlers, uninstallers, and secondary launcher-managed EXEs are hidden. Steam games should not need separate per-game bottles for normal use.
 
 ## Graphics backends
 
 | Backend | Purpose |
 |---|---|
-| `dxvk_vkd3d` | Default Vulkan path through DXVK/VKD3D-Proton + MoltenVK |
+| `dxvk_vkd3d` | Default experimental Vulkan path through DXVK/VKD3D + MoltenVK |
 | `dxvk` | D3D9/10/11 through DXVK + MoltenVK |
 | `vkd3d` | D3D12 through VKD3D-Proton + MoltenVK |
 | `d3dmetal` | GPTK/D3DMetal path |

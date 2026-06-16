@@ -1,53 +1,93 @@
-# Handoff
+# Current Handoff
 
-## Active frontend
+Forge is an experimental macOS launcher/runtime. The launcher/app code is vibe coded; runtime work builds on upstream open-source Wine code, including Wine sources published with CodeWeavers/CrossOver releases.
 
-Forge is currently a macOS 26 SwiftUI app:
+## Current model
 
 ```text
-macos/ForgeNative
+Forge-owned WoW64 Wine runtime
+  -> one main Forge bottle
+  -> Windows Steam
+  -> Steam games via steam.exe -applaunch <appid> when possible
+  -> per-game launch options/backend handling
 ```
 
-Do not treat Svelte/Tauri as the active frontend. `src/` and `src-tauri/` are legacy/reference unless explicitly revived.
+Runtime:
 
-## Run/build
-
-```sh
-npm run native:dev
-npm run native:build
+```text
+~/Wine/Runtimes/forge-cx-wine-11-open-wow64/bin/wine
+~/Wine/Runtimes/forge-cx-wine-11-open-wow64/bin/wineserver
 ```
 
-`native:dev` builds and opens `dist/Forge.app`.
+Main bottle:
 
-## Current features
+```text
+~/Wine/Bottles/default
+```
 
-- SwiftUI native UI
-- app icon and Cmd-Tab/Dock app wrapper
-- selected bottle status
-- graphics backend selector
-- Metal HUD toggle
-- drag/drop `.exe`
-- Finder **Select EXE**
-- installed app/game scan
-- Steam manifest game detection
-- Play/Stop controls
-- Reveal bottle folder
-- Rescan
+## Working title
 
-## Current compatibility work
+PEAK works from the main Steam bottle.
 
-PEAK is the main test case. It still needs more backend work. Current logs showed failures across DXVK/MoltenVK and mixed Forge Wine + GPTK D3DMetal DLL paths. The newest code uses GPTK `wine64` when D3DMetal is selected and removes staged local D3D DLLs.
+Working args:
 
-## Logs
+```text
+-force-vulkan -force-gfx-st -disable-gpu-skinning -screen-fullscreen 1
+```
+
+## Current failing title
+
+Against the Storm, Steam appid `1336490`, is not fixed.
+
+Findings:
+
+- Unity Vulkan path is not usable: forced Vulkan says the renderer was not built with usable shaders.
+- Unity OpenGL/Core path is not usable: forced GLCore says the renderer was not built.
+- DXVK 2.7.1 loads but rejects MoltenVK/Apple GPU because required `geometryShader` support is missing.
+- GPTK/D3DMetal is the right class of layer, but current experiments still fail D3D11 device creation.
+- Starting Steam with Forge WoW64 Wine and then using GPTK `wine64` in the same prefix caused a wineserver version mismatch, so current experimental code direct-launches D3DMetal games under GPTK `wine64` with `SteamAppId` set.
+
+Current experimental code in `ForgeNativeApp.swift`:
+
+- Hardcoded Against the Storm backend override to `.d3dMetal`.
+- D3DMetal launches use GPTK `wine64`.
+- D3DMetal Steam games currently skip `steam.exe -applaunch` to avoid mixed-wineserver mismatch.
+- Conservative flags are set: `D3DM_MTL4=0`, `D3DM_SUPPORT_DXR=0`, `D3DM_ENABLE_METALFX=0`.
+
+Do not claim Against the Storm is fixed.
+
+## Recommended next work
+
+Implement per-game compatibility profiles in UI/config:
+
+```text
+Bottle default backend
+  -> per-game backend override
+  -> per-game launch args
+  -> per-game env overrides
+  -> reset-to-default button
+```
+
+Expose backends per game:
+
+```text
+DXVK/VKD3D
+DXVK
+VKD3D
+WineD3D
+D3DMetal
+None
+future: DXMT
+```
+
+Persist profiles keyed by Steam appid when available, else normalized EXE path.
+
+Likely future solution for Against the Storm: add a Forge-owned/open-source `DXMT` backend for D3D11 -> Metal. DXVK is blocked by MoltenVK features for this game, and GPTK/D3DMetal is not ideal for Forge's open-source runtime goals.
+
+Useful logs:
 
 ```text
 ~/Library/Application Support/com.forgelauncher.app/Logs/swiftui-launch-*.log
+~/Library/Application Support/com.forgelauncher.app/Logs/manual-against-*.log
+~/Wine/Bottles/default/drive_c/users/forge/AppData/LocalLow/Eremite Games/Against the Storm/Player.log
 ```
-
-Use the newest non-empty log.
-
-## Notes
-
-- Avoid OpenGL fallback unless explicitly requested.
-- Keep Steam safe mode isolated from game launches.
-- Keep visible UI actions wired to real store actions.

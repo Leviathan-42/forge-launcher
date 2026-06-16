@@ -130,6 +130,15 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 9) {
                 SectionLabel("Bottle")
+                if store.bottles.count > 1 {
+                    BottlePickerCard(
+                        bottles: store.bottles,
+                        selection: Binding(
+                            get: { bottle.prefixPath },
+                            set: { store.selectBottle(prefixPath: $0) }
+                        )
+                    )
+                }
                 BottleCard(bottle: bottle, statusText: store.statusText, isReady: store.prefixExists)
             }
 
@@ -277,13 +286,21 @@ struct ContentView: View {
                         ForEach(filteredApps) { app in
                             LiquidAppRow(
                                 app: app,
-                                backendText: backendText(for: bottle),
+                                backend: store.effectiveBackend(for: app, bottle: bottle),
+                                backendIsOverride: store.gameProfile(for: app).backendOverride != nil,
                                 hudText: store.config.globalHud ? "Metal HUD" : "Off",
                                 isLaunching: store.isLaunching,
                                 isRunning: store.runningAppPath == app.path,
+                                setBackend: { store.setGameBackend(app, backend: $0) },
+                                resetBackend: { store.resetGameBackend(app) },
                                 launch: {
-                                    store.launch(app)
+                                    if app.steamAppId != nil {
+                                        store.launchThroughSteam(app)
+                                    } else {
+                                        store.launch(app)
+                                    }
                                 },
+                                launchThroughSteam: nil,
                                 stop: {
                                     store.stopRunningApp()
                                 }
@@ -339,7 +356,7 @@ struct ContentView: View {
         let backend = bottle.graphicsBackend
             ?? store.profiles.first(where: { $0.id == bottle.runtimeProfileId })?.defaultBackend
             ?? .dxvkVkd3d
-        return backend.displayName
+        return "Default: \(backend.displayName)"
     }
 }
 
@@ -355,6 +372,28 @@ struct SectionLabel: View {
             .font(.system(size: 10.5, weight: .semibold))
             .foregroundStyle(.white.opacity(0.38))
             .tracking(0.9)
+    }
+}
+
+struct BottlePickerCard: View {
+    let bottles: [BottleEntry]
+    @Binding var selection: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Active Bottle", selection: $selection) {
+                ForEach(bottles) { bottle in
+                    Text(bottle.name).tag(bottle.prefixPath)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .controlSize(.large)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(cornerRadius: 18, opacity: 0.18)
     }
 }
 
@@ -479,18 +518,47 @@ struct BackendPickerCard: View {
                 Text("DXVK").tag(GraphicsBackend.dxvk)
                 Text("VKD3D").tag(GraphicsBackend.vkd3d)
                 Text("WineD3D").tag(GraphicsBackend.wineBuiltin)
+                Text("DXMT").tag(GraphicsBackend.dxmt)
+                Text("None").tag(GraphicsBackend.none)
             }
             .labelsHidden()
             .pickerStyle(.menu)
 
-            Text("For PEAK, try DXVK/VKD3D first. D3DMetal can hang on some Unity loading screens.")
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(.white.opacity(0.34))
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(selection.consumerGuidance)
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.52))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Divider().overlay(.white.opacity(0.10))
+
+                BackendGuideRow(label: "Vulkan/OpenGL", value: "None or WineD3D only if the game supports it")
+                BackendGuideRow(label: "DirectX 9", value: "DXVK first")
+                BackendGuideRow(label: "DirectX 10/11", value: "DXVK first; DXMT if Vulkan/DXVK fails")
+                BackendGuideRow(label: "DirectX 12", value: "VKD3D or D3DMetal")
+                BackendGuideRow(label: "Fallback", value: "WineD3D for older/simple games")
+            }
         }
         .padding(13)
         .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+    }
+}
+
+struct BackendGuideRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label)
+                .font(.system(size: 9.8, weight: .bold))
+                .foregroundStyle(.white.opacity(0.46))
+            Text(value)
+                .font(.system(size: 10.2, weight: .medium))
+                .foregroundStyle(.white.opacity(0.34))
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -665,66 +733,91 @@ struct GlassSearchField: View {
 
 struct LiquidAppRow: View {
     let app: BottleAppItem
-    let backendText: String
+    let backend: GraphicsBackend
+    let backendIsOverride: Bool
     let hudText: String
     let isLaunching: Bool
     let isRunning: Bool
+    let setBackend: (GraphicsBackend) -> Void
+    let resetBackend: () -> Void
     let launch: () -> Void
+    let launchThroughSteam: (() -> Void)?
     let stop: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
-            HStack(spacing: 14) {
-                    ZStack {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.regularMaterial)
-                    Image(systemName: app.kind == "launcher" ? "bolt.fill" : "gamecontroller.fill")
-                        .font(.system(size: 20, weight: .bold))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.white.opacity(0.78))
-                }
-                .frame(width: 54, height: 54)
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.thinMaterial)
+                Image(systemName: app.kind == "launcher" ? "bolt.fill" : "gamecontroller.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 40, height: 40)
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
 
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(app.name)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.88))
-                    Text(app.path)
-                        .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.36))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(app.name)
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(app.path)
+                    .font(.system(size: 10.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(app.kind.capitalized)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white.opacity(0.62))
-                .frame(width: 92, alignment: .leading)
-
-            Text(backendText)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.72))
-                .frame(width: 132, alignment: .leading)
+                .foregroundStyle(.secondary)
+                .frame(width: 84, alignment: .leading)
+
+            HStack(spacing: 6) {
+                Picker("Graphics", selection: Binding(
+                    get: { backend },
+                    set: { setBackend($0) }
+                )) {
+                    ForEach(GraphicsBackend.allCases, id: \.self) { option in
+                        Text(option.displayName).tag(option)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(width: 118, alignment: .leading)
+
+                Button(action: resetBackend) {
+                    Image(systemName: backendIsOverride ? "arrow.uturn.backward.circle.fill" : "checkmark.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(backendIsOverride ? Color.primary : Color.secondary.opacity(0.45))
+                }
+                .buttonStyle(.plain)
+                .help(backendIsOverride ? "Reset to bottle default" : "Using bottle default")
+                .disabled(!backendIsOverride)
+            }
+            .frame(width: 150, alignment: .leading)
 
             Text(hudText)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(hudText == "Off" ? Color.white.opacity(0.38) : Color.white.opacity(0.70))
-                .frame(width: 112, alignment: .leading)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(hudText == "Off" ? Color.secondary : Color.primary)
+                .frame(width: 92, alignment: .leading)
 
-            Button(isRunning ? "Stop" : "Play", action: isRunning ? stop : launch)
-                .buttonStyle(ForgeButtonStyle(
-                    tint: isRunning ? .red.opacity(0.26) : .white.opacity(0.18),
-                    foreground: .white.opacity(0.94)
-                ))
-                .disabled(isLaunching && !isRunning)
-                .frame(width: 86, alignment: .trailing)
+            HStack(spacing: 8) {
+                Button(isRunning ? "Stop" : "Play", action: isRunning ? stop : launch)
+                    .buttonStyle(ForgeButtonStyle(
+                        tint: isRunning ? .red.opacity(0.24) : .white.opacity(0.11),
+                        foreground: .primary
+                    ))
+                    .disabled(isLaunching && !isRunning)
+            }
+            .frame(width: 92, alignment: .trailing)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .liquidGlass(cornerRadius: 22, opacity: 0.32)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.09), lineWidth: 1))
     }
 
 }
@@ -821,7 +914,27 @@ extension GraphicsBackend {
         case .vkd3d: return "VKD3D"
         case .dxvkVkd3d: return "DXVK/VKD3D"
         case .wineBuiltin: return "WineD3D"
+        case .dxmt: return "DXMT"
         case .none: return "None"
+        }
+    }
+
+    var consumerGuidance: String {
+        switch self {
+        case .dxvkVkd3d:
+            return "Good default: DirectX 9/10/11 via DXVK and DirectX 12 via VKD3D."
+        case .dxvk:
+            return "Best for many DirectX 9/10/11 games when Vulkan/MoltenVK supports the needed features."
+        case .dxmt:
+            return "Use for DirectX 10/11 games that fail under DXVK, especially Unity D3D11 titles."
+        case .vkd3d:
+            return "Use for DirectX 12 games. Not for DirectX 9/10/11-only games."
+        case .d3dMetal:
+            return "Use for DirectX 11/12 games when Apple/GPTK D3DMetal is available and DXVK/VKD3D fail."
+        case .wineBuiltin:
+            return "Compatibility fallback for older/simple DirectX or OpenGL games; usually slower."
+        case .none:
+            return "No DirectX translation override. Use when a game has its own Vulkan/OpenGL renderer."
         }
     }
 }
@@ -832,7 +945,9 @@ extension GraphicsBackend {
 final class ForgeStore: ObservableObject {
     @Published var config = AppConfig.defaults
     @Published var profiles: [RuntimeProfile] = []
+    @Published var bottles: [BottleEntry] = []
     @Published var bottle: BottleEntry?
+    @Published var gameProfiles: [String: GameCompatibilityProfile] = [:]
     @Published var apps: [BottleAppItem] = []
     @Published var steamPath: String?
     @Published var prefixExists = false
@@ -851,11 +966,25 @@ final class ForgeStore: ObservableObject {
             let support = Self.appSupportDir()
             config = try Self.loadConfig(from: support)
             profiles = try Self.loadProfiles(from: support, config: config)
-            bottle = try Self.loadBottle(from: support, config: config)
+            bottles = try Self.loadBottles(from: support, config: config)
+            gameProfiles = try Self.loadGameProfiles(from: support)
+            bottle = Self.selectBottle(from: bottles, config: config)
             refreshBottleState()
         } catch {
             alertMessage = error.localizedDescription
         }
+    }
+
+    func selectBottle(prefixPath: String) {
+        guard let selected = bottles.first(where: { $0.prefixPath == prefixPath }) else { return }
+        bottle = selected
+        config.defaultPrefix = selected.prefixPath
+        do {
+            try Self.saveConfig(config, to: Self.appSupportDir())
+        } catch {
+            alertMessage = "Bottle changed for this session, but Forge could not save config.json: \(error.localizedDescription)"
+        }
+        refreshBottleState()
     }
 
     func openSteam() {
@@ -880,7 +1009,9 @@ final class ForgeStore: ObservableObject {
                     extraArgs: [],
                     forceSteamMode: false,
                     steamAppId: nil,
-                    backendOverride: nil
+                    backendOverride: nil,
+                    gameEnvOverrides: [:],
+                    steamSafeMode: true
                 )
                 await MainActor.run {
                     self.isLaunching = false
@@ -919,41 +1050,129 @@ final class ForgeStore: ObservableObject {
         launch(BottleAppItem(name: Self.displayName(for: url.path), path: url.path, kind: "app"))
     }
 
-    func launchArgs(for app: BottleAppItem) -> [String] {
-        guard app.steamAppId != nil else { return [] }
-        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame {
-            return ["-force-d3d11", "-screen-fullscreen", "1"]
-        }
-        return ["-screen-fullscreen", "1"]
+    func gameProfile(for app: BottleAppItem) -> GameCompatibilityProfile {
+        let key = Self.gameProfileKey(for: app)
+        if let profile = gameProfiles[key] { return profile }
+        return GameCompatibilityProfile(id: key, displayName: app.name, backendOverride: nil, launchArgs: [], env: [:], notes: nil)
     }
 
-    nonisolated static func backendOverride(for app: BottleAppItem) -> GraphicsBackend? {
-        // Do not fall back to WineD3D/OpenGL for PEAK. Stage GPTK D3DMetal DLLs
-        // next to the game so native D3DMetal wins over DXVK DLLs in the prefix.
-        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame { return .d3dMetal }
-        return nil
+    func effectiveBackend(for app: BottleAppItem, bottle: BottleEntry) -> GraphicsBackend {
+        gameProfile(for: app).backendOverride ?? bottle.graphicsBackend ?? profile(for: bottle).defaultBackend
+    }
+
+    func launchArgs(for app: BottleAppItem) -> [String] {
+        let key = Self.gameProfileKey(for: app)
+        if let profile = gameProfiles[key] {
+            return profile.launchArgs
+        }
+        return app.steamAppId == nil ? [] : ["-screen-fullscreen", "1"]
+    }
+
+    func gameEnv(for app: BottleAppItem) -> [String: String] {
+        gameProfile(for: app).env
+    }
+
+    func setGameBackend(_ app: BottleAppItem, backend: GraphicsBackend) {
+        var profile = gameProfile(for: app)
+        profile.backendOverride = backend
+        saveGameProfile(profile)
+    }
+
+    func resetGameBackend(_ app: BottleAppItem) {
+        var profile = gameProfile(for: app)
+        profile.backendOverride = nil
+        saveGameProfile(profile)
+    }
+
+    private func saveGameProfile(_ profile: GameCompatibilityProfile) {
+        gameProfiles[profile.id] = profile
+        do {
+            try Self.saveGameProfiles(gameProfiles, to: Self.appSupportDir())
+        } catch {
+            alertMessage = "Compatibility profile changed for this session, but Forge could not save it: \(error.localizedDescription)"
+        }
     }
 
     func launch(_ app: BottleAppItem) {
+        launch(app, throughSteam: false)
+    }
+
+    func launchThroughSteam(_ app: BottleAppItem) {
+        launch(app, throughSteam: true)
+    }
+
+    private func launch(_ app: BottleAppItem, throughSteam: Bool) {
         guard let bottle else { return }
         isLaunching = true
         Task.detached(priority: .userInitiated) {
             do {
                 let launchConfig = await MainActor.run { self.config }
                 let launchProfile = await MainActor.run { self.profile(for: bottle) }
-                if app.name.caseInsensitiveCompare("PEAK") == .orderedSame {
+                let appBackend = await MainActor.run { self.effectiveBackend(for: app, bottle: bottle) }
+                let appLaunchArgs = await MainActor.run { self.launchArgs(for: app) }
+                let appEnv = await MainActor.run { self.gameEnv(for: app) }
+                let targetPath: String
+                let forceSteamMode: Bool
+                let steamAppId: String?
+                let extraArgs: [String]
+
+                if throughSteam {
+                    guard let appId = app.steamAppId else {
+                        throw ForgeError.message("This app is not linked to a Steam manifest.")
+                    }
+                    guard let steamPath = await MainActor.run(body: { self.steamPath }) else {
+                        throw ForgeError.message("Windows Steam is not installed in this bottle yet.")
+                    }
+                    targetPath = steamPath
+                    forceSteamMode = true
+                    steamAppId = appId
+                    extraArgs = ["-applaunch", appId] + appLaunchArgs
+                } else {
+                    targetPath = app.path
+                    forceSteamMode = app.isSteamClient
+                    steamAppId = app.steamAppId
+                    extraArgs = appLaunchArgs
+                }
+
+                if app.name.caseInsensitiveCompare("PEAK") == .orderedSame
+                    || app.name.caseInsensitiveCompare("Against the Storm") == .orderedSame {
                     try? Self.stopWineSession(bottle: bottle, config: launchConfig, profile: launchProfile)
                 }
-                try await Self.spawn(
-                    exePath: app.path,
-                    bottle: bottle,
-                    config: launchConfig,
-                    profile: launchProfile,
-                    extraArgs: await MainActor.run { self.launchArgs(for: app) },
-                    forceSteamMode: app.isSteamClient,
-                    steamAppId: app.steamAppId,
-                    backendOverride: Self.backendOverride(for: app)
-                )
+
+                if throughSteam, appBackend == .d3dMetal {
+                    // D3DMetal is still launched directly for Steam games so Steam's
+                    // Chromium helpers do not interfere with the game's graphics DLLs.
+                    // D3DMetal's PE DLLs and Unix modules must come from the same Wine
+                    // build, so this path uses GPTK Wine against the Forge bottle.
+                    try await Self.spawn(
+                        exePath: app.path,
+                        bottle: bottle,
+                        config: launchConfig,
+                        profile: launchProfile,
+                        extraArgs: appLaunchArgs,
+                        forceSteamMode: false,
+                        steamAppId: steamAppId,
+                        backendOverride: .d3dMetal,
+                        gameEnvOverrides: appEnv,
+                        steamSafeMode: false
+                    )
+                } else {
+                    try await Self.spawn(
+                        exePath: targetPath,
+                        bottle: bottle,
+                        config: launchConfig,
+                        profile: launchProfile,
+                        extraArgs: extraArgs,
+                        forceSteamMode: forceSteamMode,
+                        steamAppId: steamAppId,
+                        backendOverride: appBackend,
+                        gameEnvOverrides: appEnv,
+                        // Always keep steam.exe itself in safe UI mode. For Steam-owned
+                        // game launches, -applaunch is still passed through while Forge's
+                        // FORGE_GAME_* env advertises the selected game backend.
+                        steamSafeMode: true
+                    )
+                }
                 await MainActor.run {
                     self.isLaunching = false
                     self.runningAppPath = app.path
@@ -1006,6 +1225,7 @@ final class ForgeStore: ObservableObject {
         config.globalHud = enabled
         do {
             try Self.saveConfig(config, to: Self.appSupportDir())
+            try Self.setMetalHudDefaults(enabled)
         } catch {
             alertMessage = "Metal HUD changed for this session, but Forge could not save config: \(error.localizedDescription)"
         }
@@ -1059,11 +1279,14 @@ final class ForgeStore: ObservableObject {
         return decoded.isEmpty ? [RuntimeProfile.defaultProfile(config: config)] : decoded
     }
 
-    nonisolated static func loadBottle(from support: URL, config: AppConfig) throws -> BottleEntry {
-        let bottles = try loadBottles(from: support, config: config)
-        return bottles.first(where: { $0.prefixPath == config.defaultPrefix })
+    nonisolated static func selectBottle(from bottles: [BottleEntry], config: AppConfig) -> BottleEntry {
+        bottles.first(where: { $0.prefixPath == config.defaultPrefix })
             ?? bottles.first
             ?? defaultBottle(config: config)
+    }
+
+    nonisolated static func loadBottle(from support: URL, config: AppConfig) throws -> BottleEntry {
+        selectBottle(from: try loadBottles(from: support, config: config), config: config)
     }
 
     nonisolated static func loadBottles(from support: URL, config: AppConfig) throws -> [BottleEntry] {
@@ -1083,6 +1306,91 @@ final class ForgeStore: ObservableObject {
         }
         let data = try JSONEncoder.forge.encode(bottles)
         try data.write(to: support.appendingPathComponent("bottles.json"), options: .atomic)
+    }
+
+    nonisolated static func loadGameProfiles(from support: URL) throws -> [String: GameCompatibilityProfile] {
+        let url = support.appendingPathComponent("game_compatibility_profiles.json")
+        var profiles: [String: GameCompatibilityProfile]
+        if FileManager.default.fileExists(atPath: url.path) {
+            let decoded = try JSONDecoder.forge.decode([GameCompatibilityProfile].self, from: Data(contentsOf: url))
+            profiles = Dictionary(uniqueKeysWithValues: decoded.map { ($0.id, $0) })
+        } else {
+            profiles = [:]
+        }
+        for seed in seededGameProfiles() {
+            if profiles[seed.id] == nil {
+                profiles[seed.id] = seed
+            } else if seed.id == "steam:1336490", profiles[seed.id]?.backendOverride == .d3dMetal {
+                // Against the Storm is D3D11-only and now works through DXMT in Forge's
+                // own Wine runtime. Migrate the earlier D3DMetal seed automatically.
+                profiles[seed.id]?.backendOverride = .dxmt
+                profiles[seed.id]?.notes = seed.notes
+            } else if seed.id == "steam:945360", profiles[seed.id]?.backendOverride != .wineBuiltin {
+                // Among Us is a 32-bit Unity D3D11 build. DXMT's 32-bit builtin PE
+                // cannot be loaded by this WoW64 runtime, and DXVK hits feature-level
+                // limits. WineD3D's Vulkan renderer reaches D3D11 level 11.1.
+                profiles[seed.id] = seed
+            } else if seed.id == "steam:2357570", profiles[seed.id]?.backendOverride == .d3dMetal {
+                // Overwatch fails D3DMetal initialization in the current runtime.
+                profiles[seed.id] = seed
+            }
+        }
+        return profiles
+    }
+
+    nonisolated static func saveGameProfiles(_ profiles: [String: GameCompatibilityProfile], to support: URL) throws {
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        let ordered = profiles.values.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        let data = try JSONEncoder.forge.encode(ordered)
+        try data.write(to: support.appendingPathComponent("game_compatibility_profiles.json"), options: .atomic)
+    }
+
+    nonisolated static func seededGameProfiles() -> [GameCompatibilityProfile] {
+        [
+            GameCompatibilityProfile(
+                id: "steam:1336490",
+                displayName: "Against the Storm",
+                backendOverride: .dxmt,
+                launchArgs: ["-screen-fullscreen", "1"],
+                env: [:],
+                notes: "D3D11-only Unity build; Vulkan/OpenGL shaders are unavailable and DXVK is blocked by MoltenVK geometryShader support. Uses DXMT's D3D11 -> Metal path."
+            ),
+            GameCompatibilityProfile(
+                id: "steam:945360",
+                displayName: "Among Us",
+                backendOverride: .wineBuiltin,
+                launchArgs: [],
+                env: [
+                    "WINE_D3D_CONFIG": "renderer=vulkan",
+                    "WINEDLLOVERRIDES": "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;vulkan-1,winevulkan=b;mscoree,mshtml=",
+                    "VK_ICD_FILENAMES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
+                    "VK_DRIVER_FILES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+                ],
+                notes: "32-bit Unity D3D11 build; DXMT/DXVK are not viable in this WoW64 runtime. WineD3D's Vulkan renderer reaches D3D11 level 11.1."
+            ),
+            GameCompatibilityProfile(
+                id: "steam:2357570",
+                displayName: "Overwatch 2",
+                backendOverride: .dxvkVkd3d,
+                launchArgs: [],
+                env: [:],
+                notes: "Steam build. Use DXVK/VKD3D; do not use D3DMetal for the current Forge runtime. Steam safe-mode backend handoff is bypassed for this title so the game sees DXVK directly."
+            ),
+            GameCompatibilityProfile(
+                id: "name:peak",
+                displayName: "PEAK",
+                backendOverride: .dxvkVkd3d,
+                launchArgs: ["-force-vulkan", "-force-gfx-st", "-disable-gpu-skinning", "-screen-fullscreen", "1"],
+                env: [:],
+                notes: "Unity Vulkan path works; disable GPU skinning to avoid avatar mesh corruption."
+            )
+        ]
+    }
+
+    nonisolated static func gameProfileKey(for app: BottleAppItem) -> String {
+        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame { return "name:peak" }
+        if let appId = app.steamAppId, !appId.isEmpty { return "steam:\(appId)" }
+        return "exe:\(app.path.standardizingPath.lowercased())"
     }
 
     nonisolated static func defaultBottle(config: AppConfig) -> BottleEntry {
@@ -1327,14 +1635,26 @@ final class ForgeStore: ObservableObject {
         extraArgs: [String],
         forceSteamMode: Bool,
         steamAppId: String?,
-        backendOverride: GraphicsBackend?
+        backendOverride: GraphicsBackend?,
+        gameEnvOverrides: [String: String],
+        steamSafeMode: Bool
     ) async throws {
         let configuredWinePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
         let isSteam = forceSteamMode || URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
         let gameBackend = backendOverride ?? bottle.graphicsBackend ?? profile.defaultBackend
-        let launchBackend: GraphicsBackend = isSteam ? .wineBuiltin : gameBackend
+        let launchBackend: GraphicsBackend = (isSteam && steamSafeMode) ? .wineBuiltin : gameBackend
         let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
-        let winePath = configuredWinePath
+        var winePath = configuredWinePath
+        if launchBackend == .d3dMetal, let gptkWine = gptkWinePath(gptkLibPath: gptkLibPath) {
+            // Do not mix GPTK's D3DMetal modules with Forge Wine: Wine's builtin
+            // PE DLLs and Unix-side .so modules are ABI-coupled to their Wine build.
+            winePath = gptkWine
+        }
+        let runtimeLibPath = URL(fileURLWithPath: winePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("lib")
+            .path
         guard FileManager.default.fileExists(atPath: winePath) else {
             throw ForgeError.message("wine not found at \(winePath)")
         }
@@ -1343,17 +1663,39 @@ final class ForgeStore: ObservableObject {
         var env = ProcessInfo.processInfo.environment
         env["WINEPREFIX"] = bottle.prefixPath
         if launchBackend == .d3dMetal {
-            env["DYLD_LIBRARY_PATH"] = buildDyldPath(gptkLibPath: gptkLibPath, existing: env["DYLD_LIBRARY_PATH"] ?? "")
+            env["DYLD_LIBRARY_PATH"] = buildDyldPath(
+                gptkLibPath: gptkLibPath,
+                existing: dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
+            )
+            env["DYLD_FALLBACK_LIBRARY_PATH"] = dedupePathParts([
+                runtimeLibPath,
+                "/opt/homebrew/lib",
+                "/usr/local/lib",
+                env["DYLD_FALLBACK_LIBRARY_PATH"] ?? ""
+            ]).joined(separator: ":")
+            if !gptkLibPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                env["DYLD_FRAMEWORK_PATH"] = URL(fileURLWithPath: gptkLibPath).path
+            }
         } else {
             // DXVK/VKD3D should use Forge/Homebrew MoltenVK. Do not let GPTK's
             // older external libMoltenVK shadow the Vulkan 1.3+ ICD needed by DXVK.
-            env.removeValue(forKey: "DYLD_LIBRARY_PATH")
+            env["DYLD_LIBRARY_PATH"] = dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
+            env["DYLD_FALLBACK_LIBRARY_PATH"] = dedupePathParts([
+                runtimeLibPath,
+                "/opt/homebrew/lib",
+                "/usr/local/lib",
+                env["DYLD_FALLBACK_LIBRARY_PATH"] ?? ""
+            ]).joined(separator: ":")
+            env.removeValue(forKey: "DYLD_FRAMEWORK_PATH")
         }
         env["WINEDEBUG"] = config.suppressWineDebug ? "fixme-all" : ""
         env["WINEDBG"] = "-all"
         env["GST_DEBUG"] = "1"
-        let disableHudForApp = URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("PEAK.exe") == .orderedSame
-        env["MTL_HUD_ENABLED"] = (config.globalHud && !disableHudForApp) ? "1" : "0"
+        env["MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
+        env["MTL_HUD_LAYER"] = config.globalHud ? "1" : "0"
+        if config.globalHud {
+            try? setMetalHudDefaults(true)
+        }
         env["WINE_MOUSE_WARP"] = "1"
         env["WINEESYNC"] = "1"
         env["WINEMSYNC"] = "1"
@@ -1368,29 +1710,46 @@ final class ForgeStore: ObservableObject {
         switch launchBackend {
         case .d3dMetal:
             if let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {
-                let dllPath = gptkBase.appendingPathComponent("wine/x86_64-windows").path
-                if FileManager.default.fileExists(atPath: dllPath) {
-                    if let existing = env["WINEDLLPATH"], !existing.isEmpty {
-                        env["WINEDLLPATH"] = dllPath + ":" + existing
-                    } else {
-                        env["WINEDLLPATH"] = dllPath
-                    }
+                let dllPaths = [
+                    gptkBase.appendingPathComponent("wine/x86_64-windows").path,
+                    gptkBase.appendingPathComponent("wine/x86_64-unix").path,
+                    gptkBase.appendingPathComponent("wine/i386-windows").path,
+                    gptkBase.appendingPathComponent("wine/x86_32on64-unix").path
+                ].filter { FileManager.default.fileExists(atPath: $0) }
+                if !dllPaths.isEmpty {
+                    env["WINEDLLPATH"] = dedupePathParts(dllPaths + [env["WINEDLLPATH"] ?? ""]).joined(separator: ":")
                 }
             }
             try removeStagedD3DMetalDlls(exePath: exePath)
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=b;mscoree,mshtml="
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b;mscoree,mshtml="
+            if let frameworkPath = d3dMetalFrameworkPath(gptkLibPath: gptkLibPath) {
+                env["D3DMETAL_FRAMEWORK_PATH"] = frameworkPath
+            }
+            env["D3DM_MTL4"] = env["D3DM_MTL4"] ?? "0"
+            env["D3DM_SUPPORT_DXR"] = env["D3DM_SUPPORT_DXR"] ?? "0"
+            env["D3DM_ENABLE_METALFX"] = env["D3DM_ENABLE_METALFX"] ?? "0"
+            env["FORGE_D3DMETAL_RUNTIME"] = "gptk-wine-d3dmetal"
         case .dxvk:
+            try ensureDXVKInstalled(exePath: exePath, prefixPath: bottle.prefixPath, steamAppId: steamAppId)
             env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b;mscoree,mshtml="
             env["DXVK_ASYNC"] = "1"
         case .vkd3d:
             env["WINEDLLOVERRIDES"] = "d3d12,dxgi,user32=n,b;mscoree,mshtml="
         case .dxvkVkd3d:
+            try ensureDXVKInstalled(exePath: exePath, prefixPath: bottle.prefixPath, steamAppId: steamAppId)
             env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b;mscoree,mshtml="
             env["DXVK_ASYNC"] = "1"
         case .wineBuiltin:
+            try removeStagedD3DMetalDlls(exePath: exePath)
             env["WINEDLLOVERRIDES"] = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
             env["WINE_D3D_CONFIG"] = "renderer=gl"
             env["LIBGL_ALWAYS_SOFTWARE"] = "1"
+        case .dxmt:
+            try ensureDXMTInstalled(winePath: winePath, prefixPath: bottle.prefixPath)
+            try removeStagedD3DMetalDlls(exePath: exePath)
+            env["WINEDLLOVERRIDES"] = "dd3d11,d3d11,dxgi,d3d10core=b;user32=n,b;mscoree,mshtml="
+            env["DXMT_LOG_LEVEL"] = env["DXMT_LOG_LEVEL"] ?? "info"
+            env["DXMT_LOG_PATH"] = env["DXMT_LOG_PATH"] ?? appSupportDir().appendingPathComponent("Logs", isDirectory: true).path
         case .none:
             break
         }
@@ -1398,11 +1757,19 @@ final class ForgeStore: ObservableObject {
         for (key, value) in config.env { env[key] = value }
         for (key, value) in profile.env { env[key] = value }
         for (key, value) in bottle.envOverrides { env[key] = value }
+        for (key, value) in gameEnvOverrides { env[key] = value }
 
         if !isSteam {
             // Steam safe mode intentionally sets this to an impossible value to keep
             // DXVK out of Steam's Chromium helpers. Direct game launches must always
             // clear it or DXVK reports "No adapters found" and Unity games crash.
+            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+        }
+
+        if launchBackend == .dxmt {
+            env.removeValue(forKey: "VK_ICD_FILENAMES")
+            env.removeValue(forKey: "VK_DRIVER_FILES")
+            env.removeValue(forKey: "DXVK_ASYNC")
             env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
         }
 
@@ -1416,23 +1783,29 @@ final class ForgeStore: ObservableObject {
             env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
         }
 
-        if isSteam {
+        if isSteam && steamSafeMode {
             if gameBackend == .dxvk || gameBackend == .vkd3d || gameBackend == .dxvkVkd3d {
                 configureMoltenVK(profile: profile, config: config, env: &env)
             }
             let gameVkIcd = env["VK_ICD_FILENAMES"] ?? ""
-            let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(gptkLibPath: gptkLibPath, existing: env["DYLD_LIBRARY_PATH"] ?? "") : ""
+            let gameVkDriverFiles = env["VK_DRIVER_FILES"] ?? gameVkIcd
+            let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(
+                gptkLibPath: gptkLibPath,
+                existing: dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
+            ) : ""
             var gameWineDllPath = ""
             if gameBackend == .d3dMetal, let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {
-                let dllPath = gptkBase.appendingPathComponent("wine/x86_64-windows").path
-                if FileManager.default.fileExists(atPath: dllPath) {
-                    gameWineDllPath = dllPath
-                }
+                gameWineDllPath = [
+                    gptkBase.appendingPathComponent("wine/x86_64-windows").path,
+                    gptkBase.appendingPathComponent("wine/x86_64-unix").path,
+                    gptkBase.appendingPathComponent("wine/i386-windows").path,
+                    gptkBase.appendingPathComponent("wine/x86_32on64-unix").path
+                ].filter { FileManager.default.fileExists(atPath: $0) }.joined(separator: ":")
             }
             let gameDllOverrides: String
             switch gameBackend {
             case .d3dMetal:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=b;mscoree,mshtml="
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b;mscoree,mshtml="
             case .dxvk:
                 gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,user32=n,b;mscoree,mshtml="
             case .vkd3d:
@@ -1441,6 +1814,8 @@ final class ForgeStore: ObservableObject {
                 gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b;mscoree,mshtml="
             case .wineBuiltin:
                 gameDllOverrides = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
+            case .dxmt:
+                gameDllOverrides = "dd3d11,d3d11,dxgi,d3d10core=b;user32=n,b;mscoree,mshtml="
             case .none:
                 gameDllOverrides = ""
             }
@@ -1451,7 +1826,8 @@ final class ForgeStore: ObservableObject {
             env["FORGE_STEAM_SAFE_MODE"] = "1"
             env["FORGE_GAME_WINEDLLOVERRIDES"] = gameDllOverrides
             env["FORGE_GAME_VK_ICD_FILENAMES"] = gameVkIcd
-            env["FORGE_GAME_MTL_HUD_ENABLED"] = (config.globalHud && !disableHudForApp) ? "1" : "0"
+            env["FORGE_GAME_VK_DRIVER_FILES"] = gameVkDriverFiles
+            env["FORGE_GAME_MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
             env["FORGE_GAME_DYLD_LIBRARY_PATH"] = gameDyldPath
             env["FORGE_GAME_WINEDLLPATH"] = gameWineDllPath
             env["MOLTENVK_CONFIG_LOG_LEVEL"] = env["MOLTENVK_CONFIG_LOG_LEVEL"] ?? "0"
@@ -1467,7 +1843,11 @@ final class ForgeStore: ObservableObject {
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: winePath)
-        process.arguments = ["start", "/unix", exePath] + (isSteam ? steamSafeArgs(extraArgs) : extraArgs)
+        // Launch the PE executable directly instead of through `wine start /unix`.
+        // `start` detaches through explorer and can lose/flatten macOS-only env like
+        // MTL_HUD_ENABLED before the Unix-side Metal module is loaded. Direct launch
+        // keeps Forge's environment on the actual Wine process tree.
+        process.arguments = [exePath] + ((isSteam && steamSafeMode) ? steamSafeArgs(extraArgs) : extraArgs)
         process.currentDirectoryURL = URL(fileURLWithPath: exePath).deletingLastPathComponent()
         process.environment = env
 
@@ -1479,17 +1859,28 @@ final class ForgeStore: ObservableObject {
         exe=\(exePath)
         isSteam=\(isSteam)
         backend=\(launchBackend.rawValue)
-        steamSafeMode=\(isSteam)
+        steamSafeMode=\(isSteam && steamSafeMode)
         steamGameBackend=\(isSteam ? gameBackend.rawValue : "")
         args=\(process.arguments?.joined(separator: " ") ?? "")
         WINEDLLOVERRIDES=\(env["WINEDLLOVERRIDES"] ?? "")
         WINE_D3D_CONFIG=\(env["WINE_D3D_CONFIG"] ?? "")
         VK_ICD_FILENAMES=\(env["VK_ICD_FILENAMES"] ?? "")
         DYLD_LIBRARY_PATH=\(env["DYLD_LIBRARY_PATH"] ?? "")
+        DYLD_FALLBACK_LIBRARY_PATH=\(env["DYLD_FALLBACK_LIBRARY_PATH"] ?? "")
         MTL_HUD_ENABLED=\(env["MTL_HUD_ENABLED"] ?? "")
+        MTL_HUD_LAYER=\(env["MTL_HUD_LAYER"] ?? "")
         WINEDLLPATH=\(env["WINEDLLPATH"] ?? "")
         DXVK_FILTER_DEVICE_NAME=\(env["DXVK_FILTER_DEVICE_NAME"] ?? "")
+        FORGE_D3DMETAL_RUNTIME=\(env["FORGE_D3DMETAL_RUNTIME"] ?? "")
+        D3DMETAL_FRAMEWORK_PATH=\(env["D3DMETAL_FRAMEWORK_PATH"] ?? "")
         SteamAppId=\(env["SteamAppId"] ?? "")
+        FORGE_STEAM_SAFE_MODE=\(env["FORGE_STEAM_SAFE_MODE"] ?? "")
+        FORGE_GAME_WINEDLLOVERRIDES=\(env["FORGE_GAME_WINEDLLOVERRIDES"] ?? "")
+        FORGE_GAME_VK_ICD_FILENAMES=\(env["FORGE_GAME_VK_ICD_FILENAMES"] ?? "")
+        FORGE_GAME_VK_DRIVER_FILES=\(env["FORGE_GAME_VK_DRIVER_FILES"] ?? "")
+        FORGE_GAME_MTL_HUD_ENABLED=\(env["FORGE_GAME_MTL_HUD_ENABLED"] ?? "")
+        FORGE_GAME_DYLD_LIBRARY_PATH=\(env["FORGE_GAME_DYLD_LIBRARY_PATH"] ?? "")
+        FORGE_GAME_WINEDLLPATH=\(env["FORGE_GAME_WINEDLLPATH"] ?? "")
 
         """
         if let data = launchSummary.data(using: .utf8) {
@@ -1498,6 +1889,14 @@ final class ForgeStore: ObservableObject {
         process.standardOutput = log
         process.standardError = log
         try process.run()
+    }
+
+    nonisolated static func setMetalHudDefaults(_ enabled: Bool) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+        process.arguments = ["write", "-g", "MetalForceHudEnabled", "-bool", enabled ? "YES" : "NO"]
+        try process.run()
+        process.waitUntilExit()
     }
 
     nonisolated static func stopWineSession(bottle: BottleEntry, config: AppConfig, profile: RuntimeProfile) throws {
@@ -1565,6 +1964,151 @@ final class ForgeStore: ObservableObject {
         }
     }
 
+    nonisolated static func ensureDXVKInstalled(exePath: String, prefixPath: String, steamAppId: String?) throws {
+        let fm = FileManager.default
+        let sourceRoots = dxvkSourceRoots()
+        guard let sourceRoot = sourceRoots.first(where: {
+            fm.fileExists(atPath: $0.appendingPathComponent("x64/d3d11.dll").path)
+                && fm.fileExists(atPath: $0.appendingPathComponent("x64/dxgi.dll").path)
+        }) else {
+            throw ForgeError.message("DXVK runtime files were not found. Expected ~/Wine/Runtimes/dxvk-*/dxvk-*/x64/d3d11.dll.")
+        }
+
+        var targetDirs: [URL] = []
+        let exeURL = URL(fileURLWithPath: exePath)
+        if exeURL.lastPathComponent.caseInsensitiveCompare("steam.exe") != .orderedSame {
+            targetDirs.append(exeURL.deletingLastPathComponent())
+        }
+        if let steamAppId, let steamGameDir = steamGameDirectory(prefixPath: prefixPath, appId: steamAppId) {
+            targetDirs.append(steamGameDir)
+        }
+
+        var seen = Set<String>()
+        let uniqueDirs = targetDirs.filter { seen.insert($0.path).inserted }
+        let x64 = sourceRoot.appendingPathComponent("x64", isDirectory: true)
+        for dir in uniqueDirs {
+            for dll in ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d10.dll", "d3d10_1.dll", "d3d11.dll"] {
+                let source = x64.appendingPathComponent(dll)
+                if fm.fileExists(atPath: source.path) {
+                    try copyIfDifferent(source, to: dir.appendingPathComponent(dll))
+                }
+            }
+        }
+    }
+
+    nonisolated static func dxvkSourceRoots() -> [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let runtimes = home.appendingPathComponent("Wine/Runtimes", isDirectory: true)
+        var roots: [URL] = []
+        if let entries = try? FileManager.default.contentsOfDirectory(at: runtimes, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
+            for entry in entries where entry.lastPathComponent.lowercased().contains("dxvk") {
+                if let children = try? FileManager.default.contentsOfDirectory(at: entry, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
+                    roots.append(contentsOf: children.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedDescending })
+                }
+                roots.append(entry)
+            }
+        }
+        var seen = Set<String>()
+        return roots.filter { seen.insert($0.path).inserted }
+    }
+
+    nonisolated static func steamGameDirectory(prefixPath: String, appId: String) -> URL? {
+        let steamapps = URL(fileURLWithPath: prefixPath).appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)
+        let manifest = steamapps.appendingPathComponent("appmanifest_\(appId).acf")
+        guard let text = try? String(contentsOf: manifest) else { return nil }
+        for line in text.components(separatedBy: .newlines) {
+            let parts = line.components(separatedBy: "\"").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            if parts.count >= 2, parts[0].trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare("installdir") == .orderedSame {
+                return steamapps.appendingPathComponent("common", isDirectory: true).appendingPathComponent(parts[1], isDirectory: true)
+            }
+        }
+        return nil
+    }
+
+    nonisolated static func ensureDXMTInstalled(winePath: String, prefixPath: String) throws {
+        let fm = FileManager.default
+        let wineRoot = URL(fileURLWithPath: winePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let runtimeWin64Dir = wineRoot.appendingPathComponent("lib/wine/x86_64-windows", isDirectory: true)
+        let runtimeWin32Dir = wineRoot.appendingPathComponent("lib/wine/i386-windows", isDirectory: true)
+        let runtimeUnixDir = wineRoot.appendingPathComponent("lib/wine/x86_64-unix", isDirectory: true)
+        let system32 = URL(fileURLWithPath: prefixPath).appendingPathComponent("drive_c/windows/system32", isDirectory: true)
+        let syswow64 = URL(fileURLWithPath: prefixPath).appendingPathComponent("drive_c/windows/syswow64", isDirectory: true)
+
+        guard fm.fileExists(atPath: runtimeWin64Dir.path), fm.fileExists(atPath: runtimeUnixDir.path) else {
+            throw ForgeError.message("DXMT needs a Wine runtime with lib/wine/x86_64-windows and x86_64-unix directories.")
+        }
+        try fm.createDirectory(at: system32, withIntermediateDirectories: true)
+        try fm.createDirectory(at: syswow64, withIntermediateDirectories: true)
+
+        let sourceRoots = dxmtSourceRoots(wineRoot: wineRoot)
+        guard let sourceRoot = sourceRoots.first(where: {
+            fm.fileExists(atPath: $0.appendingPathComponent("x86_64-windows/d3d11.dll").path)
+                && fm.fileExists(atPath: $0.appendingPathComponent("x86_64-windows/dxgi.dll").path)
+                && fm.fileExists(atPath: $0.appendingPathComponent("x86_64-unix/winemetal.so").path)
+        }) else {
+            throw ForgeError.message("DXMT runtime files were not found. Expected ~/Wine/Runtimes/dxmt-v*/v*/x86_64-windows and x86_64-unix.")
+        }
+
+        let windows64Source = sourceRoot.appendingPathComponent("x86_64-windows", isDirectory: true)
+        let windows32Source = sourceRoot.appendingPathComponent("i386-windows", isDirectory: true)
+        let unixSource = sourceRoot.appendingPathComponent("x86_64-unix", isDirectory: true)
+        for dll in ["d3d11.dll", "dxgi.dll", "d3d10core.dll", "winemetal.dll"] {
+            let source64 = windows64Source.appendingPathComponent(dll)
+            if fm.fileExists(atPath: source64.path) {
+                try copyIfDifferent(source64, to: runtimeWin64Dir.appendingPathComponent(dll))
+                // Unity checks for a real file before Wine resolves the builtin module.
+                // Keep the PE builtin marker in system32, but use builtin overrides.
+                try copyIfDifferent(source64, to: system32.appendingPathComponent(dll))
+            }
+
+            let source32 = windows32Source.appendingPathComponent(dll)
+            if fm.fileExists(atPath: source32.path), fm.fileExists(atPath: runtimeWin32Dir.path) {
+                try copyIfDifferent(source32, to: runtimeWin32Dir.appendingPathComponent(dll))
+                // 32-bit Unity games like Among Us load through the 32-bit system DLL view.
+                try copyIfDifferent(source32, to: syswow64.appendingPathComponent(dll))
+            }
+        }
+        try copyIfDifferent(windows64Source.appendingPathComponent("d3d11.dll"), to: runtimeWin64Dir.appendingPathComponent("dd3d11.dll"))
+        try copyIfDifferent(windows64Source.appendingPathComponent("d3d11.dll"), to: system32.appendingPathComponent("dd3d11.dll"))
+        if fm.fileExists(atPath: windows32Source.appendingPathComponent("d3d11.dll").path), fm.fileExists(atPath: runtimeWin32Dir.path) {
+            try copyIfDifferent(windows32Source.appendingPathComponent("d3d11.dll"), to: runtimeWin32Dir.appendingPathComponent("dd3d11.dll"))
+            try copyIfDifferent(windows32Source.appendingPathComponent("d3d11.dll"), to: syswow64.appendingPathComponent("dd3d11.dll"))
+        }
+        try copyIfDifferent(unixSource.appendingPathComponent("winemetal.so"), to: runtimeUnixDir.appendingPathComponent("winemetal.so"))
+    }
+
+    nonisolated static func dxmtSourceRoots(wineRoot: URL) -> [URL] {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let runtimes = home.appendingPathComponent("Wine/Runtimes", isDirectory: true)
+        var roots: [URL] = []
+        if let entries = try? FileManager.default.contentsOfDirectory(at: runtimes, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
+            for entry in entries where entry.lastPathComponent.lowercased().contains("dxmt") {
+                roots.append(entry)
+                if let children = try? FileManager.default.contentsOfDirectory(at: entry, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
+                    roots.append(contentsOf: children)
+                }
+            }
+        }
+        roots.append(wineRoot.appendingPathComponent("lib/dxmt", isDirectory: true))
+        var seen = Set<String>()
+        return roots.filter { seen.insert($0.path).inserted }
+    }
+
+    nonisolated static func copyIfDifferent(_ source: URL, to destination: URL) throws {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: source.path) else { return }
+        try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if fm.fileExists(atPath: destination.path) {
+            let sourceAttrs = try? fm.attributesOfItem(atPath: source.path)
+            let destAttrs = try? fm.attributesOfItem(atPath: destination.path)
+            if (sourceAttrs?[.size] as? NSNumber) == (destAttrs?[.size] as? NSNumber) { return }
+            try fm.removeItem(at: destination)
+        }
+        try fm.copyItem(at: source, to: destination)
+    }
+
     nonisolated static func configureMoltenVK(profile: RuntimeProfile, config: AppConfig, env: inout [String: String]) {
         if let existing = env["VK_ICD_FILENAMES"], !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return
@@ -1605,9 +2149,12 @@ final class ForgeStore: ObservableObject {
             let configured = URL(fileURLWithPath: gptkLibPath)
             parts.append(configured.path)
             if configured.lastPathComponent.caseInsensitiveCompare("external") == .orderedSame {
+                parts.append(configured.appendingPathComponent("D3DMetal.framework/Versions/A").path)
                 parts.append(configured.deletingLastPathComponent().path)
             } else {
-                parts.append(configured.appendingPathComponent("external").path)
+                let external = configured.appendingPathComponent("external")
+                parts.append(external.path)
+                parts.append(external.appendingPathComponent("D3DMetal.framework/Versions/A").path)
             }
         }
         if !existing.isEmpty { parts.append(existing) }
@@ -1624,6 +2171,16 @@ final class ForgeStore: ObservableObject {
             return configured
         }
         return configured
+    }
+
+    nonisolated static func d3dMetalFrameworkPath(gptkLibPath: String?) -> String? {
+        guard let base = gptkWineLibBase(gptkLibPath: gptkLibPath) else { return nil }
+        let candidates = [
+            base.appendingPathComponent("external/D3DMetal.framework").path,
+            base.appendingPathComponent("D3DMetal.framework").path,
+            "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external/D3DMetal.framework"
+        ]
+        return candidates.first(where: { FileManager.default.fileExists(atPath: $0) })
     }
 
     nonisolated static func gptkWinePath(gptkLibPath: String?) -> String? {
@@ -1705,16 +2262,16 @@ struct RuntimeProfile: Codable, Identifiable {
 
     static func defaultProfile(config: AppConfig) -> RuntimeProfile {
         RuntimeProfile(
-            id: "wine-vulkan",
-            name: "Wine 11 + MoltenVK",
-            wine64Path: config.wine64Path,
-            wineserverPath: nil,
-            gptkLibPath: nil,
+            id: "forge-cx-wine11-open-wow64",
+            name: "Forge Wine 11 Open WoW64 + MoltenVK",
+            wine64Path: NSHomeDirectory() + "/Wine/Runtimes/forge-cx-wine-11-open-wow64/bin/wine",
+            wineserverPath: NSHomeDirectory() + "/Wine/Runtimes/forge-cx-wine-11-open-wow64/bin/wineserver",
+            gptkLibPath: config.gptkLibPath.isEmpty ? nil : config.gptkLibPath,
             dxvkPath: nil,
             vkd3dPath: nil,
-            moltenvkPath: nil,
+            moltenvkPath: "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
             defaultBackend: .dxvkVkd3d,
-            env: [:]
+            env: ["VK_ICD_FILENAMES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"]
         )
     }
 }
@@ -1740,12 +2297,22 @@ struct BottleAppItem: Identifiable, Hashable {
     }
 }
 
-enum GraphicsBackend: String, Codable, Equatable {
+struct GameCompatibilityProfile: Codable, Identifiable {
+    var id: String
+    var displayName: String
+    var backendOverride: GraphicsBackend?
+    var launchArgs: [String]
+    var env: [String: String]
+    var notes: String?
+}
+
+enum GraphicsBackend: String, Codable, Equatable, CaseIterable {
     case d3dMetal = "d3dmetal"
     case dxvk
     case vkd3d
     case dxvkVkd3d = "dxvk_vkd3d"
     case wineBuiltin = "wine_builtin"
+    case dxmt
     case none
 
     init(from decoder: Decoder) throws {

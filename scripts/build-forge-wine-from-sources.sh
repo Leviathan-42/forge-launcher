@@ -21,6 +21,7 @@ INSTALL_PREFIX="${INSTALL_PREFIX:-$HOME/Wine/Runtimes/forge-wine-11-full}"
 WINE_DEVEL_LIB="${WINE_DEVEL_LIB:-/Applications/Wine Devel.app/Contents/Resources/wine/lib}"
 MOLTENVK_LINK_DIR="${MOLTENVK_LINK_DIR:-/tmp/forge-wine-devel-lib}"
 JOBS="${JOBS:-$(sysctl -n hw.activecpu)}"
+ENABLE_WOW64="${ENABLE_WOW64:-0}"
 
 if [[ ! -d "$WINE_SRC" ]]; then
   echo "Wine source not found: $WINE_SRC" >&2
@@ -390,9 +391,14 @@ mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
 if [[ ! -f Makefile ]]; then
+  arch_arg="--enable-win64"
+  if [[ "$ENABLE_WOW64" == "1" ]]; then
+    arch_arg="--enable-archs=i386,x86_64"
+  fi
+
   arch -x86_64 ../configure -C \
     --prefix="$INSTALL_PREFIX" \
-    --enable-win64 \
+    "$arch_arg" \
     --with-mingw \
     --with-freetype \
     --with-gnutls \

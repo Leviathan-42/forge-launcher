@@ -10,7 +10,9 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "native:dev": "scripts/run-native-app.sh",
     "native:run-raw": "swift run --package-path macos/ForgeNative ForgeNative",
-    "native:build": "swift build --package-path macos/ForgeNative -c release"
+    "native:build": "swift build --package-path macos/ForgeNative -c release",
+    "kill": "scripts/forge-kill.sh",
+    "doctor": "scripts/forge-doctor.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
