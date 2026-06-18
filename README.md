@@ -1,6 +1,6 @@
 # Forge Launcher
 
-> **Vibe-coded project:** Forge's launcher/app code is 100% vibe coded. No real human-authored production code is claimed here, except for upstream open-source components that Forge builds on, such as Wine and the open-source Wine work published with CodeWeavers/CrossOver sources.
+> **Vibe-coded project:** Forge's launcher/app code is 100% vibe coded. No real human-authored production code is claimed here, except for upstream open-source components that Forge builds on, such as Wine and the open-source Wine work published with CodeWeavers/CrossOver sources. (ahahah ai go build free crossover)
 
 Forge is an experimental macOS launcher/runtime for Windows games.
 
