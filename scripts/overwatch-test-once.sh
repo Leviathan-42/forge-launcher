@@ -16,12 +16,12 @@ SECONDS_TO_RUN="${2:-30}"
 # for the second-chance exception dispatch with this variable.
 FORGE_STACK_GUARANTEE_BYTES="${FORGE_STACK_GUARANTEE_BYTES:-262144}"
 WINEDEBUG_VALUE="${WINEDEBUG:-fixme-all,+seh,+loaddll,+virtual}"
-PREFIX="$HOME/Wine/Bottles/default"
-RUNTIME="$HOME/Wine/Runtimes/forge-cx-wine-11-open-wow64"
+PREFIX="${FORGE_TEST_PREFIX:-$HOME/Wine/Bottles/default}"
+RUNTIME="${FORGE_TEST_RUNTIME:-$HOME/Wine/Runtimes/forge-cx-wine-11-open-wow64}"
 GAME_DIR="$PREFIX/drive_c/Program Files (x86)/Steam/steamapps/common/Overwatch"
 GAME="$GAME_DIR/Overwatch.exe"
 STEAM="$PREFIX/drive_c/Program Files (x86)/Steam/steam.exe"
-DXVK="$HOME/Wine/Runtimes/dxvk-2.7.1/dxvk-2.7.1/x64"
+DXVK="${FORGE_TEST_DXVK:-$HOME/Wine/Runtimes/dxvk-2.7.1/dxvk-2.7.1/x64}"
 LOGDIR="$HOME/Library/Application Support/com.forgelauncher.app/Logs"
 mkdir -p "$LOGDIR"
 
@@ -97,8 +97,8 @@ ENV_VARS=(
   WINEPREFIX="$PREFIX"
   WINEDEBUG="$WINEDEBUG_VALUE"
   WINEDBG="-all"
-  WINEESYNC=1
-  WINEMSYNC=1
+  WINEESYNC="${WINEESYNC:-1}"
+  WINEMSYNC="${WINEMSYNC:-1}"
   FORGE_STACK_GUARANTEE_BYTES="$FORGE_STACK_GUARANTEE_BYTES"
   SteamAppId=2357570
   SteamGameId=2357570
