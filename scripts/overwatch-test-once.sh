@@ -11,6 +11,7 @@ set -euo pipefail
 
 MODE="${1:-dxvk}"
 SECONDS_TO_RUN="${2:-30}"
+OW_WORKER_THREADS="${FORGE_OW_WORKER_THREADS:-2}"
 # Overwatch_loader uses a deep VEH/stack-overflow recovery path while the loader
 # lock is held. Forge's Wine runtime can reserve a larger guaranteed stack band
 # for the second-chance exception dispatch with this variable.
@@ -87,10 +88,10 @@ cd "$GAME_DIR"
 
 if [[ "$MODE" == "steam-dxvk" ]]; then
   EXE="$STEAM"
-  ARGS=(-no-cef-sandbox -cef-disable-sandbox -applaunch 2357570 -tank_WorkerThreadCount 2)
+  ARGS=(-no-cef-sandbox -cef-disable-sandbox -applaunch 2357570 -tank_WorkerThreadCount "$OW_WORKER_THREADS")
 else
   EXE="$GAME"
-  ARGS=(-tank_WorkerThreadCount 2)
+  ARGS=(-tank_WorkerThreadCount "$OW_WORKER_THREADS")
 fi
 
 ENV_VARS=(
