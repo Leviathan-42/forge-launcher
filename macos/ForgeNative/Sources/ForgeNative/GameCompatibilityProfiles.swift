@@ -9,6 +9,17 @@ struct GameCompatibilityProfile: Codable, Identifiable, Equatable {
     var notes: String?
 }
 
+private enum SeededGameProfileID {
+    static let againstTheStorm = "steam:1336490"
+    static let amongUs = "steam:945360"
+    static let overwatch = "steam:2357570"
+    static let peak = "name:peak"
+}
+
+private enum GameProfileEnvKey {
+    static let overwatchStackGuarantee = "FORGE_STACK_GUARANTEE_BYTES"
+}
+
 extension ForgeStore {
     nonisolated static func loadGameProfiles(from support: URL) throws -> [String: GameCompatibilityProfile] {
         let url = support.appendingPathComponent("game_compatibility_profiles.json")
@@ -21,27 +32,15 @@ extension ForgeStore {
         }
 
         for seed in seededGameProfiles() {
-            if profiles[seed.id] == nil {
+            guard let existing = profiles[seed.id] else {
                 profiles[seed.id] = seed
-            } else if seed.id == "steam:1336490", profiles[seed.id]?.backendOverride == .d3dMetal {
-                // Against the Storm is D3D11-only and now works through DXMT in Forge's
-                // own Wine runtime. Migrate the earlier D3DMetal seed automatically.
-                profiles[seed.id]?.displayName = seed.displayName
-                profiles[seed.id]?.backendOverride = .dxmt
-                profiles[seed.id]?.launchArgs = seed.launchArgs
-                profiles[seed.id]?.env = seed.env
-                profiles[seed.id]?.notes = seed.notes
-            } else if seed.id == "steam:945360", profiles[seed.id]?.backendOverride != .wineBuiltin {
-                // Among Us is a 32-bit Unity D3D11 build. DXMT's 32-bit builtin PE
-                // cannot be loaded by this WoW64 runtime, and DXVK hits feature-level
-                // limits. WineD3D's Vulkan renderer reaches D3D11 level 11.1.
+                continue
+            }
+
+            if shouldReplaceLoadedGameProfile(existing, with: seed) {
                 profiles[seed.id] = seed
-            } else if seed.id == "steam:2357570", profiles[seed.id]?.backendOverride == .d3dMetal {
-                // Overwatch fails D3DMetal initialization in the current runtime.
-                profiles[seed.id] = seed
-            } else if seed.id == "steam:2357570", profiles[seed.id]?.env["FORGE_STACK_GUARANTEE_BYTES"] == nil {
-                profiles[seed.id]?.env["FORGE_STACK_GUARANTEE_BYTES"] = seed.env["FORGE_STACK_GUARANTEE_BYTES"]
-                profiles[seed.id]?.notes = seed.notes
+            } else if shouldBackfillOverwatchStackGuarantee(existing, seed: seed) {
+                profiles[seed.id] = addingOverwatchStackGuarantee(to: existing, from: seed)
             }
         }
 
@@ -58,7 +57,7 @@ extension ForgeStore {
     nonisolated static func seededGameProfiles() -> [GameCompatibilityProfile] {
         [
             GameCompatibilityProfile(
-                id: "steam:1336490",
+                id: SeededGameProfileID.againstTheStorm,
                 displayName: "Against the Storm",
                 backendOverride: .dxmt,
                 launchArgs: ["-screen-fullscreen", "1"],
@@ -66,7 +65,7 @@ extension ForgeStore {
                 notes: "D3D11-only Unity build; Vulkan/OpenGL shaders are unavailable and DXVK is blocked by MoltenVK geometryShader support. Uses DXMT's D3D11 -> Metal path."
             ),
             GameCompatibilityProfile(
-                id: "steam:945360",
+                id: SeededGameProfileID.amongUs,
                 displayName: "Among Us",
                 backendOverride: .wineBuiltin,
                 launchArgs: [],
@@ -79,15 +78,15 @@ extension ForgeStore {
                 notes: "32-bit Unity D3D11 build; DXMT/DXVK are not viable in this WoW64 runtime. WineD3D's Vulkan renderer reaches D3D11 level 11.1."
             ),
             GameCompatibilityProfile(
-                id: "steam:2357570",
+                id: SeededGameProfileID.overwatch,
                 displayName: "Overwatch 2",
                 backendOverride: .dxvkVkd3d,
                 launchArgs: [],
-                env: ["FORGE_STACK_GUARANTEE_BYTES": "262144"],
+                env: [GameProfileEnvKey.overwatchStackGuarantee: "262144"],
                 notes: "Steam build. Use DXVK/VKD3D and reserve a larger stack-overflow handling guarantee for Blizzard's loader/VEH path; do not use D3DMetal for the current Forge runtime."
             ),
             GameCompatibilityProfile(
-                id: "name:peak",
+                id: SeededGameProfileID.peak,
                 displayName: "PEAK",
                 backendOverride: .dxvkVkd3d,
                 launchArgs: ["-force-vulkan", "-force-gfx-st", "-disable-gpu-skinning", "-screen-fullscreen", "1"],
@@ -99,6 +98,41 @@ extension ForgeStore {
 
     nonisolated static func seededGameProfile(forKey key: String) -> GameCompatibilityProfile? {
         seededGameProfiles().first { $0.id == key }
+    }
+
+    private nonisolated static func shouldReplaceLoadedGameProfile(
+        _ profile: GameCompatibilityProfile,
+        with seed: GameCompatibilityProfile
+    ) -> Bool {
+        switch seed.id {
+        case SeededGameProfileID.againstTheStorm:
+            return profile.backendOverride == .d3dMetal
+        case SeededGameProfileID.amongUs:
+            return profile.backendOverride != .wineBuiltin
+        case SeededGameProfileID.overwatch:
+            return profile.backendOverride == .d3dMetal
+        default:
+            return false
+        }
+    }
+
+    private nonisolated static func shouldBackfillOverwatchStackGuarantee(
+        _ profile: GameCompatibilityProfile,
+        seed: GameCompatibilityProfile
+    ) -> Bool {
+        seed.id == SeededGameProfileID.overwatch && profile.env[GameProfileEnvKey.overwatchStackGuarantee] == nil
+    }
+
+    private nonisolated static func addingOverwatchStackGuarantee(
+        to profile: GameCompatibilityProfile,
+        from seed: GameCompatibilityProfile
+    ) -> GameCompatibilityProfile {
+        var updated = profile
+        if let value = seed.env[GameProfileEnvKey.overwatchStackGuarantee] {
+            updated.env[GameProfileEnvKey.overwatchStackGuarantee] = value
+        }
+        updated.notes = seed.notes
+        return updated
     }
 
     nonisolated static func gameProfileCanReset(_ profiles: [String: GameCompatibilityProfile], key: String) -> Bool {
@@ -120,7 +154,7 @@ extension ForgeStore {
     }
 
     nonisolated static func gameProfileKey(for app: BottleAppItem) -> String {
-        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame { return "name:peak" }
+        if app.name.caseInsensitiveCompare("PEAK") == .orderedSame { return SeededGameProfileID.peak }
         if let appId = app.steamAppId, !appId.isEmpty { return "steam:\(appId)" }
         return "exe:\(app.path.standardizingPath.lowercased())"
     }
