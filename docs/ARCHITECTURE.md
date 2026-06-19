@@ -25,11 +25,12 @@ Forge.app / ForgeNative
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppDelegate.swift` | macOS activation, icon, and window chrome setup |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppRow.swift` | App list row, compatibility profile badges, and status pill UI |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeContentView.swift` | Main library shell, sidebar, runtime panel, app list, and drop handling |
-| `macos/ForgeNative/Sources/ForgeNative/ForgeLaunchSupport.swift` | Spawn orchestration, Wine environment, runtime DLL staging, process, and stop helpers |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeLaunchSupport.swift` | Spawn orchestration, Wine environment, process, and stop helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeUIComponents.swift` | Shared SwiftUI cards and controls |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeVisualStyles.swift` | Visual background, search field, button/glass styling, backend display text |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeModels.swift` | Core config, bottle, app, backend models and JSON helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgePersistence.swift` | Config, runtime profile, and bottle JSON load/save helpers |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeRuntimeStaging.swift` | DXVK/DXMT/D3DMetal runtime DLL staging and source discovery |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeStore.swift` | Main store state, high-level launch requests, and bottle/HUD actions |
 | `macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift` | Per-game compatibility profile model, store actions, seeds, reset, parsing |
 | `macos/ForgeNative/Sources/ForgeNative/GameProfileEditorSheet.swift` | Native profile editor UI |

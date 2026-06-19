@@ -125,4 +125,10 @@ Launch/runtime support and process orchestration have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeLaunchSupport.swift
 ```
 
+Runtime DLL staging helpers have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeRuntimeStaging.swift
+```
+
 `ForgeStore.swift` still includes high-level launch requests, backend selection, and HUD/bottle actions. Keep extracting isolated pieces as compatibility work stabilizes.

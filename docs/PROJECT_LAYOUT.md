@@ -15,11 +15,12 @@ forge-launcher/
 │   │   ├── ForgeAppDelegate.swift       # macOS app/window chrome setup
 │   │   ├── ForgeAppRow.swift            # App list row, profile badges, status pill
 │   │   ├── ForgeContentView.swift       # Main library shell and app list UI
-│   │   ├── ForgeLaunchSupport.swift     # Spawn orchestration, Wine env, runtime DLL helpers
+│   │   ├── ForgeLaunchSupport.swift     # Spawn orchestration, Wine env, process helpers
 │   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards and controls
 │   │   ├── ForgeVisualStyles.swift      # Background, search field, button/glass styling
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
 │   │   ├── ForgePersistence.swift       # Config/runtime/bottle JSON persistence
+│   │   ├── ForgeRuntimeStaging.swift    # DXVK/DXMT/D3DMetal runtime DLL staging
 │   │   ├── ForgeStore.swift             # Main store state and high-level actions
 │   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, actions, seeds, parsing
 │   │   ├── GameProfileEditorSheet.swift # Per-game profile editor UI
@@ -104,7 +105,7 @@ Launch requests start in `ForgeStore.launch(_:)` inside `ForgeStore.swift`; proc
 - Steam safe mode
 
 - Prefix creation
-- DXVK/DXMT DLL staging
+- DXVK/DXMT/D3DMetal DLL staging
 - MoltenVK/GPTK path resolution
 - Stop via `wineserver -k`
 
