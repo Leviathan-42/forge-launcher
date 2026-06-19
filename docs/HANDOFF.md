@@ -59,9 +59,10 @@ Current native code:
 
 - `GameCompatibilityProfiles.swift` seeds `steam:1336490` as `backend_override: dxmt`.
 - `GameCompatibilityProfiles.swift` migrates older stale Against the Storm D3DMetal profiles to DXMT.
-- `ForgeNativeApp.swift` shows per-game profile launch args/env/notes as compact badges in the app list.
+- `ForgeContentView.swift` shows per-game profile launch args/env/notes as compact badges in the app list.
 - `GameProfileEditorSheet.swift` provides a native editor for backend override, launch args, env overrides, notes, and reset-to-seed.
-- `ensureDXMTInstalled(winePath:prefixPath:)` stages DXMT PE DLLs and `winemetal.so`.
+- `ForgeLaunchSupport.swift` contains launch/runtime helpers, including `ensureDXMTInstalled(winePath:prefixPath:)`.
+- `ForgeLaunchSupportTests.swift` covers pure launch helper behavior such as Steam safe args, DYLD path construction, MoltenVK candidates, and Steam manifest install-dir parsing.
 - Direct launch graphics validation reached `Loading completed`; Steam/DLC callback errors from direct launch are separate from graphics initialization.
 
 ## Recommended next work
