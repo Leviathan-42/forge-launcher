@@ -23,7 +23,8 @@ forge-launcher/
 │   │   ├── ForgePersistence.swift       # Config/runtime/bottle JSON persistence
 │   │   ├── ForgeRuntimeStaging.swift    # DXVK/DXMT/D3DMetal runtime DLL staging
 │   │   ├── ForgeStore.swift             # Main store state and high-level actions
-│   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, actions, seeds, parsing
+│   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, actions, and seeds
+│   │   ├── GameProfileTextParsing.swift # Launch-arg/env profile text parsing helpers
 │   │   ├── GameProfileEditorSheet.swift # Per-game profile editor UI
 │   │   └── Resources/AppIcon.png        # Runtime icon resource
 │   └── Tests/ForgeNativeTests/          # Native compatibility profile regression tests

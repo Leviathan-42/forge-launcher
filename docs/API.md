@@ -43,7 +43,8 @@ Core Swift models live in `ForgeModels.swift`:
 - `BottleAppItem`
 - `GraphicsBackend`
 
-Per-game compatibility profile models, store actions, seeded-profile helpers, and text parsers live in `GameCompatibilityProfiles.swift`.
+Per-game compatibility profile models, store actions, and seeded-profile helpers live in `GameCompatibilityProfiles.swift`.
+Profile editor text parsers live in `GameProfileTextParsing.swift`.
 
 ## Legacy Tauri API
 

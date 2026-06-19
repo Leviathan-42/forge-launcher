@@ -33,7 +33,8 @@ Forge.app / ForgeNative
 | `macos/ForgeNative/Sources/ForgeNative/ForgePersistence.swift` | Config, runtime profile, and bottle JSON load/save helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeRuntimeStaging.swift` | DXVK/DXMT/D3DMetal runtime DLL staging and source discovery |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeStore.swift` | Main store state, high-level launch requests, and bottle/HUD actions |
-| `macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift` | Per-game compatibility profile model, store actions, seeds, reset, parsing |
+| `macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift` | Per-game compatibility profile model, store actions, seeds, and reset |
+| `macos/ForgeNative/Sources/ForgeNative/GameProfileTextParsing.swift` | Launch-argument, environment override, and notes text parsing helpers |
 | `macos/ForgeNative/Sources/ForgeNative/GameProfileEditorSheet.swift` | Native profile editor UI |
 | `macos/ForgeNative/Package.swift` | Swift package targeting macOS 26 |
 | `scripts/run-native-app.sh` | Builds and opens `dist/Forge.app` for Cmd-Tab/Dock behavior |

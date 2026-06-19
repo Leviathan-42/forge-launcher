@@ -59,7 +59,8 @@ Current native code:
 
 - `GameCompatibilityProfiles.swift` seeds `steam:1336490` as `backend_override: dxmt`.
 - `GameCompatibilityProfiles.swift` migrates older stale Against the Storm D3DMetal profiles to DXMT.
-- `GameCompatibilityProfiles.swift` owns per-game profile lookup, update, reset, launch args, and env override actions.
+- `GameCompatibilityProfiles.swift` owns per-game profile lookup, update, reset, and seeded defaults.
+- `GameProfileTextParsing.swift` owns launch-arg/env/notes text parsing for the profile editor.
 - `ForgeStore.swift` owns main store state plus high-level launch, stop, backend, HUD, bottle, and file-picker actions.
 - `ForgeContentView.swift` owns the main library shell and app list.
 - `ForgeAppRow.swift` shows per-game profile launch args/env/notes as compact badges in the app list.

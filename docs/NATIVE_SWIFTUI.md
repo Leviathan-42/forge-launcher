@@ -101,6 +101,12 @@ Per-game compatibility profile models and store actions have been split into:
 macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift
 ```
 
+Profile editor text parsing helpers have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/GameProfileTextParsing.swift
+```
+
 Core config/runtime/app models have been split into:
 
 ```text
