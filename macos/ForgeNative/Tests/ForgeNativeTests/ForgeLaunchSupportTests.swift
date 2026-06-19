@@ -78,6 +78,34 @@ final class ForgeLaunchSupportTests: XCTestCase {
         XCTAssertTrue(summary.hasSuffix("\n\n"))
     }
 
+    func testResolvedWineserverPathPrefersProfileOverride() {
+        let config = makeConfig(wine64Path: "/tmp/config/bin/wine")
+        let profile = makeRuntimeProfile(
+            wine64Path: "/tmp/profile/bin/wine",
+            wineserverPath: "/tmp/custom/wineserver"
+        )
+
+        XCTAssertEqual(
+            ForgeStore.resolvedWineserverPath(profile: profile, config: config),
+            "/tmp/custom/wineserver"
+        )
+    }
+
+    func testResolvedWineserverPathFallsBackNextToSelectedWine() {
+        let config = makeConfig(wine64Path: "/tmp/config/bin/wine")
+        let profileWine = makeRuntimeProfile(wine64Path: "/tmp/profile/bin/wine", wineserverPath: nil)
+        let configWine = makeRuntimeProfile(wine64Path: "", wineserverPath: "")
+
+        XCTAssertEqual(
+            ForgeStore.resolvedWineserverPath(profile: profileWine, config: config),
+            "/tmp/profile/bin/wineserver"
+        )
+        XCTAssertEqual(
+            ForgeStore.resolvedWineserverPath(profile: configWine, config: config),
+            "/tmp/config/bin/wineserver"
+        )
+    }
+
     func testSteamGameDirectoryReadsInstallDirFromManifest() throws {
         let prefix = FileManager.default.temporaryDirectory
             .appendingPathComponent("ForgeLaunchSupportTests")
@@ -97,6 +125,33 @@ final class ForgeLaunchSupportTests: XCTestCase {
         XCTAssertEqual(
             ForgeStore.steamGameDirectory(prefixPath: prefix.path, appId: "123")?.path,
             steamapps.appendingPathComponent("common/Example Game", isDirectory: true).path
+        )
+    }
+
+    private func makeConfig(wine64Path: String) -> AppConfig {
+        AppConfig(
+            wine64Path: wine64Path,
+            gptkLibPath: "",
+            defaultPrefix: "/tmp/prefix",
+            suppressWineDebug: true,
+            globalHud: false,
+            metalfxEnabled: false,
+            env: [:]
+        )
+    }
+
+    private func makeRuntimeProfile(wine64Path: String, wineserverPath: String?) -> RuntimeProfile {
+        RuntimeProfile(
+            id: "test",
+            name: "Test",
+            wine64Path: wine64Path,
+            wineserverPath: wineserverPath,
+            gptkLibPath: nil,
+            dxvkPath: nil,
+            vkd3dPath: nil,
+            moltenvkPath: nil,
+            defaultBackend: .dxvk,
+            env: [:]
         )
     }
 }

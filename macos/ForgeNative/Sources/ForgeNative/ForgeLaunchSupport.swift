@@ -283,10 +283,7 @@ extension ForgeStore {
     }
 
     nonisolated static func stopWineSession(bottle: BottleEntry, config: AppConfig, profile: RuntimeProfile) throws {
-        let winePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
-        let wineserverPath = profile.wineserverPath?.isEmpty == false
-            ? profile.wineserverPath!
-            : URL(fileURLWithPath: winePath).deletingLastPathComponent().appendingPathComponent("wineserver").path
+        let wineserverPath = resolvedWineserverPath(profile: profile, config: config)
         guard FileManager.default.fileExists(atPath: wineserverPath) else {
             throw ForgeError.message("wineserver not found next to Wine at \(wineserverPath)")
         }
@@ -303,6 +300,14 @@ extension ForgeStore {
         process.standardError = log
         try process.run()
         process.waitUntilExit()
+    }
+
+    nonisolated static func resolvedWineserverPath(profile: RuntimeProfile, config: AppConfig) -> String {
+        if let wineserverPath = profile.wineserverPath, !wineserverPath.isEmpty {
+            return wineserverPath
+        }
+        let winePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
+        return URL(fileURLWithPath: winePath).deletingLastPathComponent().appendingPathComponent("wineserver").path
     }
 
     nonisolated static func ensurePrefix(prefixPath: String, winePath: String) throws {
