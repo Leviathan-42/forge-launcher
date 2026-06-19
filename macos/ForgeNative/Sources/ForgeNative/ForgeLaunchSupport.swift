@@ -147,20 +147,14 @@ extension ForgeStore {
         }
 
         if launchBackend == .dxmt {
-            env.removeValue(forKey: "VK_ICD_FILENAMES")
-            env.removeValue(forKey: "VK_DRIVER_FILES")
-            env.removeValue(forKey: "DXVK_ASYNC")
-            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+            clearVulkanBackendEnvironment(&env)
         }
 
         if launchBackend == .d3dMetal {
             // D3DMetal must not inherit Vulkan/DXVK profile settings. If VK_ICD or
             // DXVK variables survive here, Wine can load DXVK instead of GPTK's
             // builtin D3DMetal DLLs and Unity games crash before rendering.
-            env.removeValue(forKey: "VK_ICD_FILENAMES")
-            env.removeValue(forKey: "VK_DRIVER_FILES")
-            env.removeValue(forKey: "DXVK_ASYNC")
-            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+            clearVulkanBackendEnvironment(&env)
         }
 
         // This win32u workaround is only for Steam's Chromium helper. Do not let
@@ -336,6 +330,13 @@ extension ForgeStore {
 
     nonisolated static func steamSafeArgs(_ extra: [String]) -> [String] {
         ["-no-cef-sandbox", "-cef-disable-sandbox"] + extra
+    }
+
+    nonisolated static func clearVulkanBackendEnvironment(_ env: inout [String: String]) {
+        env.removeValue(forKey: "VK_ICD_FILENAMES")
+        env.removeValue(forKey: "VK_DRIVER_FILES")
+        env.removeValue(forKey: "DXVK_ASYNC")
+        env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
     }
 
     nonisolated static func launchLogHandle() throws -> FileHandle {

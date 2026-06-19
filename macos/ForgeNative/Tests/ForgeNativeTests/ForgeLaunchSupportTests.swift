@@ -9,6 +9,24 @@ final class ForgeLaunchSupportTests: XCTestCase {
         )
     }
 
+    func testClearVulkanBackendEnvironmentRemovesVulkanAndDXVKKeys() {
+        var env = [
+            "VK_ICD_FILENAMES": "/tmp/icd.json",
+            "VK_DRIVER_FILES": "/tmp/driver.json",
+            "DXVK_ASYNC": "1",
+            "DXVK_FILTER_DEVICE_NAME": "Impossible",
+            "WINEPREFIX": "/tmp/prefix"
+        ]
+
+        ForgeStore.clearVulkanBackendEnvironment(&env)
+
+        XCTAssertNil(env["VK_ICD_FILENAMES"])
+        XCTAssertNil(env["VK_DRIVER_FILES"])
+        XCTAssertNil(env["DXVK_ASYNC"])
+        XCTAssertNil(env["DXVK_FILTER_DEVICE_NAME"])
+        XCTAssertEqual(env["WINEPREFIX"], "/tmp/prefix")
+    }
+
     func testSteamGameDirectoryReadsInstallDirFromManifest() throws {
         let prefix = FileManager.default.temporaryDirectory
             .appendingPathComponent("ForgeLaunchSupportTests")
