@@ -26,6 +26,7 @@ forge-launcher/
 │   │   ├── ForgeRuntimePanel.swift      # Drop/reveal/rescan runtime controls
 │   │   ├── ForgeRuntimeStaging.swift    # DXVK/DXMT/D3DMetal runtime DLL staging
 │   │   ├── ForgeSidebar.swift           # Bottle/status/sidebar controls
+│   │   ├── ForgeSidebarComponents.swift # Sidebar bottle/backend/HUD cards
 │   │   ├── ForgeStore.swift             # Main store state and high-level actions
 │   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, actions, and seeds
 │   │   ├── GameProfileTextParsing.swift # Launch-arg/env profile text parsing helpers

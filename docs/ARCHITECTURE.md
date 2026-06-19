@@ -36,6 +36,7 @@ Forge.app / ForgeNative
 | `macos/ForgeNative/Sources/ForgeNative/ForgeRuntimePanel.swift` | Drop/reveal/rescan runtime controls |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeRuntimeStaging.swift` | DXVK/DXMT/D3DMetal runtime DLL staging and source discovery |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeSidebar.swift` | Bottle/status/sidebar controls |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeSidebarComponents.swift` | Sidebar bottle, status, backend, and HUD cards |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeStore.swift` | Main store state, high-level launch requests, and bottle/HUD actions |
 | `macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift` | Per-game compatibility profile model, store actions, seeds, and reset |
 | `macos/ForgeNative/Sources/ForgeNative/GameProfileTextParsing.swift` | Launch-argument, environment override, and notes text parsing helpers |

@@ -71,6 +71,12 @@ The bottle/status sidebar has been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeSidebar.swift
 ```
 
+Sidebar bottle/backend/HUD cards have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeSidebarComponents.swift
+```
+
 The drop/reveal/rescan runtime controls have been split into:
 
 ```text

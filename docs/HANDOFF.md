@@ -64,6 +64,7 @@ Current native code:
 - `ForgeStore.swift` owns main store state plus high-level launch, stop, backend, HUD, bottle, and file-picker actions.
 - `ForgeContentView.swift` owns the main library shell, modal wiring, and top-level state.
 - `ForgeSidebar.swift` owns the bottle/status/sidebar controls.
+- `ForgeSidebarComponents.swift` owns sidebar bottle/backend/HUD cards.
 - `ForgeRuntimePanel.swift` owns the drop/select/reveal/rescan runtime controls.
 - `ForgeAppsPanel.swift` owns the app list panel, row actions, and empty search state.
 - `ForgeAppRow.swift` shows per-game profile launch args/env/notes as compact badges in the app list.
