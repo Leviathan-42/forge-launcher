@@ -77,6 +77,12 @@ Shared SwiftUI components and styling have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeUIComponents.swift
 ```
 
+App list row views have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeAppRow.swift
+```
+
 macOS app/window setup has been split into:
 
 ```text
