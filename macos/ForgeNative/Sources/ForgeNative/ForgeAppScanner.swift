@@ -1,5 +1,10 @@
 import Foundation
 
+private enum AppScanLimit {
+    static let maxApps = 120
+    static let maxDepth = 5
+}
+
 extension ForgeStore {
     nonisolated static func findSteam(prefixPath: String) -> String? {
         steamCandidates(prefixPath: prefixPath).first(where: { FileManager.default.fileExists(atPath: $0) })
@@ -17,7 +22,7 @@ extension ForgeStore {
 
         for root in programRoots(prefixPath: prefixPath) {
             collectExes(URL(fileURLWithPath: root), depth: 0, into: &apps, seen: &seen)
-            if apps.count >= 120 { break }
+            if apps.count >= AppScanLimit.maxApps { break }
         }
 
         apps.sort {
@@ -26,12 +31,12 @@ extension ForgeStore {
             if leftRank != rightRank { return leftRank < rightRank }
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
-        if apps.count > 120 { apps.removeSubrange(120..<apps.count) }
+        if apps.count > AppScanLimit.maxApps { apps.removeSubrange(AppScanLimit.maxApps..<apps.count) }
         return apps
     }
 
     nonisolated static func collectExes(_ dir: URL, depth: Int, into apps: inout [BottleAppItem], seen: inout Set<String>) {
-        guard depth <= 5, apps.count < 120 else { return }
+        guard depth <= AppScanLimit.maxDepth, apps.count < AppScanLimit.maxApps else { return }
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: dir,
             includingPropertiesForKeys: [.isDirectoryKey],
@@ -39,7 +44,7 @@ extension ForgeStore {
         ) else { return }
 
         for entry in entries {
-            if apps.count >= 120 { return }
+            if apps.count >= AppScanLimit.maxApps { return }
             let values = try? entry.resourceValues(forKeys: [.isDirectoryKey])
             if values?.isDirectory == true {
                 if shouldDescendForUserApps(entry.path) {
