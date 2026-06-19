@@ -67,7 +67,8 @@ Current native code:
 - `ForgeGraphicsEnvironment.swift` contains pure MoltenVK/GPTK path and graphics environment helpers.
 - `ForgeLaunchSupport.swift` contains process launch helpers, including `spawn(...)`.
 - `ForgeRuntimeStaging.swift` contains runtime DLL staging helpers, including `ensureDXMTInstalled(winePath:prefixPath:)`.
-- `ForgeLaunchSupportTests.swift` covers pure launch helper behavior such as Steam safe args, DYLD path construction, MoltenVK candidates, and Steam manifest install-dir parsing.
+- `ForgeGraphicsEnvironmentTests.swift` covers pure DYLD path construction, dedupe, and MoltenVK candidate behavior.
+- `ForgeLaunchSupportTests.swift` covers pure launch helper behavior such as Steam safe args and Steam manifest install-dir parsing.
 - `ForgeRuntimeStagingTests.swift` covers temp-file runtime staging behavior without touching real Wine runtimes or prefixes.
 - Direct launch graphics validation reached `Loading completed`; Steam/DLC callback errors from direct launch are separate from graphics initialization.
 
