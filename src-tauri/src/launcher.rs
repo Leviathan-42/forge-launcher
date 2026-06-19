@@ -495,7 +495,7 @@ pub fn merge_env(
 
 fn build_dyld_path(gptk_lib: &str, existing: &str) -> String {
     let mut parts = Vec::new();
-    if !gptk_lib.trim().is_empty() {
+    if let Some(gptk_lib) = trimmed_non_empty_path(gptk_lib) {
         let configured = PathBuf::from(gptk_lib);
         parts.push(configured.to_string_lossy().to_string());
 
@@ -523,9 +523,7 @@ fn build_dyld_path(gptk_lib: &str, existing: &str) -> String {
 }
 
 fn gptk_wine_lib_base(gptk_lib: &str) -> Option<PathBuf> {
-    if gptk_lib.trim().is_empty() {
-        return None;
-    }
+    let gptk_lib = trimmed_non_empty_path(gptk_lib)?;
     let configured = PathBuf::from(gptk_lib);
     if configured
         .file_name()
@@ -536,6 +534,15 @@ fn gptk_wine_lib_base(gptk_lib: &str) -> Option<PathBuf> {
         configured.parent().map(|path| path.to_path_buf())
     } else {
         Some(configured)
+    }
+}
+
+fn trimmed_non_empty_path(path: &str) -> Option<&str> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
     }
 }
 
@@ -581,4 +588,33 @@ pub fn expand_tilde(path: &str) -> String {
         return format!("{}/{}", home, rest);
     }
     path.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_dyld_path_trims_configured_gptk_path() {
+        let dyld_path = build_dyld_path("  /Applications/GPTK/wine/lib/external  \n", "/opt/forge/lib");
+
+        assert_eq!(
+            dyld_path,
+            "/Applications/GPTK/wine/lib/external:/Applications/GPTK/wine/lib:/opt/forge/lib"
+        );
+    }
+
+    #[test]
+    fn gptk_wine_lib_base_trims_external_path() {
+        let base = gptk_wine_lib_base("  /Applications/GPTK/wine/lib/external  ")
+            .expect("trimmed GPTK path should resolve");
+
+        assert_eq!(base, PathBuf::from("/Applications/GPTK/wine/lib"));
+    }
+
+    #[test]
+    fn trimmed_non_empty_path_rejects_blank_values() {
+        assert_eq!(trimmed_non_empty_path(" \n\t "), None);
+        assert_eq!(trimmed_non_empty_path(" /opt/runtime/lib "), Some("/opt/runtime/lib"));
+    }
 }
