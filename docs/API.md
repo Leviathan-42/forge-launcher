@@ -35,7 +35,7 @@ Main files:
 - `runtime_profiles.json`
 - `game_compatibility_profiles.json`
 
-Core Swift models mostly live at the bottom of `ForgeNativeApp.swift`:
+Core Swift models live in `ForgeModels.swift`:
 
 - `AppConfig`
 - `RuntimeProfile`
