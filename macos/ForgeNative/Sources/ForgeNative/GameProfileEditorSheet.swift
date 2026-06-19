@@ -1,27 +1,5 @@
 import SwiftUI
 
-struct CompatibilityProfileBadge: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 9.5, weight: .bold))
-                .imageScale(.small)
-            Text(text)
-                .font(.system(size: 10, weight: .semibold))
-                .lineLimit(1)
-                .truncationMode(.tail)
-        }
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(.secondary.opacity(0.10), in: Capsule())
-        .overlay(Capsule().stroke(.white.opacity(0.08), lineWidth: 1))
-    }
-}
-
 struct GameProfileEditorSheet: View {
     private static let bottleDefaultBackend = "__bottle_default__"
 
