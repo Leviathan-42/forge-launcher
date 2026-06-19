@@ -45,9 +45,12 @@ extension ForgeStore {
         }
     }
 
-    nonisolated static func dxvkSourceRoots() -> [URL] {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let runtimes = home.appendingPathComponent("Wine/Runtimes", isDirectory: true)
+    nonisolated static func defaultRuntimesDirectory() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Wine/Runtimes", isDirectory: true)
+    }
+
+    nonisolated static func dxvkSourceRoots(runtimesDir: URL? = nil) -> [URL] {
+        let runtimes = runtimesDir ?? defaultRuntimesDirectory()
         var roots: [URL] = []
         if let entries = try? FileManager.default.contentsOfDirectory(at: runtimes, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
             for entry in entries where entry.lastPathComponent.lowercased().contains("dxvk") {
@@ -128,9 +131,8 @@ extension ForgeStore {
         try copyIfDifferent(unixSource.appendingPathComponent("winemetal.so"), to: runtimeUnixDir.appendingPathComponent("winemetal.so"))
     }
 
-    nonisolated static func dxmtSourceRoots(wineRoot: URL) -> [URL] {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let runtimes = home.appendingPathComponent("Wine/Runtimes", isDirectory: true)
+    nonisolated static func dxmtSourceRoots(wineRoot: URL, runtimesDir: URL? = nil) -> [URL] {
+        let runtimes = runtimesDir ?? defaultRuntimesDirectory()
         var roots: [URL] = []
         if let entries = try? FileManager.default.contentsOfDirectory(at: runtimes, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
             for entry in entries where entry.lastPathComponent.lowercased().contains("dxmt") {

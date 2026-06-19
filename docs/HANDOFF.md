@@ -69,7 +69,7 @@ Current native code:
 - `ForgeRuntimeStaging.swift` contains runtime DLL staging helpers, including `ensureDXMTInstalled(winePath:prefixPath:)`.
 - `ForgeGraphicsEnvironmentTests.swift` covers pure DYLD path construction, dedupe, and MoltenVK candidate behavior.
 - `ForgeLaunchSupportTests.swift` covers pure launch helper behavior such as Steam safe args and Steam manifest install-dir parsing.
-- `ForgeRuntimeStagingTests.swift` covers temp-file runtime staging behavior without touching real Wine runtimes or prefixes.
+- `ForgeRuntimeStagingTests.swift` covers temp-file runtime staging and source discovery behavior without touching real Wine runtimes or prefixes.
 - Direct launch graphics validation reached `Loading completed`; Steam/DLC callback errors from direct launch are separate from graphics initialization.
 
 ## Recommended next work

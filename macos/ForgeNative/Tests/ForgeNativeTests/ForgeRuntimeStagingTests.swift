@@ -75,6 +75,53 @@ final class ForgeRuntimeStagingTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: unrelatedFile, encoding: .utf8), "keep")
     }
 
+    func testDXVKSourceRootsFindsNestedRuntimeVersionsBeforeBundleRoot() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let runtimes = root.appendingPathComponent("Runtimes", isDirectory: true)
+        let dxvkBundle = runtimes.appendingPathComponent("dxvk-runtime", isDirectory: true)
+        let older = dxvkBundle.appendingPathComponent("v1.10", isDirectory: true)
+        let newer = dxvkBundle.appendingPathComponent("v2.4", isDirectory: true)
+        let unrelated = runtimes.appendingPathComponent("vkd3d-runtime", isDirectory: true)
+        try FileManager.default.createDirectory(at: older, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: newer, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: unrelated, withIntermediateDirectories: true)
+
+        XCTAssertEqual(
+            standardizedPaths(ForgeStore.dxvkSourceRoots(runtimesDir: runtimes)),
+            standardizedPaths([newer, older, dxvkBundle])
+        )
+    }
+
+    func testDXMTSourceRootsIncludesRuntimeBundlesAndWineBundledFallback() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let runtimes = root.appendingPathComponent("Runtimes", isDirectory: true)
+        let dxmtBundle = runtimes.appendingPathComponent("dxmt-v0.6", isDirectory: true)
+        let dxmtVersion = dxmtBundle.appendingPathComponent("v0.6", isDirectory: true)
+        let wineRoot = root.appendingPathComponent("wine-runtime", isDirectory: true)
+        try FileManager.default.createDirectory(at: dxmtVersion, withIntermediateDirectories: true)
+
+        XCTAssertEqual(
+            standardizedPaths(ForgeStore.dxmtSourceRoots(wineRoot: wineRoot, runtimesDir: runtimes)),
+            standardizedPaths([
+                dxmtBundle.path,
+                dxmtVersion.path,
+                wineRoot.appendingPathComponent("lib/dxmt", isDirectory: true).path
+            ])
+        )
+    }
+
+    private func standardizedPaths(_ urls: [URL]) -> [String] {
+        urls.map { $0.standardizedFileURL.path }
+    }
+
+    private func standardizedPaths(_ paths: [String]) -> [String] {
+        paths.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+    }
+
     private func makeTempDir() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("ForgeRuntimeStagingTests", isDirectory: true)
