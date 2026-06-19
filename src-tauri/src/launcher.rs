@@ -26,7 +26,7 @@
 //!
 //! 6. WINEDEBUG should be "fixme-all" not "-all".
 //!    "-all" is too aggressive — it suppresses Wine errors you'd want to see.
-//!    "fixme-all" only suppresses the noisy FIXME: lines while keeping errors.
+//!    "fixme-all" only suppresses noisy Wine fixme diagnostics while keeping errors.
 //!    Whisky also adds GST_DEBUG=1 for GStreamer media pipeline visibility.
 //!
 //! 7. METAL_CAPTURE_ENABLED for Metal GPU tracing (Whisky's "metal trace" mode).

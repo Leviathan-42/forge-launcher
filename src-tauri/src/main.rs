@@ -455,7 +455,7 @@ async fn authenticate_steam(username: String) -> Result<(), String> {
 /// import { listen } from "@tauri-apps/api/event";
 /// const unlisten = await listen("download://progress", (event) => {
 ///   const p = event.payload as DownloadProgress;
-///   console.log(p.percent, p.status, p.completed);
+///   updateDownloadProgress(p.percent, p.status, p.completed);
 /// });
 /// ```
 ///
