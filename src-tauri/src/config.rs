@@ -316,7 +316,9 @@ pub fn detect_gptk_lib_path() -> Option<String> {
 fn default_wine64_path() -> String {
     detect_wine10_plus()
         .or_else(detect_wine64)
-        .unwrap_or_else(|| "/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine".to_string())
+        .unwrap_or_else(|| {
+            "/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine".to_string()
+        })
 }
 
 fn default_gptk_lib_path() -> String {
@@ -430,8 +432,9 @@ pub fn default_runtime_profiles(_cfg: &AppConfig) -> Vec<RuntimeProfile> {
     let profiles = vec![RuntimeProfile {
         id: "wine-vulkan".to_string(),
         name: "Forge Wine 11 + MoltenVK".to_string(),
-        wine64_path: detect_wine10_plus()
-            .unwrap_or_else(|| "/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine".to_string()),
+        wine64_path: detect_wine10_plus().unwrap_or_else(|| {
+            "/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine".to_string()
+        }),
         wineserver_path: None,
         gptk_lib_path: None,
         dxvk_path: None,
@@ -452,17 +455,17 @@ pub fn load_runtime_profiles(app: &AppHandle) -> Result<Vec<RuntimeProfile>, Str
         return Ok(profiles);
     }
 
-    let raw = std::fs::read_to_string(&path).map_err(|e| format!("Read runtime_profiles.json: {}", e))?;
-    let mut profiles: Vec<RuntimeProfile> = serde_json::from_str(&raw)
-        .map_err(|e| format!("Parse runtime_profiles.json: {}", e))?;
+    let raw =
+        std::fs::read_to_string(&path).map_err(|e| format!("Read runtime_profiles.json: {}", e))?;
+    let mut profiles: Vec<RuntimeProfile> =
+        serde_json::from_str(&raw).map_err(|e| format!("Parse runtime_profiles.json: {}", e))?;
 
     let defaults = default_runtime_profiles(&load_config(app)?);
     profiles.retain(|profile| profile.id == "wine-vulkan");
     for default in defaults {
         if let Some(existing) = profiles.iter_mut().find(|profile| profile.id == default.id) {
-            let default_is_forge_runtime = default
-                .wine64_path
-                .contains("/Wine/Runtimes/forge-wine-11");
+            let default_is_forge_runtime =
+                default.wine64_path.contains("/Wine/Runtimes/forge-wine-11");
             if !std::path::Path::new(&existing.wine64_path).exists()
                 || existing.name == "Wine Vulkan"
                 || existing.name.contains("Wine 10")

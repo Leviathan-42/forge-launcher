@@ -179,11 +179,7 @@ async fn fetch_steam_cover(app: &AppHandle, app_id: u64) -> Result<String, ()> {
     .map_err(|_| ())?;
 
     // Save to <app_data>/covers/<app_id>.jpg
-    let covers_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|_| ())?
-        .join("covers");
+    let covers_dir = app.path().app_data_dir().map_err(|_| ())?.join("covers");
 
     std::fs::create_dir_all(&covers_dir).map_err(|_| ())?;
 
@@ -266,10 +262,7 @@ async fn launch_game(
 }
 
 #[tauri::command]
-async fn kill_game(
-    state: State<'_, RunningGames>,
-    game_id: String,
-) -> Result<(), String> {
+async fn kill_game(state: State<'_, RunningGames>, game_id: String) -> Result<(), String> {
     let mut map = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(mut proc) = map.remove(&game_id) {
         proc.kill().map_err(|e| e.to_string())?;
@@ -305,7 +298,8 @@ async fn running_games(
                     // Sync saves back from Wine prefix → macOS after the game exits
                     if !g.save_mappings.is_empty() {
                         eprintln!("[forge] Saving progress for '{}'...", g.name);
-                        let _ = saves::sync_saves(saves::SyncDirection::FromPrefix, &g.save_mappings);
+                        let _ =
+                            saves::sync_saves(saves::SyncDirection::FromPrefix, &g.save_mappings);
                     }
                 }
             }
@@ -321,10 +315,7 @@ async fn running_games(
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-async fn create_prefix(
-    app: AppHandle,
-    prefix_path: String,
-) -> Result<(), String> {
+async fn create_prefix(app: AppHandle, prefix_path: String) -> Result<(), String> {
     let cfg = config::load_config(&app)?;
     launcher::init_wine_prefix(&prefix_path, &cfg.wine64_path)
 }
@@ -483,19 +474,14 @@ async fn download_steam_game(
     let app_clone = app.clone();
 
     // Spawn in a blocking thread — the download loop is synchronous I/O
-    spawn_blocking(move || {
-        downloader::download_game(app_clone, request, cancel_flag)
-    });
+    spawn_blocking(move || downloader::download_game(app_clone, request, cancel_flag));
 
     Ok(())
 }
 
 /// Cancel an in-progress download by Steam AppID.
 #[tauri::command]
-async fn cancel_download(
-    downloads: State<'_, ActiveDownloads>,
-    app_id: u64,
-) -> Result<(), String> {
+async fn cancel_download(downloads: State<'_, ActiveDownloads>, app_id: u64) -> Result<(), String> {
     use std::sync::atomic::Ordering;
 
     let mut map = downloads.0.lock().map_err(|e| e.to_string())?;
@@ -548,7 +534,12 @@ async fn sync_game_saves(
     let dir = match direction.as_str() {
         "to_prefix" => saves::SyncDirection::ToPrefix,
         "from_prefix" => saves::SyncDirection::FromPrefix,
-        other => return Err(format!("Invalid direction '{}'. Use 'to_prefix' or 'from_prefix'.", other)),
+        other => {
+            return Err(format!(
+                "Invalid direction '{}'. Use 'to_prefix' or 'from_prefix'.",
+                other
+            ))
+        }
     };
 
     saves::sync_saves(dir, &game.save_mappings)
@@ -609,7 +600,10 @@ async fn process_stats(
         .map_err(|e| format!("ps command failed: {}", e))?;
 
     if !output.status.success() {
-        return Err(format!("ps exited with status {} — game may have exited", output.status));
+        return Err(format!(
+            "ps exited with status {} — game may have exited",
+            output.status
+        ));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -649,10 +643,7 @@ async fn process_stats(
 /// Returns true if MangoHud is installed on this system (via Homebrew or other).
 #[tauri::command]
 async fn check_mangohud() -> serde_json::Value {
-    let paths = [
-        "/opt/homebrew/bin/mangohud",
-        "/usr/local/bin/mangohud",
-    ];
+    let paths = ["/opt/homebrew/bin/mangohud", "/usr/local/bin/mangohud"];
 
     for path in &paths {
         if std::path::Path::new(path).exists() {
@@ -705,15 +696,11 @@ async fn steam_cloud_url(app_id: u64) -> Result<String, String> {
 ///
 /// Returns: number of files downloaded and the target directory.
 #[tauri::command]
-async fn download_steam_cloud_saves(
-    app_id: u64,
-    target_dir: String,
-) -> Result<String, String> {
+async fn download_steam_cloud_saves(app_id: u64, target_dir: String) -> Result<String, String> {
     let _home = std::env::var("HOME").map_err(|_| "HOME not set".to_string())?;
     let expanded_dir = launcher::expand_tilde(&target_dir);
     let target = std::path::PathBuf::from(&expanded_dir);
-    std::fs::create_dir_all(&target)
-        .map_err(|e| format!("Cannot create target dir: {}", e))?;
+    std::fs::create_dir_all(&target).map_err(|e| format!("Cannot create target dir: {}", e))?;
 
     // Try to find steamLoginSecure cookie from Firefox
     let cookie = get_firefox_steam_cookie()
@@ -727,7 +714,12 @@ async fn download_steam_cloud_saves(
 
     // Fetch the page with session cookie — the page embeds file metadata in a JSON config
     let output = std::process::Command::new("curl")
-        .args(["-sL", "-b", &format!("steamLoginSecure={}", cookie), &rs_url])
+        .args([
+            "-sL",
+            "-b",
+            &format!("steamLoginSecure={}", cookie),
+            &rs_url,
+        ])
         .output()
         .map_err(|e| format!("curl failed: {}", e))?;
 
@@ -751,7 +743,10 @@ async fn download_steam_cloud_saves(
         // Extract all numeric sequences, taking the first one after 'id='
         if let Some(id_start) = slice.find("id=") {
             let after_id = &slice[id_start + 3..];
-            let digits: String = after_id.chars().take_while(|c| c.is_ascii_digit()).collect();
+            let digits: String = after_id
+                .chars()
+                .take_while(|c| c.is_ascii_digit())
+                .collect();
             if !digits.is_empty() {
                 file_ids.push(digits);
             }
@@ -763,13 +758,12 @@ async fn download_steam_cloud_saves(
     file_ids.dedup();
 
     if file_ids.is_empty() {
-        return Err(
-            "Could not find any save files on Steam Cloud.\n\n\
+        return Err("Could not find any save files on Steam Cloud.\n\n\
              The page may have changed format. As a fallback:\n\
              1. Open Firefox and go to the Steam Cloud page\n\
              2. Use the JavaScript snippet in the helper tool\n\
-             3. Or click each file individually".to_string(),
-        );
+             3. Or click each file individually"
+            .to_string());
     }
 
     // Download each file
@@ -784,7 +778,8 @@ async fn download_steam_cloud_saves(
         let dl = std::process::Command::new("curl")
             .args([
                 "-sLJO",
-                "-b", &format!("steamLoginSecure={}", cookie),
+                "-b",
+                &format!("steamLoginSecure={}", cookie),
                 &dl_url,
             ])
             .current_dir(&target)
@@ -809,8 +804,8 @@ async fn download_steam_cloud_saves(
 /// Try to get the steamLoginSecure cookie from Firefox.
 fn get_firefox_steam_cookie() -> Option<String> {
     let home = std::env::var("HOME").ok()?;
-    let profiles_dir = std::path::PathBuf::from(&home)
-        .join("Library/Application Support/Firefox/Profiles");
+    let profiles_dir =
+        std::path::PathBuf::from(&home).join("Library/Application Support/Firefox/Profiles");
 
     if !profiles_dir.is_dir() {
         return None;

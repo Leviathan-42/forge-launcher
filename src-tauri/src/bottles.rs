@@ -283,7 +283,12 @@ pub fn open_steam(app: &AppHandle, prefix_path: String) -> Result<(), String> {
     let steam_path = status
         .steam_path
         .ok_or_else(|| "Windows Steam is not installed in this bottle yet.".to_string())?;
-    run_exe(app, status.prefix_path, steam_path, steam_safe_args(Vec::new()))
+    run_exe(
+        app,
+        status.prefix_path,
+        steam_path,
+        steam_safe_args(Vec::new()),
+    )
 }
 
 pub fn repair_steam(app: &AppHandle, prefix_path: String) -> Result<(), String> {
@@ -367,7 +372,11 @@ pub fn resolve_launch_options(
         working_dir,
         wine_prefix: launch_prefix,
         gptk_lib_path,
-        extra_args: if is_steam_client { steam_safe_args(args) } else { args },
+        extra_args: if is_steam_client {
+            steam_safe_args(args)
+        } else {
+            args
+        },
         graphics_backend: backend,
         env,
         esync: true,
@@ -438,7 +447,10 @@ fn load_registry(app: &AppHandle) -> Result<Vec<BottleRegistryEntry>, String> {
     Ok(entries)
 }
 
-fn bottle_entry_for_prefix(app: &AppHandle, prefix_path: &str) -> Result<BottleRegistryEntry, String> {
+fn bottle_entry_for_prefix(
+    app: &AppHandle,
+    prefix_path: &str,
+) -> Result<BottleRegistryEntry, String> {
     let prefix = normalize_path(prefix_path);
     let cfg = config::load_config(app)?;
     if let Some(entry) = load_registry(app)?

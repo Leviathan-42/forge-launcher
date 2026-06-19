@@ -299,7 +299,10 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
                     cmd.env("WINEDLLPATH", dll_path);
                 }
             }
-            cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b");
+            cmd.env(
+                "WINEDLLOVERRIDES",
+                "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b",
+            );
         }
         GraphicsBackend::Dxvk => {
             cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11,user32=n,b");
@@ -309,7 +312,10 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
             cmd.env("WINEDLLOVERRIDES", "d3d12,dxgi,user32=n,b");
         }
         GraphicsBackend::DxvkVkd3d => {
-            cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b");
+            cmd.env(
+                "WINEDLLOVERRIDES",
+                "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b",
+            );
             cmd.env("DXVK_ASYNC", "1");
         }
         GraphicsBackend::WineBuiltin => {
@@ -382,7 +388,9 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
             GraphicsBackend::Dxvk => "dxgi,d3d9,d3d10core,d3d11,user32=n,b",
             GraphicsBackend::Vkd3d => "d3d12,dxgi,user32=n,b",
             GraphicsBackend::DxvkVkd3d => "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b",
-            GraphicsBackend::WineBuiltin => "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml=",
+            GraphicsBackend::WineBuiltin => {
+                "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
+            }
             GraphicsBackend::None => "",
         };
         let game_vk_icd = opts
@@ -596,7 +604,10 @@ mod tests {
 
     #[test]
     fn build_dyld_path_trims_configured_gptk_path() {
-        let dyld_path = build_dyld_path("  /Applications/GPTK/wine/lib/external  \n", "/opt/forge/lib");
+        let dyld_path = build_dyld_path(
+            "  /Applications/GPTK/wine/lib/external  \n",
+            "/opt/forge/lib",
+        );
 
         assert_eq!(
             dyld_path,
@@ -615,6 +626,9 @@ mod tests {
     #[test]
     fn trimmed_non_empty_path_rejects_blank_values() {
         assert_eq!(trimmed_non_empty_path(" \n\t "), None);
-        assert_eq!(trimmed_non_empty_path(" /opt/runtime/lib "), Some("/opt/runtime/lib"));
+        assert_eq!(
+            trimmed_non_empty_path(" /opt/runtime/lib "),
+            Some("/opt/runtime/lib")
+        );
     }
 }

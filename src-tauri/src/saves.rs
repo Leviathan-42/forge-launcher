@@ -63,7 +63,10 @@ pub enum SyncDirection {
 /// Returns the number of files copied or an error message.
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<u64, String> {
     if !src.exists() {
-        return Err(format!("Source directory does not exist: {}", src.display()));
+        return Err(format!(
+            "Source directory does not exist: {}",
+            src.display()
+        ));
     }
     if !src.is_dir() {
         return Err(format!("Source is not a directory: {}", src.display()));
@@ -99,13 +102,25 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<u64, String> {
             if resolved_abs.is_dir() {
                 count += copy_dir_recursive(&resolved_abs, &dst_path)?;
             } else if resolved_abs.is_file() {
-                std::fs::copy(&resolved_abs, &dst_path)
-                    .map_err(|e| format!("Copy symlinked file {} → {}: {}", resolved_abs.display(), dst_path.display(), e))?;
+                std::fs::copy(&resolved_abs, &dst_path).map_err(|e| {
+                    format!(
+                        "Copy symlinked file {} → {}: {}",
+                        resolved_abs.display(),
+                        dst_path.display(),
+                        e
+                    )
+                })?;
                 count += 1;
             }
         } else {
-            std::fs::copy(&src_path, &dst_path)
-                .map_err(|e| format!("Copy {} → {}: {}", src_path.display(), dst_path.display(), e))?;
+            std::fs::copy(&src_path, &dst_path).map_err(|e| {
+                format!(
+                    "Copy {} → {}: {}",
+                    src_path.display(),
+                    dst_path.display(),
+                    e
+                )
+            })?;
             count += 1;
         }
     }
@@ -155,10 +170,7 @@ fn sync_one(direction: SyncDirection, mapping: &SaveMapping) -> Result<u64, Stri
 /// Sync saves for a list of mappings in the given direction.
 ///
 /// Returns the total number of files copied.
-pub fn sync_saves(
-    direction: SyncDirection,
-    mappings: &[SaveMapping],
-) -> Result<u64, String> {
+pub fn sync_saves(direction: SyncDirection, mappings: &[SaveMapping]) -> Result<u64, String> {
     let mut total = 0u64;
     let mut first_err: Option<String> = None;
 
