@@ -4,6 +4,7 @@ extension ForgeStore {
     nonisolated static func parseLaunchArgs(_ text: String) throws -> [String] {
         var args: [String] = []
         var current = ""
+        var argStarted = false
         var quote: Character?
         let characters = Array(text)
         var index = 0
@@ -14,9 +15,11 @@ extension ForgeStore {
                 let nextIndex = index + 1
                 if nextIndex < characters.count, isEscapableLaunchArgCharacter(characters[nextIndex]) {
                     current.append(characters[nextIndex])
+                    argStarted = true
                     index += 2
                 } else {
                     current.append(character)
+                    argStarted = true
                     index += 1
                 }
                 continue
@@ -27,6 +30,7 @@ extension ForgeStore {
                     quote = nil
                 } else {
                     current.append(character)
+                    argStarted = true
                 }
                 index += 1
                 continue
@@ -34,13 +38,16 @@ extension ForgeStore {
 
             if character == "\"" || character == "'" {
                 quote = character
+                argStarted = true
             } else if character.unicodeScalars.allSatisfy({ CharacterSet.whitespacesAndNewlines.contains($0) }) {
-                if !current.isEmpty {
+                if argStarted {
                     args.append(current)
                     current = ""
+                    argStarted = false
                 }
             } else {
                 current.append(character)
+                argStarted = true
             }
 
             index += 1
@@ -50,7 +57,7 @@ extension ForgeStore {
             throw ForgeError.message("Unclosed \(quote) quote in launch args.")
         }
 
-        if !current.isEmpty {
+        if argStarted {
             args.append(current)
         }
 

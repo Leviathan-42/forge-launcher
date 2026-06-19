@@ -9,6 +9,10 @@ final class GameProfileTextParsingTests: XCTestCase {
         XCTAssertEqual(ForgeStore.formatLaunchArgs(args), "-force-vulkan \"value with spaces\" \"plain value\" \"C:\\\\Games\\\\Tool\"")
         XCTAssertEqual(try ForgeStore.parseLaunchArgs(ForgeStore.formatLaunchArgs(args)), args)
 
+        let emptyArgs = try ForgeStore.parseLaunchArgs("\"\" '' --name=\"\"")
+        XCTAssertEqual(emptyArgs, ["", "", "--name="])
+        XCTAssertEqual(try ForgeStore.parseLaunchArgs(ForgeStore.formatLaunchArgs(emptyArgs)), emptyArgs)
+
         let env = try ForgeStore.parseEnvOverrides("""
         VK_ICD_FILENAMES=/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json
         # ignored
