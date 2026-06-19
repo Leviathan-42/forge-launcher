@@ -9,17 +9,15 @@
     launcherStatus,
     listBottleApps,
     listBottles,
-    listRuntimeProfiles,
     loadConfig,
     loadGames,
     pickExe,
-    pickFolder,
     runExe,
     saveConfig,
     updateBottleRuntime,
     upsertGame,
   } from "$lib/tauri";
-  import type { AppConfig, Bottle, BottleApp, Game, GraphicsBackend, LauncherStatus, RuntimeProfile, WineStatus } from "$lib/types";
+  import type { AppConfig, Bottle, BottleApp, Game, GraphicsBackend, LauncherStatus, WineStatus } from "$lib/types";
 
   type Toast = {
     id: number;
@@ -42,7 +40,6 @@
   type RuntimeStackId = "wine11-moltenvk";
   type RuntimeChoiceId = RuntimeStackId | "custom";
 
-  const graphicsBackends: GraphicsBackend[] = ["dxvk_vkd3d", "dxvk", "vkd3d", "wine_builtin", "none"];
   const steamSafeArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"] as const;
   const runtimeStacks: {
     id: RuntimeStackId;
@@ -65,21 +62,16 @@
   let selectedBottleId = "";
   let apps: BottleApp[] = [];
   let games: Game[] = [];
-  let runtimeProfiles: RuntimeProfile[] = [];
   let config: AppConfig | null = null;
   let wine: WineStatus | null = null;
   let status: LauncherStatus | null = null;
   let selectedBottle: Bottle | undefined;
   let exeRows: ExeEntry[] = [];
-  let favoriteCount = 0;
   let loading = true;
   let appLoading = false;
   let busy = "";
   let appFilter = "";
-  let createName = "";
-  let createPrefix = "";
   let settingsOpen = false;
-  let dragOverExe = false;
   let starredExePaths: string[] = [];
   let toasts: Toast[] = [];
   let toastId = 1;
@@ -87,9 +79,7 @@
   const desktopCommandsAvailable = canUseDesktopCommands();
 
   $: selectedBottle = bottles.find((bottle) => bottle.id === selectedBottleId) || bottles[0];
-  $: activeRuntimeProfile = runtimeProfiles.find((profile) => profile.id === selectedBottle?.runtime_profile_id);
   $: exeRows = buildExeRows(apps, games, appFilter, starredExePaths);
-  $: favoriteCount = exeRows.filter((entry) => entry.starred).length;
 
   onMount(() => {
     starredExePaths = loadStarredExePaths();
@@ -104,19 +94,17 @@
   async function refreshAll() {
     loading = true;
     try {
-      const [nextConfig, nextWine, nextBottles, nextGames, nextProfiles] = await Promise.all([
+      const [nextConfig, nextWine, nextBottles, nextGames] = await Promise.all([
         loadConfig(),
         checkWine(),
         listBottles(),
         loadGames(),
-        listRuntimeProfiles(),
       ]);
 
       config = nextConfig;
       wine = nextWine;
       games = nextGames;
       bottles = nextBottles;
-      runtimeProfiles = nextProfiles;
 
       if (!selectedBottleId || !bottles.some((bottle) => bottle.id === selectedBottleId)) {
         selectedBottleId = bottles[0]?.id || "";
@@ -152,31 +140,6 @@
     } finally {
       appLoading = false;
     }
-  }
-
-  async function selectBottle(id: string) {
-    selectedBottleId = id;
-    await refreshSelectedBottle();
-  }
-
-  async function submitCreate() {
-    if (!createName.trim() && !createPrefix.trim()) {
-      createName = "Default";
-    }
-
-    await withBusy("create-bottle", async () => {
-      bottles = await createBottleCommand(createName.trim() || "New Bottle", createPrefix.trim() || undefined);
-      selectedBottleId = bottles[bottles.length - 1]?.id || selectedBottleId;
-      createName = "";
-      createPrefix = "";
-      notify("ok", "Bottle ready.");
-      await refreshSelectedBottle();
-    });
-  }
-
-  async function chooseCreatePrefix() {
-    const picked = await pickFolder();
-    if (picked) createPrefix = picked;
   }
 
   async function chooseExe() {
@@ -230,11 +193,9 @@
     unlistenDrop = await getCurrentWebview().onDragDropEvent((event) => {
       const payload = event.payload as { type: string; paths?: string[] };
       if (payload.type !== "drop") {
-        dragOverExe = payload.type === "over" || payload.type === "enter";
         return;
       }
 
-      dragOverExe = false;
       const exe = (payload.paths || []).find((droppedPath: string) => droppedPath.toLowerCase().endsWith(".exe"));
       if (!exe) {
         notify("bad", "Drop a Windows .exe file.");
@@ -314,59 +275,6 @@
     await runExePath(entry.path);
   }
 
-  function updateSelectedBottle(patch: Partial<Bottle>) {
-    if (!selectedBottle) return;
-    bottles = bottles.map((bottle) =>
-      bottle.id === selectedBottle?.id ? { ...bottle, ...patch } : bottle,
-    );
-  }
-
-  async function persistBottleRuntime(force = false) {
-    const bottle = currentBottle();
-    if (!bottle) return;
-
-    await withBusy("save-bottle-runtime", async () => {
-      bottles = await updateBottleRuntime(
-        bottle.prefix_path,
-        bottle.runtime_profile_id,
-        bottle.graphics_backend || null,
-        bottle.env_overrides || {},
-        force,
-      );
-      notify("ok", "Bottle runtime saved.");
-      await refreshSelectedBottle();
-    });
-  }
-
-  async function assignEntryRuntime(entry: ExeEntry, stackId: RuntimeStackId) {
-    await withBusy(`runtime-${entry.key}`, async () => {
-      const bottle = await ensureRuntimeBottle(stackId);
-      const game = entry.game || gameFromEntry(entry, bottle.prefix_path);
-      const nextGame: Game = {
-        ...game,
-        id: game.id || manualGameId(entry.path),
-        name: game.name || entry.name,
-        exe_path: entry.path,
-        working_dir: game.working_dir || parentPath(entry.path),
-        wine_prefix: bottle.prefix_path,
-        source: game.source || "manual",
-        env_overrides: game.env_overrides || {},
-      };
-
-      games = await upsertGame(nextGame);
-      bottles = await listBottles();
-      notify("ok", `${entry.name} will use ${runtimeStackLabel(stackId)}.`);
-    });
-  }
-
-  async function selectRuntimeStack(stackId: RuntimeStackId) {
-    await withBusy(`stack-${stackId}`, async () => {
-      const bottle = await ensureRuntimeBottle(stackId);
-      selectedBottleId = bottle.id;
-      await refreshSelectedBottle();
-    });
-  }
-
   async function persistSettings() {
     if (!config) return;
 
@@ -420,13 +328,6 @@
     return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
   }
 
-  function statusText() {
-    if (!status) return "Checking";
-    if (!status.prefix_exists) return "Bottle missing";
-    if (!status.steam_installed) return "Steam off";
-    return "Steam ready";
-  }
-
   async function ensureRuntimeBottle(stackId: RuntimeStackId) {
     const existing = bottleForRuntimeStack(stackId);
     if (existing) return existing;
@@ -470,31 +371,6 @@
     }
 
     return "custom";
-  }
-
-  function runtimeStackIdForEntry(entry: ExeEntry): RuntimeChoiceId {
-    const prefix = entry.game?.wine_prefix || (entry.app ? selectedBottle?.prefix_path : config?.default_prefix);
-    return runtimeStackIdForBottle(bottleForPrefix(prefix));
-  }
-
-  function runtimeStackLabel(stackId: RuntimeChoiceId) {
-    return runtimeStacks.find((stack) => stack.id === stackId)?.label || "Custom";
-  }
-
-  function gameFromEntry(entry: ExeEntry, prefixPath: string): Game {
-    return {
-      id: manualGameId(entry.path),
-      name: entry.name,
-      exe_path: entry.path,
-      working_dir: parentPath(entry.path),
-      wine_prefix: prefixPath,
-      source: "manual",
-      env_overrides: {},
-    };
-  }
-
-  function runtimeStackCount(stackId: RuntimeStackId) {
-    return games.filter((game) => runtimeStackIdForBottle(bottleForPrefix(game.wine_prefix || config?.default_prefix)) === stackId).length;
   }
 
   function buildExeRows(scannedApps: BottleApp[], libraryGames: Game[], filter: string, stars: string[]) {
@@ -551,14 +427,6 @@
     return 4;
   }
 
-  function toggleStar(path: string) {
-    const key = starKey(path);
-    starredExePaths = starredExePaths.includes(key)
-      ? starredExePaths.filter((starredPath) => starredPath !== key)
-      : [...starredExePaths, key];
-    persistStarredExePaths();
-  }
-
   function loadStarredExePaths() {
     try {
       const raw = window.localStorage.getItem(starredStorageKey);
@@ -566,14 +434,6 @@
       return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : [];
     } catch {
       return [];
-    }
-  }
-
-  function persistStarredExePaths() {
-    try {
-      window.localStorage.setItem(starredStorageKey, JSON.stringify(starredExePaths));
-    } catch {
-      notify("bad", "Could not save starred apps.");
     }
   }
 
