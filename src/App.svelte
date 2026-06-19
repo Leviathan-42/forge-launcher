@@ -40,6 +40,7 @@
   type RuntimeChoiceId = RuntimeStackId | "custom";
 
   const steamSafeArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"] as const;
+  const defaultRuntimeStackId: RuntimeStackId = "wine11-moltenvk";
   const runtimeStacks: {
     id: RuntimeStackId;
     label: string;
@@ -48,7 +49,7 @@
     backend: GraphicsBackend;
   }[] = [
     {
-      id: "wine11-moltenvk",
+      id: defaultRuntimeStackId,
       label: "Wine 11 + MoltenVK",
       bottleName: "Wine 11 Vulkan",
       profileId: "wine-vulkan",
@@ -151,7 +152,7 @@
     }
 
     await withBusy("add-exe", async () => {
-      const bottle = await ensureRuntimeBottle("wine11-moltenvk");
+      const bottle = await ensureRuntimeBottle(defaultRuntimeStackId);
       const game: Game = {
         id: manualGameId(exePath),
         name: exeDisplayName(exePath),
@@ -162,7 +163,7 @@
         env_overrides: {},
       };
       games = await upsertGame(game);
-      notify("ok", `${game.name} added to GPTK 7.7.`);
+      notify("ok", `${game.name} added to ${runtimeStackLabel(defaultRuntimeStackId)}.`);
     });
   }
 
@@ -354,6 +355,10 @@
     return bottles.find((bottle) => runtimeStackIdForBottle(bottle) === stackId);
   }
 
+  function runtimeStackLabel(stackId: RuntimeStackId) {
+    return runtimeStacks.find((stack) => stack.id === stackId)?.label || "configured runtime";
+  }
+
   function bottleForPrefix(prefix?: string | null) {
     return bottles.find((bottle) => samePath(bottle.prefix_path, prefix));
   }
@@ -362,7 +367,7 @@
     if (!bottle) return "custom";
 
     if (bottle.runtime_profile_id === "wine-vulkan") {
-      return "wine11-moltenvk";
+      return defaultRuntimeStackId;
     }
 
     return "custom";
