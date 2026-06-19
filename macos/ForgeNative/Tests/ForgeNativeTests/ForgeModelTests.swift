@@ -34,10 +34,10 @@ final class ForgeModelTests: XCTestCase {
         XCTAssertEqual(ForgeStore.guessKind("/tmp/Games/Example.exe"), "game")
     }
 
-    func testRuntimeProfileDefaultUsesConfiguredGptkPathWhenPresent() {
+    func testRuntimeProfileDefaultUsesTrimmedConfiguredGptkPathWhenPresent() {
         let config = AppConfig(
             wine64Path: "/tmp/wine",
-            gptkLibPath: "/tmp/gptk",
+            gptkLibPath: "  /tmp/gptk  ",
             defaultPrefix: "/tmp/prefix",
             suppressWineDebug: true,
             globalHud: false,
@@ -50,5 +50,21 @@ final class ForgeModelTests: XCTestCase {
         XCTAssertEqual(profile.gptkLibPath, "/tmp/gptk")
         XCTAssertEqual(profile.defaultBackend, .dxvkVkd3d)
         XCTAssertEqual(profile.env["VK_ICD_FILENAMES"], "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json")
+    }
+
+    func testRuntimeProfileDefaultIgnoresBlankConfiguredGptkPath() {
+        let config = AppConfig(
+            wine64Path: "/tmp/wine",
+            gptkLibPath: " \n\t ",
+            defaultPrefix: "/tmp/prefix",
+            suppressWineDebug: true,
+            globalHud: false,
+            metalfxEnabled: false,
+            env: [:]
+        )
+
+        let profile = RuntimeProfile.defaultProfile(config: config)
+
+        XCTAssertNil(profile.gptkLibPath)
     }
 }

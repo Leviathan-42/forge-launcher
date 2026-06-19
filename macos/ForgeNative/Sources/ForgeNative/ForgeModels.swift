@@ -33,12 +33,13 @@ struct RuntimeProfile: Codable, Identifiable {
     var env: [String: String]
 
     static func defaultProfile(config: AppConfig) -> RuntimeProfile {
-        RuntimeProfile(
+        let gptkLibPath = config.gptkLibPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        return RuntimeProfile(
             id: "forge-cx-wine11-open-wow64",
             name: "Forge Wine 11 Open WoW64 + MoltenVK",
             wine64Path: NSHomeDirectory() + "/Wine/Runtimes/forge-cx-wine-11-open-wow64/bin/wine",
             wineserverPath: NSHomeDirectory() + "/Wine/Runtimes/forge-cx-wine-11-open-wow64/bin/wineserver",
-            gptkLibPath: config.gptkLibPath.isEmpty ? nil : config.gptkLibPath,
+            gptkLibPath: gptkLibPath.isEmpty ? nil : gptkLibPath,
             dxvkPath: nil,
             vkd3dPath: nil,
             moltenvkPath: "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
