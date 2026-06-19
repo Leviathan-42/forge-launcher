@@ -47,10 +47,16 @@ npm run native:build
 
 ## Implementation note
 
-Most native code still lives in:
+The app entry, store state, and launch orchestration live in:
 
 ```text
 macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift
+```
+
+The main library shell has been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeContentView.swift
 ```
 
 The profile editor has been split into:
@@ -101,4 +107,4 @@ Launch/runtime support helpers have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeLaunchSupport.swift
 ```
 
-`ForgeNativeApp.swift` still includes app shell composition, store state, backend resolution, and launch orchestration. Keep extracting isolated pieces as compatibility work stabilizes.
+`ForgeNativeApp.swift` still includes store state, backend resolution, and launch orchestration. Keep extracting isolated pieces as compatibility work stabilizes.
