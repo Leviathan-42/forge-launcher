@@ -63,6 +63,7 @@ Current native code:
 - `GameProfileTextParsing.swift` owns launch-arg/env/notes text parsing for the profile editor.
 - `ForgeStore.swift` owns main store state plus high-level launch, stop, backend, HUD, bottle, and file-picker actions.
 - `ForgeContentView.swift` owns the main library shell and app list.
+- `ForgeSidebar.swift` owns the bottle/status/sidebar controls.
 - `ForgeAppRow.swift` shows per-game profile launch args/env/notes as compact badges in the app list.
 - `ForgeBackendEnvironment.swift` owns backend environment predicates and Wine DLL override strings shared by direct launches and Steam game handoff.
 - `GameProfileEditorSheet.swift` provides a native editor for backend override, launch args, env overrides, notes, and reset-to-seed.

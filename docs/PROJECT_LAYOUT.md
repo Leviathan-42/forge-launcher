@@ -23,6 +23,7 @@ forge-launcher/
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
 │   │   ├── ForgePersistence.swift       # Config/runtime/bottle JSON persistence
 │   │   ├── ForgeRuntimeStaging.swift    # DXVK/DXMT/D3DMetal runtime DLL staging
+│   │   ├── ForgeSidebar.swift           # Bottle/status/sidebar controls
 │   │   ├── ForgeStore.swift             # Main store state and high-level actions
 │   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, actions, and seeds
 │   │   ├── GameProfileTextParsing.swift # Launch-arg/env profile text parsing helpers

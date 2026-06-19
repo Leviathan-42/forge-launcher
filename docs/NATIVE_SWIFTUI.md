@@ -65,6 +65,12 @@ The main library shell has been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeContentView.swift
 ```
 
+The bottle/status sidebar has been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeSidebar.swift
+```
+
 The profile editor has been split into:
 
 ```text
