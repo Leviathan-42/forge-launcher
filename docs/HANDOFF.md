@@ -64,6 +64,7 @@ Current native code:
 - `ForgeContentView.swift` owns the main library shell and app list.
 - `ForgeAppRow.swift` shows per-game profile launch args/env/notes as compact badges in the app list.
 - `GameProfileEditorSheet.swift` provides a native editor for backend override, launch args, env overrides, notes, and reset-to-seed.
+- `ForgeGraphicsEnvironment.swift` contains pure MoltenVK/GPTK path and graphics environment helpers.
 - `ForgeLaunchSupport.swift` contains process launch helpers, including `spawn(...)`.
 - `ForgeRuntimeStaging.swift` contains runtime DLL staging helpers, including `ensureDXMTInstalled(winePath:prefixPath:)`.
 - `ForgeLaunchSupportTests.swift` covers pure launch helper behavior such as Steam safe args, DYLD path construction, MoltenVK candidates, and Steam manifest install-dir parsing.

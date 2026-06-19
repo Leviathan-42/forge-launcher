@@ -119,6 +119,12 @@ Bottle EXE and Steam manifest scanning have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeAppScanner.swift
 ```
 
+MoltenVK/GPTK path resolution and graphics environment helpers have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeGraphicsEnvironment.swift
+```
+
 Launch/runtime support and process orchestration have been split into:
 
 ```text

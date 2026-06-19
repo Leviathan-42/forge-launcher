@@ -25,6 +25,7 @@ Forge.app / ForgeNative
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppDelegate.swift` | macOS activation, icon, and window chrome setup |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppRow.swift` | App list row, compatibility profile badges, and status pill UI |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeContentView.swift` | Main library shell, sidebar, runtime panel, app list, and drop handling |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeGraphicsEnvironment.swift` | MoltenVK/GPTK path resolution and graphics environment helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeLaunchSupport.swift` | Spawn orchestration, Wine environment, process, and stop helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeUIComponents.swift` | Shared SwiftUI cards and controls |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeVisualStyles.swift` | Visual background, search field, button/glass styling, backend display text |

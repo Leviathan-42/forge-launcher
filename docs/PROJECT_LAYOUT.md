@@ -15,6 +15,7 @@ forge-launcher/
 │   │   ├── ForgeAppDelegate.swift       # macOS app/window chrome setup
 │   │   ├── ForgeAppRow.swift            # App list row, profile badges, status pill
 │   │   ├── ForgeContentView.swift       # Main library shell and app list UI
+│   │   ├── ForgeGraphicsEnvironment.swift # MoltenVK/GPTK path and env helpers
 │   │   ├── ForgeLaunchSupport.swift     # Spawn orchestration, Wine env, process helpers
 │   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards and controls
 │   │   ├── ForgeVisualStyles.swift      # Background, search field, button/glass styling
@@ -103,10 +104,12 @@ Launch requests start in `ForgeStore.launch(_:)` inside `ForgeStore.swift`; proc
 - Metal HUD
 - app logs
 - Steam safe mode
-
 - Prefix creation
-- DXVK/DXMT/D3DMetal DLL staging
-- MoltenVK/GPTK path resolution
 - Stop via `wineserver -k`
+
+Runtime-specific helpers are split by concern:
+
+- `ForgeGraphicsEnvironment.swift` resolves MoltenVK/GPTK paths and builds graphics env fragments.
+- `ForgeRuntimeStaging.swift` handles DXVK/DXMT/D3DMetal DLL staging and source discovery.
 
 Keep splitting isolated UI/profile/runtime pieces into separate Swift files as compatibility behavior stabilizes.
