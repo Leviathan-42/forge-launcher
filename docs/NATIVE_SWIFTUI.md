@@ -89,4 +89,10 @@ Config/runtime/bottle persistence helpers have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgePersistence.swift
 ```
 
-`ForgeNativeApp.swift` still includes app shell composition, scanning, backend resolution, and launch/stop behavior. Keep extracting isolated pieces as compatibility work stabilizes.
+Bottle EXE and Steam manifest scanning have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeAppScanner.swift
+```
+
+`ForgeNativeApp.swift` still includes app shell composition, backend resolution, and launch/stop behavior. Keep extracting isolated pieces as compatibility work stabilizes.

@@ -14,8 +14,8 @@ This document replaces the old Tauri command API reference. The previous Svelte/
 | Save bottle backend | `ForgePersistence.swift` / `ForgeStore.saveBottle(_:to:config:)` |
 | Load game profiles | `ForgeStore.loadGameProfiles(from:)` |
 | Save game profiles | `ForgeStore.saveGameProfiles(_:to:)` |
-| Scan launchable apps | `ForgeStore.scanApps(prefixPath:)` |
-| Scan Steam manifests | `ForgeStore.scanSteamGames(prefixPath:into:seen:)` |
+| Scan launchable apps | `ForgeAppScanner.swift` / `ForgeStore.scanApps(prefixPath:)` |
+| Scan Steam manifests | `ForgeAppScanner.swift` / `ForgeStore.scanSteamGames(prefixPath:into:seen:)` |
 | Launch EXE | `ForgeStore.launch(_:)` |
 | Spawn Wine process | `ForgeStore.spawn(...)` |
 | Stop bottle session | `ForgeStore.stopWineSession(...)` |

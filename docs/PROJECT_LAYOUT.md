@@ -10,7 +10,8 @@ forge-launcher/
 ├── macos/ForgeNative/                   # Active macOS 26 SwiftUI app
 │   ├── Package.swift                    # Swift package manifest
 │   ├── Sources/ForgeNative/
-│   │   ├── ForgeNativeApp.swift         # Main UI, store, scanner, launch logic
+│   │   ├── ForgeNativeApp.swift         # Main UI, store, launch logic
+│   │   ├── ForgeAppScanner.swift        # Bottle EXE and Steam manifest scanning
 │   │   ├── ForgeAppDelegate.swift       # macOS app/window chrome setup
 │   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards, rows, styling
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
