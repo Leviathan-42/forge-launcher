@@ -77,6 +77,12 @@ The drop/reveal/rescan runtime controls have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeRuntimePanel.swift
 ```
 
+The app list panel has been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeAppsPanel.swift
+```
+
 The profile editor has been split into:
 
 ```text

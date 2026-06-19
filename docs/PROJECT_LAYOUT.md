@@ -12,10 +12,11 @@ forge-launcher/
 │   ├── Sources/ForgeNative/
 │   │   ├── ForgeNativeApp.swift         # SwiftUI app entry
 │   │   ├── ForgeAppScanner.swift        # Bottle EXE and Steam manifest scanning
+│   │   ├── ForgeAppsPanel.swift         # App list panel and empty search state
 │   │   ├── ForgeAppDelegate.swift       # macOS app/window chrome setup
 │   │   ├── ForgeAppRow.swift            # App list row, profile badges, status pill
 │   │   ├── ForgeBackendEnvironment.swift # Backend env predicates and Wine DLL overrides
-│   │   ├── ForgeContentView.swift       # Main library shell and app list UI
+│   │   ├── ForgeContentView.swift       # Main library shell and modal wiring
 │   │   ├── ForgeGraphicsEnvironment.swift # MoltenVK/GPTK path and env helpers
 │   │   ├── ForgeLaunchSupport.swift     # Spawn orchestration, Wine env, process helpers
 │   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards and controls
