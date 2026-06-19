@@ -65,6 +65,12 @@ Shared SwiftUI components and styling have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeUIComponents.swift
 ```
 
+macOS app/window setup has been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeAppDelegate.swift
+```
+
 Per-game compatibility profile helpers have been split into:
 
 ```text

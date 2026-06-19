@@ -11,6 +11,7 @@ forge-launcher/
 │   ├── Package.swift                    # Swift package manifest
 │   ├── Sources/ForgeNative/
 │   │   ├── ForgeNativeApp.swift         # Main UI, store, scanner, launch logic
+│   │   ├── ForgeAppDelegate.swift       # macOS app/window chrome setup
 │   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards, rows, styling
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
 │   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, seeds, parsing
