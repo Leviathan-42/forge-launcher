@@ -55,4 +55,43 @@ final class CompatibilityProfileTests: XCTestCase {
         XCTAssertEqual(profiles["steam:1336490"]?.launchArgs, ["-screen-fullscreen", "1"])
         XCTAssertTrue(profiles["steam:1336490"]?.notes?.localizedCaseInsensitiveContains("DXMT") == true)
     }
+
+    func testResetGameProfilesRestoresSeededProfile() throws {
+        let key = "steam:1336490"
+        let seed = try XCTUnwrap(ForgeStore.seededGameProfile(forKey: key))
+        let custom = GameCompatibilityProfile(
+            id: key,
+            displayName: "Against the Storm",
+            backendOverride: .wineBuiltin,
+            launchArgs: ["-bad-arg"],
+            env: ["TEST": "1"],
+            notes: "custom"
+        )
+
+        XCTAssertTrue(ForgeStore.gameProfileCanReset([key: custom], key: key))
+
+        let reset = ForgeStore.resetGameProfiles([key: custom], key: key)
+
+        XCTAssertEqual(reset[key], seed)
+        XCTAssertFalse(ForgeStore.gameProfileCanReset(reset, key: key))
+    }
+
+    func testResetGameProfilesRemovesUnseededProfile() {
+        let key = "exe:/tmp/custom.exe"
+        let custom = GameCompatibilityProfile(
+            id: key,
+            displayName: "Custom",
+            backendOverride: .dxvk,
+            launchArgs: [],
+            env: [:],
+            notes: nil
+        )
+
+        XCTAssertTrue(ForgeStore.gameProfileCanReset([key: custom], key: key))
+
+        let reset = ForgeStore.resetGameProfiles([key: custom], key: key)
+
+        XCTAssertNil(reset[key])
+        XCTAssertFalse(ForgeStore.gameProfileCanReset(reset, key: key))
+    }
 }

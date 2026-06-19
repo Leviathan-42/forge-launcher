@@ -287,12 +287,13 @@ struct ContentView: View {
                             LiquidAppRow(
                                 app: app,
                                 backend: store.effectiveBackend(for: app, bottle: bottle),
-                                backendIsOverride: store.gameProfile(for: app).backendOverride != nil,
+                                backendIsAppSpecific: store.gameProfileIsAppSpecific(for: app),
+                                profileCanReset: store.gameProfileCanReset(app),
                                 hudText: store.config.globalHud ? "Metal HUD" : "Off",
                                 isLaunching: store.isLaunching,
                                 isRunning: store.runningAppPath == app.path,
                                 setBackend: { store.setGameBackend(app, backend: $0) },
-                                resetBackend: { store.resetGameBackend(app) },
+                                resetProfile: { store.resetGameProfile(app) },
                                 launch: {
                                     if app.steamAppId != nil {
                                         store.launchThroughSteam(app)
@@ -734,12 +735,13 @@ struct GlassSearchField: View {
 struct LiquidAppRow: View {
     let app: BottleAppItem
     let backend: GraphicsBackend
-    let backendIsOverride: Bool
+    let backendIsAppSpecific: Bool
+    let profileCanReset: Bool
     let hudText: String
     let isLaunching: Bool
     let isRunning: Bool
     let setBackend: (GraphicsBackend) -> Void
-    let resetBackend: () -> Void
+    let resetProfile: () -> Void
     let launch: () -> Void
     let launchThroughSteam: (() -> Void)?
     let stop: () -> Void
@@ -788,14 +790,18 @@ struct LiquidAppRow: View {
                 .pickerStyle(.menu)
                 .frame(width: 118, alignment: .leading)
 
-                Button(action: resetBackend) {
-                    Image(systemName: backendIsOverride ? "arrow.uturn.backward.circle.fill" : "checkmark.circle")
+                Button(action: resetProfile) {
+                    Image(systemName: profileCanReset
+                          ? "arrow.uturn.backward.circle.fill"
+                          : (backendIsAppSpecific ? "checkmark.seal.fill" : "checkmark.circle"))
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(backendIsOverride ? Color.primary : Color.secondary.opacity(0.45))
+                        .foregroundStyle(profileCanReset ? Color.primary : Color.secondary.opacity(0.45))
                 }
                 .buttonStyle(.plain)
-                .help(backendIsOverride ? "Reset to bottle default" : "Using bottle default")
-                .disabled(!backendIsOverride)
+                .help(profileCanReset
+                      ? "Reset to recommended profile"
+                      : (backendIsAppSpecific ? "Using recommended profile" : "Using bottle default"))
+                .disabled(!profileCanReset)
             }
             .frame(width: 150, alignment: .leading)
 
@@ -1056,6 +1062,15 @@ final class ForgeStore: ObservableObject {
         return GameCompatibilityProfile(id: key, displayName: app.name, backendOverride: nil, launchArgs: [], env: [:], notes: nil)
     }
 
+    func gameProfileIsAppSpecific(for app: BottleAppItem) -> Bool {
+        let profile = gameProfile(for: app)
+        return profile.backendOverride != nil || !profile.launchArgs.isEmpty || !profile.env.isEmpty || profile.notes != nil
+    }
+
+    func gameProfileCanReset(_ app: BottleAppItem) -> Bool {
+        Self.gameProfileCanReset(gameProfiles, key: Self.gameProfileKey(for: app))
+    }
+
     func effectiveBackend(for app: BottleAppItem, bottle: BottleEntry) -> GraphicsBackend {
         gameProfile(for: app).backendOverride ?? bottle.graphicsBackend ?? profile(for: bottle).defaultBackend
     }
@@ -1078,14 +1093,17 @@ final class ForgeStore: ObservableObject {
         saveGameProfile(profile)
     }
 
-    func resetGameBackend(_ app: BottleAppItem) {
-        var profile = gameProfile(for: app)
-        profile.backendOverride = nil
-        saveGameProfile(profile)
+    func resetGameProfile(_ app: BottleAppItem) {
+        gameProfiles = Self.resetGameProfiles(gameProfiles, key: Self.gameProfileKey(for: app))
+        persistGameProfiles()
     }
 
     private func saveGameProfile(_ profile: GameCompatibilityProfile) {
         gameProfiles[profile.id] = profile
+        persistGameProfiles()
+    }
+
+    private func persistGameProfiles() {
         do {
             try Self.saveGameProfiles(gameProfiles, to: Self.appSupportDir())
         } catch {
@@ -1391,6 +1409,28 @@ final class ForgeStore: ObservableObject {
                 notes: "Unity Vulkan path works; disable GPU skinning to avoid avatar mesh corruption."
             )
         ]
+    }
+
+    nonisolated static func seededGameProfile(forKey key: String) -> GameCompatibilityProfile? {
+        seededGameProfiles().first { $0.id == key }
+    }
+
+    nonisolated static func gameProfileCanReset(_ profiles: [String: GameCompatibilityProfile], key: String) -> Bool {
+        guard let profile = profiles[key] else { return false }
+        if let seed = seededGameProfile(forKey: key) {
+            return profile != seed
+        }
+        return true
+    }
+
+    nonisolated static func resetGameProfiles(_ profiles: [String: GameCompatibilityProfile], key: String) -> [String: GameCompatibilityProfile] {
+        var updated = profiles
+        if let seed = seededGameProfile(forKey: key) {
+            updated[key] = seed
+        } else {
+            updated.removeValue(forKey: key)
+        }
+        return updated
     }
 
     nonisolated static func gameProfileKey(for app: BottleAppItem) -> String {
@@ -2331,7 +2371,7 @@ struct BottleAppItem: Identifiable, Hashable {
     }
 }
 
-struct GameCompatibilityProfile: Codable, Identifiable {
+struct GameCompatibilityProfile: Codable, Identifiable, Equatable {
     var id: String
     var displayName: String
     var backendOverride: GraphicsBackend?
