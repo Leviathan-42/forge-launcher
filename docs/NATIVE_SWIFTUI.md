@@ -31,6 +31,8 @@ npm run native:build
 - drag/drop `.exe`
 - Finder **Select EXE**
 - installed app/Steam game list
+- per-game compatibility profile badges
+- per-game profile editor for backend, launch args, env, notes, and reset
 - Play/Stop buttons
 - Reveal bottle folder
 - Refresh/rescan

@@ -96,6 +96,16 @@ Direct game launches clear Steam-only DXVK filters so Steam safe mode does not l
 
 Per-game launch options are expected. Keep these in a compatibility profile, not in a separate bottle, when the game is installed through Steam.
 
+The native app now exposes those profiles directly from the app list. Each row shows compact profile badges when launch args, env overrides, or notes exist, and the pencil action opens an editor for:
+
+```text
+Backend override
+Launch args
+Environment overrides
+Notes
+Reset to seeded profile
+```
+
 Unity games are especially sensitive to graphics threading and GPU skinning under translation layers. Useful launch options to test:
 
 ```text

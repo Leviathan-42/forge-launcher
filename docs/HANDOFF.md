@@ -59,31 +59,20 @@ Current code in `ForgeNativeApp.swift`:
 
 - Seeds `steam:1336490` as `backend_override: dxmt`.
 - Migrates older stale Against the Storm D3DMetal profiles to DXMT.
+- Shows per-game profile launch args/env/notes as compact badges in the app list.
+- Provides a native per-game profile editor for backend override, launch args, env overrides, notes, and reset-to-seed.
 - `ensureDXMTInstalled(winePath:prefixPath:)` stages DXMT PE DLLs and `winemetal.so`.
 - Direct launch graphics validation reached `Loading completed`; Steam/DLC callback errors from direct launch are separate from graphics initialization.
 
 ## Recommended next work
 
-Polish per-game compatibility profiles in UI/config:
+Per-game compatibility profile editing is now wired in the native app and persists profiles keyed by Steam appid when available, else normalized EXE path.
 
-```text
-Bottle default backend
-  -> per-game backend override
-  -> per-game launch args
-  -> per-game env overrides
-  -> reset-to-seeded-profile button
-```
+Next safe polish:
 
-Expose/edit per-game details:
-
-```text
-Backend: DXVK/VKD3D, DXVK, VKD3D, DXMT, WineD3D, D3DMetal, None
-Launch args: editable text field
-Environment overrides: advanced section
-Notes: why this profile exists
-```
-
-Persist profiles keyed by Steam appid when available, else normalized EXE path.
+- visually smoke-test the profile editor from Forge.app when app launching is convenient
+- consider splitting the large SwiftUI source file once compatibility behavior stabilizes
+- keep seeded profile notes current as runtime fixes move from diagnostics to defaults
 
 Useful logs:
 
