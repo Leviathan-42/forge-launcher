@@ -10,7 +10,9 @@ forge-launcher/
 ├── macos/ForgeNative/                   # Active macOS 26 SwiftUI app
 │   ├── Package.swift                    # Swift package manifest
 │   ├── Sources/ForgeNative/
-│   │   ├── ForgeNativeApp.swift         # UI, store, scanner, launch logic
+│   │   ├── ForgeNativeApp.swift         # Main UI, store, scanner, launch logic
+│   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, seeds, parsing
+│   │   ├── GameProfileEditorSheet.swift # Per-game profile editor UI
 │   │   └── Resources/AppIcon.png        # Runtime icon resource
 │   └── Tests/ForgeNativeTests/          # Native compatibility profile regression tests
 │
@@ -69,12 +71,13 @@ ForgeNative uses:
   config.json
   bottles.json
   runtime_profiles.json
+  game_compatibility_profiles.json
   Logs/
 ```
 
 ## Adding native UI features
 
-1. Edit `macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift`.
+1. Edit the relevant file under `macos/ForgeNative/Sources/ForgeNative/`.
 2. Keep controls wired to real `ForgeStore` actions; avoid decorative/unwired buttons.
 3. Build with `npm run native:build`.
 4. Run with `npm run native:dev`.
@@ -91,4 +94,4 @@ Most launch behavior is currently in `ForgeStore.spawn(...)` inside `ForgeNative
 - app logs
 - Stop via `wineserver -k`
 
-Long term, this can be split into separate Swift files, but the current app is intentionally simple while compatibility is being tested.
+Keep splitting isolated UI/profile/runtime pieces into separate Swift files as compatibility behavior stabilizes.

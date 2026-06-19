@@ -59,4 +59,10 @@ The profile editor has been split into:
 macos/ForgeNative/Sources/ForgeNative/GameProfileEditorSheet.swift
 ```
 
-`ForgeNativeApp.swift` still includes core UI views, config models, scanning, backend resolution, and launch/stop behavior. Keep extracting isolated pieces as compatibility work stabilizes.
+Per-game compatibility profile helpers have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift
+```
+
+`ForgeNativeApp.swift` still includes core UI views, most config models, scanning, backend resolution, and launch/stop behavior. Keep extracting isolated pieces as compatibility work stabilizes.

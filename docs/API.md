@@ -12,6 +12,8 @@ This document replaces the old Tauri command API reference. The previous Svelte/
 | Save config | `ForgeStore.saveConfig(_:to:)` |
 | Load bottles | `ForgeStore.loadBottles(from:config:)` |
 | Save bottle backend | `ForgeStore.saveBottle(_:to:config:)` |
+| Load game profiles | `ForgeStore.loadGameProfiles(from:)` |
+| Save game profiles | `ForgeStore.saveGameProfiles(_:to:)` |
 | Scan launchable apps | `ForgeStore.scanApps(prefixPath:)` |
 | Scan Steam manifests | `ForgeStore.scanSteamGames(prefixPath:into:seen:)` |
 | Launch EXE | `ForgeStore.launch(_:)` |
@@ -31,14 +33,17 @@ Main files:
 - `config.json`
 - `bottles.json`
 - `runtime_profiles.json`
+- `game_compatibility_profiles.json`
 
-Swift models live at the bottom of `ForgeNativeApp.swift`:
+Core Swift models mostly live at the bottom of `ForgeNativeApp.swift`:
 
 - `AppConfig`
 - `RuntimeProfile`
 - `BottleEntry`
 - `BottleAppItem`
 - `GraphicsBackend`
+
+Per-game compatibility profile models and seeded-profile helpers live in `GameCompatibilityProfiles.swift`.
 
 ## Legacy Tauri API
 

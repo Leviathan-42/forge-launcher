@@ -21,6 +21,8 @@ Forge.app / ForgeNative
 | Path | Purpose |
 |---|---|
 | `macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift` | Active SwiftUI app, store, scanning, launch logic |
+| `macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift` | Per-game compatibility profile model, seeds, reset, parsing |
+| `macos/ForgeNative/Sources/ForgeNative/GameProfileEditorSheet.swift` | Native profile editor UI |
 | `macos/ForgeNative/Package.swift` | Swift package targeting macOS 26 |
 | `scripts/run-native-app.sh` | Builds and opens `dist/Forge.app` for Cmd-Tab/Dock behavior |
 | `~/Library/Application Support/com.forgelauncher.app/` | Runtime config, bottles, profiles, logs |

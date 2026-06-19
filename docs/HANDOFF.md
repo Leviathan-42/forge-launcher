@@ -55,12 +55,12 @@ Findings:
 - DXMT gets the game through D3D11 initialization when staged into the Forge Wine runtime and prefix.
 - The `dd3d11.dll` alias matters because this Unity build probes that DLL name.
 
-Current code in `ForgeNativeApp.swift`:
+Current native code:
 
-- Seeds `steam:1336490` as `backend_override: dxmt`.
-- Migrates older stale Against the Storm D3DMetal profiles to DXMT.
-- Shows per-game profile launch args/env/notes as compact badges in the app list.
-- Provides a native per-game profile editor for backend override, launch args, env overrides, notes, and reset-to-seed.
+- `GameCompatibilityProfiles.swift` seeds `steam:1336490` as `backend_override: dxmt`.
+- `GameCompatibilityProfiles.swift` migrates older stale Against the Storm D3DMetal profiles to DXMT.
+- `ForgeNativeApp.swift` shows per-game profile launch args/env/notes as compact badges in the app list.
+- `GameProfileEditorSheet.swift` provides a native editor for backend override, launch args, env overrides, notes, and reset-to-seed.
 - `ensureDXMTInstalled(winePath:prefixPath:)` stages DXMT PE DLLs and `winemetal.so`.
 - Direct launch graphics validation reached `Loading completed`; Steam/DLC callback errors from direct launch are separate from graphics initialization.
 
