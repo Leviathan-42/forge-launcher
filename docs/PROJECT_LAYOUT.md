@@ -10,7 +10,7 @@ forge-launcher/
 ├── macos/ForgeNative/                   # Active macOS 26 SwiftUI app
 │   ├── Package.swift                    # Swift package manifest
 │   ├── Sources/ForgeNative/
-│   │   ├── ForgeNativeApp.swift         # App entry and main store actions
+│   │   ├── ForgeNativeApp.swift         # SwiftUI app entry
 │   │   ├── ForgeAppScanner.swift        # Bottle EXE and Steam manifest scanning
 │   │   ├── ForgeAppDelegate.swift       # macOS app/window chrome setup
 │   │   ├── ForgeContentView.swift       # Main library shell and app list UI
@@ -18,6 +18,7 @@ forge-launcher/
 │   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards, rows, styling
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
 │   │   ├── ForgePersistence.swift       # Config/runtime/bottle JSON persistence
+│   │   ├── ForgeStore.swift             # Main store state and high-level actions
 │   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, actions, seeds, parsing
 │   │   ├── GameProfileEditorSheet.swift # Per-game profile editor UI
 │   │   └── Resources/AppIcon.png        # Runtime icon resource
@@ -92,7 +93,7 @@ ForgeNative uses:
 
 ## Adding launch/runtime behavior
 
-Launch requests start in `ForgeStore.launch(_:)` inside `ForgeNativeApp.swift`; process orchestration lives in `ForgeStore.spawn(...)` inside `ForgeLaunchSupport.swift`:
+Launch requests start in `ForgeStore.launch(_:)` inside `ForgeStore.swift`; process orchestration lives in `ForgeStore.spawn(...)` inside `ForgeLaunchSupport.swift`:
 
 - Wine path resolution
 - backend-specific env vars

@@ -20,7 +20,7 @@ Forge.app / ForgeNative
 
 | Path | Purpose |
 |---|---|
-| `macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift` | App entry and main store actions |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift` | SwiftUI app entry |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppScanner.swift` | Bottle EXE discovery and Steam manifest scanning |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppDelegate.swift` | macOS activation, icon, and window chrome setup |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeContentView.swift` | Main library shell, sidebar, runtime panel, app list, and drop handling |
@@ -28,6 +28,7 @@ Forge.app / ForgeNative
 | `macos/ForgeNative/Sources/ForgeNative/ForgeUIComponents.swift` | Shared SwiftUI cards, rows, styling, backend display text |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeModels.swift` | Core config, bottle, app, backend models and JSON helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgePersistence.swift` | Config, runtime profile, and bottle JSON load/save helpers |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeStore.swift` | Main store state, high-level launch requests, and bottle/HUD actions |
 | `macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift` | Per-game compatibility profile model, store actions, seeds, reset, parsing |
 | `macos/ForgeNative/Sources/ForgeNative/GameProfileEditorSheet.swift` | Native profile editor UI |
 | `macos/ForgeNative/Package.swift` | Swift package targeting macOS 26 |
