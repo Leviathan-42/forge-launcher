@@ -83,4 +83,10 @@ Core config/runtime/app models have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeModels.swift
 ```
 
+Config/runtime/bottle persistence helpers have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgePersistence.swift
+```
+
 `ForgeNativeApp.swift` still includes app shell composition, scanning, backend resolution, and launch/stop behavior. Keep extracting isolated pieces as compatibility work stabilizes.

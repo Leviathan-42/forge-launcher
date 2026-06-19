@@ -14,6 +14,7 @@ forge-launcher/
 │   │   ├── ForgeAppDelegate.swift       # macOS app/window chrome setup
 │   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards, rows, styling
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
+│   │   ├── ForgePersistence.swift       # Config/runtime/bottle JSON persistence
 │   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, seeds, parsing
 │   │   ├── GameProfileEditorSheet.swift # Per-game profile editor UI
 │   │   └── Resources/AppIcon.png        # Runtime icon resource

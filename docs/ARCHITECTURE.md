@@ -24,6 +24,7 @@ Forge.app / ForgeNative
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppDelegate.swift` | macOS activation, icon, and window chrome setup |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeUIComponents.swift` | Shared SwiftUI cards, rows, styling, backend display text |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeModels.swift` | Core config, bottle, app, backend models and JSON helpers |
+| `macos/ForgeNative/Sources/ForgeNative/ForgePersistence.swift` | Config, runtime profile, and bottle JSON load/save helpers |
 | `macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift` | Per-game compatibility profile model, seeds, reset, parsing |
 | `macos/ForgeNative/Sources/ForgeNative/GameProfileEditorSheet.swift` | Native profile editor UI |
 | `macos/ForgeNative/Package.swift` | Swift package targeting macOS 26 |

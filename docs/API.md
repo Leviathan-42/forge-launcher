@@ -8,10 +8,10 @@ This document replaces the old Tauri command API reference. The previous Svelte/
 
 | Area | Swift location |
 |---|---|
-| Load config | `ForgeStore.loadConfig(from:)` |
-| Save config | `ForgeStore.saveConfig(_:to:)` |
-| Load bottles | `ForgeStore.loadBottles(from:config:)` |
-| Save bottle backend | `ForgeStore.saveBottle(_:to:config:)` |
+| Load config | `ForgePersistence.swift` / `ForgeStore.loadConfig(from:)` |
+| Save config | `ForgePersistence.swift` / `ForgeStore.saveConfig(_:to:)` |
+| Load bottles | `ForgePersistence.swift` / `ForgeStore.loadBottles(from:config:)` |
+| Save bottle backend | `ForgePersistence.swift` / `ForgeStore.saveBottle(_:to:config:)` |
 | Load game profiles | `ForgeStore.loadGameProfiles(from:)` |
 | Save game profiles | `ForgeStore.saveGameProfiles(_:to:)` |
 | Scan launchable apps | `ForgeStore.scanApps(prefixPath:)` |
