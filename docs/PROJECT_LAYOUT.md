@@ -10,9 +10,10 @@ forge-launcher/
 ├── macos/ForgeNative/                   # Active macOS 26 SwiftUI app
 │   ├── Package.swift                    # Swift package manifest
 │   ├── Sources/ForgeNative/
-│   │   ├── ForgeNativeApp.swift         # Main UI, store, launch logic
+│   │   ├── ForgeNativeApp.swift         # Main UI, store, launch orchestration
 │   │   ├── ForgeAppScanner.swift        # Bottle EXE and Steam manifest scanning
 │   │   ├── ForgeAppDelegate.swift       # macOS app/window chrome setup
+│   │   ├── ForgeLaunchSupport.swift     # Wine env, runtime DLL, and process helpers
 │   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards, rows, styling
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
 │   │   ├── ForgePersistence.swift       # Config/runtime/bottle JSON persistence
@@ -90,13 +91,19 @@ ForgeNative uses:
 
 ## Adding launch/runtime behavior
 
-Most launch behavior is currently in `ForgeStore.spawn(...)` inside `ForgeNativeApp.swift`:
+Launch orchestration starts in `ForgeStore.spawn(...)` inside `ForgeNativeApp.swift`:
 
 - Wine path resolution
 - backend-specific env vars
-- Steam safe mode
 - Metal HUD
 - app logs
+- Steam safe mode
+
+Lower-level launch/runtime helpers live in `ForgeLaunchSupport.swift`:
+
+- Prefix creation
+- DXVK/DXMT DLL staging
+- MoltenVK/GPTK path resolution
 - Stop via `wineserver -k`
 
 Keep splitting isolated UI/profile/runtime pieces into separate Swift files as compatibility behavior stabilizes.

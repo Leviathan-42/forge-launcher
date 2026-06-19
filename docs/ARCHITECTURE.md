@@ -20,9 +20,10 @@ Forge.app / ForgeNative
 
 | Path | Purpose |
 |---|---|
-| `macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift` | Active SwiftUI app shell, store, and launch logic |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift` | Active SwiftUI app shell, store, and launch orchestration |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppScanner.swift` | Bottle EXE discovery and Steam manifest scanning |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppDelegate.swift` | macOS activation, icon, and window chrome setup |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeLaunchSupport.swift` | Wine environment, runtime DLL staging, process, and stop helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeUIComponents.swift` | Shared SwiftUI cards, rows, styling, backend display text |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeModels.swift` | Core config, bottle, app, backend models and JSON helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgePersistence.swift` | Config, runtime profile, and bottle JSON load/save helpers |
