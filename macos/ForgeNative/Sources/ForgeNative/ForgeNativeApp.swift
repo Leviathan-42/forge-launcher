@@ -284,11 +284,15 @@ struct ContentView: View {
                 ScrollView {
                     LazyVStack(spacing: 10) {
                         ForEach(filteredApps) { app in
+                            let profile = store.gameProfile(for: app)
                             LiquidAppRow(
                                 app: app,
                                 backend: store.effectiveBackend(for: app, bottle: bottle),
                                 backendIsAppSpecific: store.gameProfileIsAppSpecific(for: app),
                                 profileCanReset: store.gameProfileCanReset(app),
+                                launchArgs: profile.launchArgs,
+                                envKeys: profile.env.keys.sorted(),
+                                notes: profile.notes,
                                 hudText: store.config.globalHud ? "Metal HUD" : "Off",
                                 isLaunching: store.isLaunching,
                                 isRunning: store.runningAppPath == app.path,
@@ -737,6 +741,9 @@ struct LiquidAppRow: View {
     let backend: GraphicsBackend
     let backendIsAppSpecific: Bool
     let profileCanReset: Bool
+    let launchArgs: [String]
+    let envKeys: [String]
+    let notes: String?
     let hudText: String
     let isLaunching: Bool
     let isRunning: Bool
@@ -759,7 +766,7 @@ struct LiquidAppRow: View {
             .frame(width: 40, height: 40)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(app.name)
                     .font(.system(size: 14.5, weight: .semibold))
                     .foregroundStyle(.primary)
@@ -769,6 +776,7 @@ struct LiquidAppRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
 
+                profileDetails
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -826,6 +834,64 @@ struct LiquidAppRow: View {
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.09), lineWidth: 1))
     }
 
+    @ViewBuilder
+    private var profileDetails: some View {
+        if !launchArgs.isEmpty || !envKeys.isEmpty || firstNoteLine != nil {
+            HStack(spacing: 6) {
+                if !launchArgs.isEmpty {
+                    CompatibilityProfileBadge(icon: "terminal", text: launchArgs.joined(separator: " "))
+                        .frame(maxWidth: 220, alignment: .leading)
+                }
+
+                if !envKeys.isEmpty {
+                    CompatibilityProfileBadge(icon: "slider.horizontal.3", text: envSummary)
+                        .frame(maxWidth: 170, alignment: .leading)
+                }
+
+                if let firstNoteLine {
+                    CompatibilityProfileBadge(icon: "note.text", text: firstNoteLine)
+                        .frame(maxWidth: 240, alignment: .leading)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var firstNoteLine: String? {
+        notes?
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+    }
+
+    private var envSummary: String {
+        if envKeys.count <= 2 {
+            return envKeys.joined(separator: ", ")
+        }
+        return "\(envKeys.count) env vars"
+    }
+}
+
+private struct CompatibilityProfileBadge: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 9.5, weight: .bold))
+                .imageScale(.small)
+            Text(text)
+                .font(.system(size: 10, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(.secondary.opacity(0.10), in: Capsule())
+        .overlay(Capsule().stroke(.white.opacity(0.08), lineWidth: 1))
+    }
 }
 
 struct StatusPill: View {
