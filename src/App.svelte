@@ -32,7 +32,6 @@
     path: string;
     kind: string;
     source: "library" | "scan";
-    starred: boolean;
     app?: BottleApp;
     game?: Game;
   };
@@ -56,8 +55,6 @@
       backend: "dxvk_vkd3d",
     },
   ];
-  const starredStorageKey = "forge-launcher.starred-exes";
-
   let bottles: Bottle[] = [];
   let selectedBottleId = "";
   let apps: BottleApp[] = [];
@@ -72,17 +69,15 @@
   let busy = "";
   let appFilter = "";
   let settingsOpen = false;
-  let starredExePaths: string[] = [];
   let toasts: Toast[] = [];
   let toastId = 1;
   let unlistenDrop: (() => void) | null = null;
   const desktopCommandsAvailable = canUseDesktopCommands();
 
   $: selectedBottle = bottles.find((bottle) => bottle.id === selectedBottleId) || bottles[0];
-  $: exeRows = buildExeRows(apps, games, appFilter, starredExePaths);
+  $: exeRows = buildExeRows(apps, games, appFilter);
 
   onMount(() => {
-    starredExePaths = loadStarredExePaths();
     void refreshAll();
     void setupFileDrop();
   });
@@ -373,12 +368,11 @@
     return "custom";
   }
 
-  function buildExeRows(scannedApps: BottleApp[], libraryGames: Game[], filter: string, stars: string[]) {
+  function buildExeRows(scannedApps: BottleApp[], libraryGames: Game[], filter: string) {
     const rows = new Map<string, ExeEntry>();
-    const starSet = new Set(stars);
 
     for (const app of scannedApps) {
-      const key = starKey(app.path);
+      const key = exeKey(app.path);
       rows.set(key, {
         key,
         id: `app-${app.id}`,
@@ -386,13 +380,12 @@
         path: app.path,
         kind: app.kind,
         source: "scan",
-        starred: starSet.has(key),
         app,
       });
     }
 
     for (const game of libraryGames) {
-      const key = starKey(game.exe_path);
+      const key = exeKey(game.exe_path);
       rows.set(key, {
         key,
         id: `game-${game.id}`,
@@ -400,7 +393,6 @@
         path: game.exe_path,
         kind: game.source || "manual",
         source: "library",
-        starred: starSet.has(key),
         game,
       });
     }
@@ -412,7 +404,6 @@
         return `${entry.name} ${entry.kind} ${entry.path}`.toLowerCase().includes(needle);
       })
       .sort((a, b) => {
-        if (a.starred !== b.starred) return a.starred ? -1 : 1;
         if (a.source !== b.source) return a.source === "library" ? -1 : 1;
         return kindRank(a.kind) - kindRank(b.kind) || a.name.localeCompare(b.name);
       });
@@ -427,22 +418,12 @@
     return 4;
   }
 
-  function loadStarredExePaths() {
-    try {
-      const raw = window.localStorage.getItem(starredStorageKey);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function starKey(path: string) {
+  function exeKey(path: string) {
     return path.trim().replace(/\/+$/, "").toLowerCase();
   }
 
   function manualGameId(path: string) {
-    return `manual-${stableHash(starKey(path))}`;
+    return `manual-${stableHash(exeKey(path))}`;
   }
 
   function stableHash(value: string) {
