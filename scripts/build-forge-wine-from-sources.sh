@@ -528,11 +528,12 @@ BOOL virtual_handle_stack_overflow_retry( void *stack_ptr, void *fault_addr, voi
     SIZE_T copy_size = 0x100;
 
     if (!guarantee || !is_inside_thread_stack( stack, &stack_info )) return FALSE;
-    if (addr < stack_info.start || addr >= stack_info.start + host_page_size) return FALSE;
 
     base = stack_info.start;
     top = stack_info.start + host_page_size + guarantee;
     if (top > stack_info.end) top = stack_info.end;
+    if (addr < base || addr >= top) return FALSE;
+    if (stack < base || stack >= top) return FALSE;
     if (top <= stack_info.start + host_page_size + copy_size) return FALSE;
 
     mutex_lock( &virtual_mutex );  /* no need for signal masking inside signal handler */
@@ -556,6 +557,105 @@ NTSTATUS virtual_handle_fault( EXCEPTION_RECORD *rec, void *stack )'''
     if marker not in text:
         raise SystemExit("Could not locate virtual_handle_fault in virtual.c")
     text = text.replace(marker, insert, 1)
+
+if "Forge relocating low-stack exception frame" not in text:
+    old = '''    if (!is_inside_thread_stack( stack, &stack_info ))
+    {
+        if (is_inside_signal_stack( stack ))
+        {
+            ERR( "nested exception on signal stack addr %p stack %p\\n", rec->ExceptionAddress, stack );
+            abort_thread(1);
+        }
+        WARN( "exception outside of stack limits addr %p stack %p (%p-%p-%p)\\n",
+              rec->ExceptionAddress, stack, NtCurrentTeb()->DeallocationStack,
+              NtCurrentTeb()->Tib.StackLimit, NtCurrentTeb()->Tib.StackBase );
+        return stack - size;
+    }'''
+    new = '''    if (!is_inside_thread_stack( stack, &stack_info ))
+    {
+        if (is_inside_signal_stack( stack ))
+        {
+            ERR( "nested exception on signal stack addr %p stack %p\\n", rec->ExceptionAddress, stack );
+            abort_thread(1);
+        }
+        {
+            SIZE_T guarantee = forge_stack_guarantee_bytes();
+            TEB *teb = NtCurrentTeb();
+            char *start = teb->DeallocationStack;
+            char *end = teb->Tib.StackBase;
+            char *base = start;
+            char *top = start + host_page_size + guarantee;
+            char *old_stack = stack;
+
+            if (guarantee && stack >= start - host_page_size && stack < start)
+            {
+                if (top > end) top = end;
+                if (top > start + host_page_size + size)
+                {
+                    mutex_lock( &virtual_mutex );  /* no need for signal masking inside signal handler */
+                    set_page_vprot_bits( base, top - base, VPROT_COMMITTED, VPROT_GUARD );
+                    mprotect_range( base, top - base, 0, 0 );
+                    mutex_unlock( &virtual_mutex );
+
+                    stack = (char *)((ULONG_PTR)(top - size) & ~(ULONG_PTR)63);
+                    WARN( "Forge relocating low-stack exception frame addr %p stack %p -> %p (%p-%p-%p)\\n",
+                          rec->ExceptionAddress, old_stack, stack, teb->DeallocationStack,
+                          teb->Tib.StackLimit, teb->Tib.StackBase );
+                    return stack;
+                }
+            }
+        }
+        WARN( "exception outside of stack limits addr %p stack %p (%p-%p-%p)\\n",
+              rec->ExceptionAddress, stack, NtCurrentTeb()->DeallocationStack,
+              NtCurrentTeb()->Tib.StackLimit, NtCurrentTeb()->Tib.StackBase );
+        return stack - size;
+    }'''
+    if old not in text:
+        raise SystemExit("Could not locate outside-stack exception block in virtual.c")
+    text = text.replace(old, new, 1)
+
+if "Forge relocating stack-overflow exception frame" not in text:
+    old = '''    if (stack < stack_info.start + host_page_size)
+    {
+        /* stack overflow on last page, unrecoverable */
+        UINT diff = stack_info.start + host_page_size - stack;
+        ERR( "stack overflow %u bytes addr %p stack %p (%p-%p-%p)\\n",
+             diff, rec->ExceptionAddress, stack, stack_info.start, stack_info.limit, stack_info.end );
+        abort_thread(1);
+    }'''
+    new = '''    if (stack < stack_info.start + host_page_size)
+    {
+        SIZE_T guarantee = forge_stack_guarantee_bytes();
+        char *base = stack_info.start;
+        char *top = stack_info.start + host_page_size + guarantee;
+
+        if (guarantee)
+        {
+            if (top > stack_info.end) top = stack_info.end;
+            if (top > stack_info.start + host_page_size + size)
+            {
+                mutex_lock( &virtual_mutex );  /* no need for signal masking inside signal handler */
+                set_page_vprot_bits( base, top - base, VPROT_COMMITTED, VPROT_GUARD );
+                mprotect_range( base, top - base, 0, 0 );
+                mutex_unlock( &virtual_mutex );
+
+                stack = (char *)((ULONG_PTR)(top - size) & ~(ULONG_PTR)63);
+                WARN( "Forge relocating stack-overflow exception frame addr %p -> %p (%p-%p-%p)\\n",
+                      rec->ExceptionAddress, stack, stack_info.start, stack_info.limit, stack_info.end );
+                return stack;
+            }
+        }
+        /* stack overflow on last page, unrecoverable */
+        {
+            UINT diff = stack_info.start + host_page_size - stack;
+            ERR( "stack overflow %u bytes addr %p stack %p (%p-%p-%p)\\n",
+                 diff, rec->ExceptionAddress, stack, stack_info.start, stack_info.limit, stack_info.end );
+            abort_thread(1);
+        }
+    }'''
+    if old not in text:
+        raise SystemExit("Could not locate final stack-overflow block in virtual.c")
+    text = text.replace(old, new, 1)
 
 virtual_c.write_text(text)
 
