@@ -71,7 +71,7 @@ Per-game compatibility profile editing is now wired in the native app and persis
 Next safe polish:
 
 - visually smoke-test the profile editor from Forge.app when app launching is convenient
-- consider splitting the large SwiftUI source file once compatibility behavior stabilizes
+- keep extracting isolated SwiftUI/store sections from the large app file as compatibility behavior stabilizes
 - keep seeded profile notes current as runtime fixes move from diagnostics to defaults
 
 Useful logs:

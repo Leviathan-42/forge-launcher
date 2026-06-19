@@ -47,10 +47,16 @@ npm run native:build
 
 ## Implementation note
 
-Most native code currently lives in one file:
+Most native code still lives in:
 
 ```text
 macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift
 ```
 
-This includes UI views, config models, scanning, backend resolution, and launch/stop behavior. It can be split later once compatibility work stabilizes.
+The profile editor has been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/GameProfileEditorSheet.swift
+```
+
+`ForgeNativeApp.swift` still includes core UI views, config models, scanning, backend resolution, and launch/stop behavior. Keep extracting isolated pieces as compatibility work stabilizes.
