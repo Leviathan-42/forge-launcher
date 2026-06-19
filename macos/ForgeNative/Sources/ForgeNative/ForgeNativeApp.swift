@@ -1323,7 +1323,10 @@ final class ForgeStore: ObservableObject {
             } else if seed.id == "steam:1336490", profiles[seed.id]?.backendOverride == .d3dMetal {
                 // Against the Storm is D3D11-only and now works through DXMT in Forge's
                 // own Wine runtime. Migrate the earlier D3DMetal seed automatically.
+                profiles[seed.id]?.displayName = seed.displayName
                 profiles[seed.id]?.backendOverride = .dxmt
+                profiles[seed.id]?.launchArgs = seed.launchArgs
+                profiles[seed.id]?.env = seed.env
                 profiles[seed.id]?.notes = seed.notes
             } else if seed.id == "steam:945360", profiles[seed.id]?.backendOverride != .wineBuiltin {
                 // Among Us is a 32-bit Unity D3D11 build. DXMT's 32-bit builtin PE
@@ -2046,7 +2049,7 @@ final class ForgeStore: ObservableObject {
     nonisolated static func steamGameDirectory(prefixPath: String, appId: String) -> URL? {
         let steamapps = URL(fileURLWithPath: prefixPath).appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)
         let manifest = steamapps.appendingPathComponent("appmanifest_\(appId).acf")
-        guard let text = try? String(contentsOf: manifest) else { return nil }
+        guard let text = try? String(contentsOf: manifest, encoding: .utf8) else { return nil }
         for line in text.components(separatedBy: .newlines) {
             let parts = line.components(separatedBy: "\"").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             if parts.count >= 2, parts[0].trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare("installdir") == .orderedSame {

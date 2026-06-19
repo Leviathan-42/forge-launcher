@@ -9,9 +9,10 @@ forge-launcher/
 │
 ├── macos/ForgeNative/                   # Active macOS 26 SwiftUI app
 │   ├── Package.swift                    # Swift package manifest
-│   └── Sources/ForgeNative/
-│       ├── ForgeNativeApp.swift         # UI, store, scanner, launch logic
-│       └── Resources/AppIcon.png        # Runtime icon resource
+│   ├── Sources/ForgeNative/
+│   │   ├── ForgeNativeApp.swift         # UI, store, scanner, launch logic
+│   │   └── Resources/AppIcon.png        # Runtime icon resource
+│   └── Tests/ForgeNativeTests/          # Native compatibility profile regression tests
 │
 ├── scripts/
 │   ├── run-native-app.sh                # Builds/opens dist/Forge.app
@@ -41,6 +42,7 @@ Use the native app:
 ```sh
 npm run native:dev
 npm run native:build
+npm run check:all
 ```
 
 `npm run native:dev` creates and opens `dist/Forge.app`, so it appears in Cmd-Tab and the Dock like a normal macOS app.

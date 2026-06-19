@@ -16,6 +16,11 @@ let package = Package(
             resources: [
                 .process("Resources")
             ]
+        ),
+        .testTarget(
+            name: "ForgeNativeTests",
+            dependencies: ["ForgeNative"],
+            path: "Tests/ForgeNativeTests"
         )
     ]
 )

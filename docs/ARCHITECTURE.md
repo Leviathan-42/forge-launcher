@@ -13,7 +13,7 @@ Forge.app / ForgeNative
   -> one main Wine bottle for Windows Steam and installed games
   -> Forge-owned WoW64 Wine runtime profile resolver
   -> Steam safe UI launch + game backend handoff
-  -> DXVK/VKD3D/MoltenVK, GPTK D3DMetal, or Wine builtin backend
+  -> DXVK/VKD3D/MoltenVK, DXMT, GPTK D3DMetal, or Wine builtin backend
 ```
 
 ## Important paths
@@ -61,6 +61,7 @@ Forge also scans Windows Steam manifests in the main bottle and exposes installe
 | `dxvk` | D3D9/10/11 through DXVK + MoltenVK |
 | `vkd3d` | D3D12 through VKD3D-Proton + MoltenVK |
 | `d3dmetal` | GPTK/D3DMetal path |
+| `dxmt` | D3D11 to Metal path; currently used for Against the Storm |
 | `wine_builtin` | Compatibility fallback; avoid for performance-sensitive games |
 | `none` | No D3D override |
 

@@ -35,54 +35,55 @@ Working args:
 -force-vulkan -force-gfx-st -disable-gpu-skinning -screen-fullscreen 1
 ```
 
-## Current failing title
+## Working title: Against the Storm
 
-Against the Storm, Steam appid `1336490`, is not fixed.
+Against the Storm, Steam appid `1336490`, works with Forge's DXMT compatibility profile.
+
+Working profile:
+
+```text
+backend: dxmt
+launch args: -screen-fullscreen 1
+```
 
 Findings:
 
-- Unity Vulkan path is not usable: forced Vulkan says the renderer was not built with usable shaders.
-- Unity OpenGL/Core path is not usable: forced GLCore says the renderer was not built.
-- DXVK 2.7.1 loads but rejects MoltenVK/Apple GPU because required `geometryShader` support is missing.
-- GPTK/D3DMetal is the right class of layer, but current experiments still fail D3D11 device creation.
-- Starting Steam with Forge WoW64 Wine and then using GPTK `wine64` in the same prefix caused a wineserver version mismatch, so current experimental code direct-launches D3DMetal games under GPTK `wine64` with `SteamAppId` set.
+- Against the Storm is a 64-bit Unity D3D11 title.
+- Unity Vulkan and OpenGL/Core paths are not usable in this build.
+- DXVK reaches MoltenVK feature limits for this title, especially geometry shader support.
+- GPTK/D3DMetal experiments were unstable and are not the preferred Forge-owned runtime direction.
+- DXMT gets the game through D3D11 initialization when staged into the Forge Wine runtime and prefix.
+- The `dd3d11.dll` alias matters because this Unity build probes that DLL name.
 
-Current experimental code in `ForgeNativeApp.swift`:
+Current code in `ForgeNativeApp.swift`:
 
-- Hardcoded Against the Storm backend override to `.d3dMetal`.
-- D3DMetal launches use GPTK `wine64`.
-- D3DMetal Steam games currently skip `steam.exe -applaunch` to avoid mixed-wineserver mismatch.
-- Conservative flags are set: `D3DM_MTL4=0`, `D3DM_SUPPORT_DXR=0`, `D3DM_ENABLE_METALFX=0`.
-
-Do not claim Against the Storm is fixed.
+- Seeds `steam:1336490` as `backend_override: dxmt`.
+- Migrates older stale Against the Storm D3DMetal profiles to DXMT.
+- `ensureDXMTInstalled(winePath:prefixPath:)` stages DXMT PE DLLs and `winemetal.so`.
+- Direct launch graphics validation reached `Loading completed`; Steam/DLC callback errors from direct launch are separate from graphics initialization.
 
 ## Recommended next work
 
-Implement per-game compatibility profiles in UI/config:
+Polish per-game compatibility profiles in UI/config:
 
 ```text
 Bottle default backend
   -> per-game backend override
   -> per-game launch args
   -> per-game env overrides
-  -> reset-to-default button
+  -> reset-to-seeded-profile button
 ```
 
-Expose backends per game:
+Expose/edit per-game details:
 
 ```text
-DXVK/VKD3D
-DXVK
-VKD3D
-WineD3D
-D3DMetal
-None
-future: DXMT
+Backend: DXVK/VKD3D, DXVK, VKD3D, DXMT, WineD3D, D3DMetal, None
+Launch args: editable text field
+Environment overrides: advanced section
+Notes: why this profile exists
 ```
 
 Persist profiles keyed by Steam appid when available, else normalized EXE path.
-
-Likely future solution for Against the Storm: add a Forge-owned/open-source `DXMT` backend for D3D11 -> Metal. DXVK is blocked by MoltenVK features for this game, and GPTK/D3DMetal is not ideal for Forge's open-source runtime goals.
 
 Useful logs:
 

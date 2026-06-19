@@ -27,6 +27,7 @@ Useful commands:
 ```sh
 npm run native:dev
 npm run native:build
+npm run check:all
 npm run kill
 ```
 

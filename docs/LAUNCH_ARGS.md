@@ -250,14 +250,28 @@ Why:
 
 ### Against the Storm
 
-Status: not fixed yet.
+Status: working through DXMT.
+
+Backend:
+
+```text
+DXMT
+```
+
+Args:
+
+```text
+-screen-fullscreen 1
+```
 
 Known facts:
 
+- Against the Storm is a 64-bit Unity D3D11 title.
 - Native Vulkan renderer is not usable in this build.
 - OpenGL Core renderer is not usable in this build.
 - DXVK loads but MoltenVK lacks a required feature for this title.
-- Needs a better D3D11-to-Metal path, likely D3DMetal or future DXMT.
+- DXMT provides the working D3D11 -> Metal path in Forge's own Wine runtime.
+- Keep the `dd3d11.dll` alias staged with DXMT; this Unity build probes that DLL name.
 
 Do not use:
 
@@ -266,18 +280,12 @@ Do not use:
 -force-glcore
 ```
 
-Likely direction:
-
-```text
-D3D11 -> Metal backend
-```
-
 ## Future Forge UI idea
 
 Each game should have its own compatibility profile:
 
 ```text
-Backend: DXVK/VKD3D, DXVK, VKD3D, D3DMetal, WineD3D, None, future DXMT
+Backend: DXVK/VKD3D, DXVK, VKD3D, DXMT, D3DMetal, WineD3D, None
 Launch args: editable text field
 Environment overrides: advanced section
 Notes: why this profile exists
