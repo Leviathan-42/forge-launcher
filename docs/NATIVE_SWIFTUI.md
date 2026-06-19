@@ -47,7 +47,7 @@ npm run native:build
 
 ## Implementation note
 
-The app entry, store state, and launch orchestration live in:
+The app entry and main store actions live in:
 
 ```text
 macos/ForgeNative/Sources/ForgeNative/ForgeNativeApp.swift
@@ -101,10 +101,10 @@ Bottle EXE and Steam manifest scanning have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeAppScanner.swift
 ```
 
-Launch/runtime support helpers have been split into:
+Launch/runtime support and process orchestration have been split into:
 
 ```text
 macos/ForgeNative/Sources/ForgeNative/ForgeLaunchSupport.swift
 ```
 
-`ForgeNativeApp.swift` still includes store state, backend resolution, and launch orchestration. Keep extracting isolated pieces as compatibility work stabilizes.
+`ForgeNativeApp.swift` still includes store state, high-level launch requests, backend selection, and HUD/bottle actions. Keep extracting isolated pieces as compatibility work stabilizes.

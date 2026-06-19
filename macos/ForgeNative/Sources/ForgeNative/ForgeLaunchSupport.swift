@@ -1,6 +1,298 @@
 import Foundation
 
 extension ForgeStore {
+    nonisolated static func spawn(
+        exePath: String,
+        bottle: BottleEntry,
+        config: AppConfig,
+        profile: RuntimeProfile,
+        extraArgs: [String],
+        forceSteamMode: Bool,
+        steamAppId: String?,
+        backendOverride: GraphicsBackend?,
+        gameEnvOverrides: [String: String],
+        steamSafeMode: Bool
+    ) async throws {
+        let configuredWinePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
+        let isSteam = forceSteamMode || URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
+        let gameBackend = backendOverride ?? bottle.graphicsBackend ?? profile.defaultBackend
+        let launchBackend: GraphicsBackend = (isSteam && steamSafeMode) ? .wineBuiltin : gameBackend
+        let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
+        var winePath = configuredWinePath
+        if launchBackend == .d3dMetal, let gptkWine = gptkWinePath(gptkLibPath: gptkLibPath) {
+            // Do not mix GPTK's D3DMetal modules with Forge Wine: Wine's builtin
+            // PE DLLs and Unix-side .so modules are ABI-coupled to their Wine build.
+            winePath = gptkWine
+        }
+        let runtimeLibPath = URL(fileURLWithPath: winePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("lib")
+            .path
+        guard FileManager.default.fileExists(atPath: winePath) else {
+            throw ForgeError.message("wine not found at \(winePath)")
+        }
+
+        try ensurePrefix(prefixPath: bottle.prefixPath, winePath: winePath)
+        var env = ProcessInfo.processInfo.environment
+        env["WINEPREFIX"] = bottle.prefixPath
+        if launchBackend == .d3dMetal {
+            env["DYLD_LIBRARY_PATH"] = buildDyldPath(
+                gptkLibPath: gptkLibPath,
+                existing: dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
+            )
+            env["DYLD_FALLBACK_LIBRARY_PATH"] = dedupePathParts([
+                runtimeLibPath,
+                "/opt/homebrew/lib",
+                "/usr/local/lib",
+                env["DYLD_FALLBACK_LIBRARY_PATH"] ?? ""
+            ]).joined(separator: ":")
+            if !gptkLibPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                env["DYLD_FRAMEWORK_PATH"] = URL(fileURLWithPath: gptkLibPath).path
+            }
+        } else {
+            // DXVK/VKD3D should use Forge/Homebrew MoltenVK. Do not let GPTK's
+            // older external libMoltenVK shadow the Vulkan 1.3+ ICD needed by DXVK.
+            env["DYLD_LIBRARY_PATH"] = dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
+            env["DYLD_FALLBACK_LIBRARY_PATH"] = dedupePathParts([
+                runtimeLibPath,
+                "/opt/homebrew/lib",
+                "/usr/local/lib",
+                env["DYLD_FALLBACK_LIBRARY_PATH"] ?? ""
+            ]).joined(separator: ":")
+            env.removeValue(forKey: "DYLD_FRAMEWORK_PATH")
+        }
+        env["WINEDEBUG"] = config.suppressWineDebug ? "fixme-all" : ""
+        env["WINEDBG"] = "-all"
+        env["GST_DEBUG"] = "1"
+        env["MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
+        env["MTL_HUD_LAYER"] = config.globalHud ? "1" : "0"
+        if config.globalHud {
+            try? setMetalHudDefaults(true)
+        }
+        env["WINE_MOUSE_WARP"] = "1"
+        env["WINEESYNC"] = "1"
+        env["WINEMSYNC"] = "1"
+        if let steamAppId {
+            env["SteamAppId"] = steamAppId
+            env["SteamGameId"] = steamAppId
+        }
+        if launchBackend == .dxvk || launchBackend == .vkd3d || launchBackend == .dxvkVkd3d {
+            configureMoltenVK(profile: profile, config: config, env: &env)
+        }
+
+        switch launchBackend {
+        case .d3dMetal:
+            if let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {
+                let dllPaths = [
+                    gptkBase.appendingPathComponent("wine/x86_64-windows").path,
+                    gptkBase.appendingPathComponent("wine/x86_64-unix").path,
+                    gptkBase.appendingPathComponent("wine/i386-windows").path,
+                    gptkBase.appendingPathComponent("wine/x86_32on64-unix").path
+                ].filter { FileManager.default.fileExists(atPath: $0) }
+                if !dllPaths.isEmpty {
+                    env["WINEDLLPATH"] = dedupePathParts(dllPaths + [env["WINEDLLPATH"] ?? ""]).joined(separator: ":")
+                }
+            }
+            try removeStagedD3DMetalDlls(exePath: exePath)
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b;mscoree,mshtml="
+            if let frameworkPath = d3dMetalFrameworkPath(gptkLibPath: gptkLibPath) {
+                env["D3DMETAL_FRAMEWORK_PATH"] = frameworkPath
+            }
+            env["D3DM_MTL4"] = env["D3DM_MTL4"] ?? "0"
+            env["D3DM_SUPPORT_DXR"] = env["D3DM_SUPPORT_DXR"] ?? "0"
+            env["D3DM_ENABLE_METALFX"] = env["D3DM_ENABLE_METALFX"] ?? "0"
+            env["FORGE_D3DMETAL_RUNTIME"] = "gptk-wine-d3dmetal"
+        case .dxvk:
+            try ensureDXVKInstalled(exePath: exePath, prefixPath: bottle.prefixPath, steamAppId: steamAppId)
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b;mscoree,mshtml="
+            env["DXVK_ASYNC"] = "1"
+        case .vkd3d:
+            env["WINEDLLOVERRIDES"] = "d3d12,dxgi,user32=n,b;mscoree,mshtml="
+        case .dxvkVkd3d:
+            try ensureDXVKInstalled(exePath: exePath, prefixPath: bottle.prefixPath, steamAppId: steamAppId)
+            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b;mscoree,mshtml="
+            env["DXVK_ASYNC"] = "1"
+        case .wineBuiltin:
+            try removeStagedD3DMetalDlls(exePath: exePath)
+            env["WINEDLLOVERRIDES"] = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
+            env["WINE_D3D_CONFIG"] = "renderer=gl"
+            env["LIBGL_ALWAYS_SOFTWARE"] = "1"
+        case .dxmt:
+            try ensureDXMTInstalled(winePath: winePath, prefixPath: bottle.prefixPath)
+            try removeStagedD3DMetalDlls(exePath: exePath)
+            env["WINEDLLOVERRIDES"] = "dd3d11,d3d11,dxgi,d3d10core=b;user32=n,b;mscoree,mshtml="
+            env["DXMT_LOG_LEVEL"] = env["DXMT_LOG_LEVEL"] ?? "info"
+            env["DXMT_LOG_PATH"] = env["DXMT_LOG_PATH"] ?? appSupportDir().appendingPathComponent("Logs", isDirectory: true).path
+        case .none:
+            break
+        }
+
+        for (key, value) in config.env { env[key] = value }
+        for (key, value) in profile.env { env[key] = value }
+        for (key, value) in bottle.envOverrides { env[key] = value }
+        for (key, value) in gameEnvOverrides { env[key] = value }
+
+        if (env["WINE_D3D_CONFIG"] ?? "").localizedCaseInsensitiveContains("renderer=vulkan") {
+            // WineD3D's Vulkan renderer must not inherit the GL software fallback
+            // used for Steam's Chromium UI / older WineD3D fallback launches.
+            env.removeValue(forKey: "LIBGL_ALWAYS_SOFTWARE")
+        }
+
+        if !isSteam {
+            // Steam safe mode intentionally sets this to an impossible value to keep
+            // DXVK out of Steam's Chromium helpers. Direct game launches must always
+            // clear it or DXVK reports "No adapters found" and Unity games crash.
+            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+        }
+
+        if launchBackend == .dxmt {
+            env.removeValue(forKey: "VK_ICD_FILENAMES")
+            env.removeValue(forKey: "VK_DRIVER_FILES")
+            env.removeValue(forKey: "DXVK_ASYNC")
+            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+        }
+
+        if launchBackend == .d3dMetal {
+            // D3DMetal must not inherit Vulkan/DXVK profile settings. If VK_ICD or
+            // DXVK variables survive here, Wine can load DXVK instead of GPTK's
+            // builtin D3DMetal DLLs and Unity games crash before rendering.
+            env.removeValue(forKey: "VK_ICD_FILENAMES")
+            env.removeValue(forKey: "VK_DRIVER_FILES")
+            env.removeValue(forKey: "DXVK_ASYNC")
+            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+        }
+
+        // This win32u workaround is only for Steam's Chromium helper. Do not let
+        // a shell/profile value leak into direct game launches.
+        env.removeValue(forKey: "FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP")
+
+        if isSteam && steamSafeMode {
+            if gameBackend == .dxvk || gameBackend == .vkd3d || gameBackend == .dxvkVkd3d {
+                configureMoltenVK(profile: profile, config: config, env: &env)
+            }
+            let gameVkIcd = env["VK_ICD_FILENAMES"] ?? ""
+            let gameVkDriverFiles = env["VK_DRIVER_FILES"] ?? gameVkIcd
+            let preserveWineD3DEnv = gameBackend == .wineBuiltin || gameBackend == .none
+            let gameWineD3DConfig = preserveWineD3DEnv ? (env["WINE_D3D_CONFIG"] ?? "") : ""
+            let gameLibGLAlwaysSoftware = preserveWineD3DEnv ? (env["LIBGL_ALWAYS_SOFTWARE"] ?? "") : ""
+            let gameMetalHudEnabled = config.globalHud ? "1" : "0"
+            let gameMetalHudLayer = config.globalHud ? "1" : "0"
+            let gameDXVKAsync = (gameBackend == .dxvk || gameBackend == .dxvkVkd3d) ? (env["DXVK_ASYNC"] ?? "1") : ""
+            let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(
+                gptkLibPath: gptkLibPath,
+                existing: dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
+            ) : (env["DYLD_LIBRARY_PATH"] ?? "")
+            var gameWineDllPath = ""
+            if gameBackend == .d3dMetal, let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {
+                gameWineDllPath = [
+                    gptkBase.appendingPathComponent("wine/x86_64-windows").path,
+                    gptkBase.appendingPathComponent("wine/x86_64-unix").path,
+                    gptkBase.appendingPathComponent("wine/i386-windows").path,
+                    gptkBase.appendingPathComponent("wine/x86_32on64-unix").path
+                ].filter { FileManager.default.fileExists(atPath: $0) }.joined(separator: ":")
+            }
+            let gameDllOverrides: String
+            switch gameBackend {
+            case .d3dMetal:
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b;mscoree,mshtml="
+            case .dxvk:
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,user32=n,b;mscoree,mshtml="
+            case .vkd3d:
+                gameDllOverrides = "d3d12,dxgi,user32=n,b;mscoree,mshtml="
+            case .dxvkVkd3d:
+                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b;mscoree,mshtml="
+            case .wineBuiltin:
+                gameDllOverrides = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
+            case .dxmt:
+                gameDllOverrides = "dd3d11,d3d11,dxgi,d3d10core=b;user32=n,b;mscoree,mshtml="
+            case .none:
+                gameDllOverrides = ""
+            }
+
+            // Steam's Chromium UI is stable in this safe backend, but games launched
+            // from Steam must not inherit these variables. Forge Wine detects this
+            // marker and restores the FORGE_GAME_* values for non-Steam child EXEs.
+            env["FORGE_STEAM_SAFE_MODE"] = "1"
+            env["FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP"] = "steamwebhelper.exe"
+            env["FORGE_GAME_WINEDLLOVERRIDES"] = gameDllOverrides
+            env["FORGE_GAME_WINE_D3D_CONFIG"] = gameWineD3DConfig
+            env["FORGE_GAME_LIBGL_ALWAYS_SOFTWARE"] = gameLibGLAlwaysSoftware
+            env["FORGE_GAME_VK_ICD_FILENAMES"] = gameVkIcd
+            env["FORGE_GAME_VK_DRIVER_FILES"] = gameVkDriverFiles
+            env["FORGE_GAME_MTL_HUD_ENABLED"] = gameMetalHudEnabled
+            env["FORGE_GAME_MTL_HUD_LAYER"] = gameMetalHudLayer
+            env["FORGE_GAME_DXVK_ASYNC"] = gameDXVKAsync
+            env["FORGE_GAME_DYLD_LIBRARY_PATH"] = gameDyldPath
+            env["FORGE_GAME_WINEDLLPATH"] = gameWineDllPath
+            env["MOLTENVK_CONFIG_LOG_LEVEL"] = env["MOLTENVK_CONFIG_LOG_LEVEL"] ?? "0"
+
+            // Do not put D3D/Vulkan-disabling overrides in the Unix environment:
+            // Steam-launched games inherit that Unix env before Wine's Windows env
+            // block exists. Steam UI safety is handled by CEF flags and Wine
+            // AppDefaults; the process env stays compatible with the child game.
+            env["WINEDLLOVERRIDES"] = "user32=n,b;mscoree,mshtml="
+            env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+            env["MTL_HUD_ENABLED"] = "0"
+            env["MTL_HUD_LAYER"] = "0"
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: winePath)
+        // Launch the PE executable directly instead of through `wine start /unix`.
+        // `start` detaches through explorer and can lose/flatten macOS-only env like
+        // MTL_HUD_ENABLED before the Unix-side Metal module is loaded. Direct launch
+        // keeps Forge's environment on the actual Wine process tree.
+        process.arguments = [exePath] + ((isSteam && steamSafeMode) ? steamSafeArgs(extraArgs) : extraArgs)
+        process.currentDirectoryURL = URL(fileURLWithPath: exePath).deletingLastPathComponent()
+        process.environment = env
+
+        let log = try launchLogHandle()
+        let launchSummary = """
+        Forge Native launch
+        wine=\(winePath)
+        prefix=\(bottle.prefixPath)
+        exe=\(exePath)
+        isSteam=\(isSteam)
+        backend=\(launchBackend.rawValue)
+        steamSafeMode=\(isSteam && steamSafeMode)
+        steamGameBackend=\(isSteam ? gameBackend.rawValue : "")
+        args=\(process.arguments?.joined(separator: " ") ?? "")
+        WINEDLLOVERRIDES=\(env["WINEDLLOVERRIDES"] ?? "")
+        WINE_D3D_CONFIG=\(env["WINE_D3D_CONFIG"] ?? "")
+        VK_ICD_FILENAMES=\(env["VK_ICD_FILENAMES"] ?? "")
+        DYLD_LIBRARY_PATH=\(env["DYLD_LIBRARY_PATH"] ?? "")
+        DYLD_FALLBACK_LIBRARY_PATH=\(env["DYLD_FALLBACK_LIBRARY_PATH"] ?? "")
+        MTL_HUD_ENABLED=\(env["MTL_HUD_ENABLED"] ?? "")
+        MTL_HUD_LAYER=\(env["MTL_HUD_LAYER"] ?? "")
+        WINEDLLPATH=\(env["WINEDLLPATH"] ?? "")
+        DXVK_FILTER_DEVICE_NAME=\(env["DXVK_FILTER_DEVICE_NAME"] ?? "")
+        FORGE_D3DMETAL_RUNTIME=\(env["FORGE_D3DMETAL_RUNTIME"] ?? "")
+        D3DMETAL_FRAMEWORK_PATH=\(env["D3DMETAL_FRAMEWORK_PATH"] ?? "")
+        SteamAppId=\(env["SteamAppId"] ?? "")
+        FORGE_STACK_GUARANTEE_BYTES=\(env["FORGE_STACK_GUARANTEE_BYTES"] ?? "")
+        FORGE_STEAM_SAFE_MODE=\(env["FORGE_STEAM_SAFE_MODE"] ?? "")
+        FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP=\(env["FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP"] ?? "")
+        FORGE_GAME_WINEDLLOVERRIDES=\(env["FORGE_GAME_WINEDLLOVERRIDES"] ?? "")
+        FORGE_GAME_WINE_D3D_CONFIG=\(env["FORGE_GAME_WINE_D3D_CONFIG"] ?? "")
+        FORGE_GAME_LIBGL_ALWAYS_SOFTWARE=\(env["FORGE_GAME_LIBGL_ALWAYS_SOFTWARE"] ?? "")
+        FORGE_GAME_VK_ICD_FILENAMES=\(env["FORGE_GAME_VK_ICD_FILENAMES"] ?? "")
+        FORGE_GAME_VK_DRIVER_FILES=\(env["FORGE_GAME_VK_DRIVER_FILES"] ?? "")
+        FORGE_GAME_MTL_HUD_ENABLED=\(env["FORGE_GAME_MTL_HUD_ENABLED"] ?? "")
+        FORGE_GAME_MTL_HUD_LAYER=\(env["FORGE_GAME_MTL_HUD_LAYER"] ?? "")
+        FORGE_GAME_DXVK_ASYNC=\(env["FORGE_GAME_DXVK_ASYNC"] ?? "")
+        FORGE_GAME_DYLD_LIBRARY_PATH=\(env["FORGE_GAME_DYLD_LIBRARY_PATH"] ?? "")
+        FORGE_GAME_WINEDLLPATH=\(env["FORGE_GAME_WINEDLLPATH"] ?? "")
+
+        """
+        if let data = launchSummary.data(using: .utf8) {
+            log.write(data)
+        }
+        process.standardOutput = log
+        process.standardError = log
+        try process.run()
+    }
+
     nonisolated static func setMetalHudDefaults(_ enabled: Bool) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")

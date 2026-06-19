@@ -62,7 +62,7 @@ Current native code:
 - `GameCompatibilityProfiles.swift` owns per-game profile lookup, update, reset, launch args, and env override actions.
 - `ForgeContentView.swift` shows per-game profile launch args/env/notes as compact badges in the app list.
 - `GameProfileEditorSheet.swift` provides a native editor for backend override, launch args, env overrides, notes, and reset-to-seed.
-- `ForgeLaunchSupport.swift` contains launch/runtime helpers, including `ensureDXMTInstalled(winePath:prefixPath:)`.
+- `ForgeLaunchSupport.swift` contains process launch/runtime helpers, including `spawn(...)` and `ensureDXMTInstalled(winePath:prefixPath:)`.
 - `ForgeLaunchSupportTests.swift` covers pure launch helper behavior such as Steam safe args, DYLD path construction, MoltenVK candidates, and Steam manifest install-dir parsing.
 - Direct launch graphics validation reached `Loading completed`; Steam/DLC callback errors from direct launch are separate from graphics initialization.
 
