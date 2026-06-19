@@ -5,7 +5,7 @@ final class ForgeAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
 
-        if let icon = NSImage(named: "AppIcon") ?? NSImage(contentsOf: Bundle.module.url(forResource: "AppIcon", withExtension: "png")!) {
+        if let icon = loadApplicationIcon() {
             NSApp.applicationIconImage = icon
         }
 
@@ -18,6 +18,16 @@ final class ForgeAppDelegate: NSObject, NSApplicationDelegate {
         for window in NSApp.windows {
             configure(window)
         }
+    }
+
+    private func loadApplicationIcon() -> NSImage? {
+        if let icon = NSImage(named: "AppIcon") {
+            return icon
+        }
+        guard let iconURL = Bundle.module.url(forResource: "AppIcon", withExtension: "png") else {
+            return nil
+        }
+        return NSImage(contentsOf: iconURL)
     }
 
     private func configure(_ window: NSWindow) {
