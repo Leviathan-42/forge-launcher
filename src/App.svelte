@@ -43,7 +43,7 @@
   type RuntimeChoiceId = RuntimeStackId | "custom";
 
   const graphicsBackends: GraphicsBackend[] = ["dxvk_vkd3d", "dxvk", "vkd3d", "wine_builtin", "none"];
-  const steamSafeArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"];
+  const steamSafeArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"] as const;
   const runtimeStacks: {
     id: RuntimeStackId;
     label: string;
@@ -253,6 +253,18 @@
     return app.name.toLowerCase() === "steam" || isSteamPath(app.path);
   }
 
+  function steamAppLaunchArgs(appId?: string | number) {
+    return appId ? [...steamSafeArgs, "-applaunch", String(appId)] : [...steamSafeArgs];
+  }
+
+  function launchArgsForPath(path: string) {
+    return isSteamPath(path) ? steamAppLaunchArgs() : [];
+  }
+
+  function launchArgsForApp(app: BottleApp) {
+    return isSteamApp(app) ? steamAppLaunchArgs() : [];
+  }
+
   async function runBottleApp(app: BottleApp) {
     const bottle = currentBottle();
     if (!bottle) return;
@@ -263,7 +275,7 @@
     }
 
     await withBusy(`app-${app.id}`, async () => {
-      await runExe(bottle.prefix_path, app.path, isSteamApp(app) ? steamSafeArgs : []);
+      await runExe(bottle.prefix_path, app.path, launchArgsForApp(app));
       notify("ok", `${app.name} started.`);
     });
   }
@@ -280,9 +292,9 @@
     await withBusy(`${mode}-${game.id}`, async () => {
       const targetStatus = mode === "steam" ? await launcherStatus(prefixPath) : null;
       if (mode === "steam" && game.steam_app_id && targetStatus?.steam_path) {
-        await runExe(prefixPath, targetStatus.steam_path, [...steamSafeArgs, "-applaunch", String(game.steam_app_id)]);
+        await runExe(prefixPath, targetStatus.steam_path, steamAppLaunchArgs(game.steam_app_id));
       } else {
-        await runExe(prefixPath, game.exe_path, isSteamPath(game.exe_path) ? steamSafeArgs : []);
+        await runExe(prefixPath, game.exe_path, launchArgsForPath(game.exe_path));
       }
       notify("ok", `${game.name} started.`);
     });
