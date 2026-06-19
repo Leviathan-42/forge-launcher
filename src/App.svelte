@@ -676,13 +676,13 @@
   .brand-mark {
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: 8px;
   }
 
   .app-icon {
     width: 44px;
     height: 44px;
-    border-radius: 12px;
+    border-radius: 8px;
   }
 
   .eyebrow, label span, .title-block p, .app-copy span, .app-copy small {
@@ -694,15 +694,15 @@
     display: block;
     margin-bottom: 5px;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
   }
 
   h1 {
     color: #fff;
-    font-size: clamp(24px, 4vw, 40px);
+    font-size: 34px;
     font-weight: 800;
     line-height: 1.05;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
   }
 
   h2 {
@@ -751,7 +751,7 @@
     min-height: 0;
     padding: 18px;
     border: 1px solid #171717;
-    border-radius: 18px;
+    border-radius: 8px;
     background: #050505;
     overflow: hidden;
   }
@@ -766,7 +766,7 @@
     height: 44px;
     padding: 0 12px;
     border: 1px solid #202020;
-    border-radius: 12px;
+    border-radius: 8px;
     background: #000;
     color: #8a8a8a;
   }
@@ -777,7 +777,7 @@
     height: 38px;
     padding: 0 11px;
     border: 1px solid #202020;
-    border-radius: 12px;
+    border-radius: 8px;
     outline: none;
     background: #000;
     color: #f5f5f5;
@@ -816,7 +816,7 @@
     min-height: 74px;
     padding: 12px 14px;
     border: 1px solid #171717;
-    border-radius: 14px;
+    border-radius: 8px;
     background: #0a0a0a;
   }
 
@@ -842,7 +842,7 @@
     justify-content: center;
     gap: 7px;
     height: 40px;
-    border-radius: 12px;
+    border-radius: 8px;
     font-size: 13px;
     font-weight: 800;
     cursor: pointer;
@@ -884,7 +884,7 @@
     gap: 8px;
     min-height: 140px;
     border: 1px dashed #242424;
-    border-radius: 14px;
+    border-radius: 8px;
     background: #080808;
     color: #8a8a8a;
     font-size: 13px;
@@ -900,7 +900,7 @@
     width: min(420px, calc(100vw - 32px));
     padding: 16px;
     border: 1px solid #202020;
-    border-radius: 18px;
+    border-radius: 8px;
     background: #050505;
   }
 
@@ -927,7 +927,7 @@
     min-height: 42px;
     padding: 8px 8px 8px 12px;
     border: 1px solid #202020;
-    border-radius: 12px;
+    border-radius: 8px;
     background: #080808;
     color: #f2f2f2;
     font-size: 13px;
@@ -944,6 +944,7 @@
     .topbar { display: grid; grid-template-columns: 44px minmax(0, 1fr); }
     .topbar-actions { grid-column: 1 / -1; justify-content: space-between; }
     .system-pill { flex: 1; justify-content: center; }
+    h1 { font-size: 28px; }
     .exe-panel { padding: 14px; }
     .panel-heading { align-items: flex-start; }
     .exe-row { grid-template-columns: 44px minmax(0, 1fr); }
