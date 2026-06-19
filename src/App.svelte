@@ -328,7 +328,7 @@
     const existing = bottleForRuntimeStack(stackId);
     if (existing) return existing;
 
-    const stack = runtimeStacks.find((candidate) => candidate.id === stackId);
+    const stack = runtimeStackForId(stackId);
     if (!stack) throw new Error("Unknown runtime stack.");
 
     const nextBottles = await createBottleCommand(stack.bottleName);
@@ -355,8 +355,12 @@
     return bottles.find((bottle) => runtimeStackIdForBottle(bottle) === stackId);
   }
 
+  function runtimeStackForId(stackId: RuntimeStackId) {
+    return runtimeStacks.find((stack) => stack.id === stackId);
+  }
+
   function runtimeStackLabel(stackId: RuntimeStackId) {
-    return runtimeStacks.find((stack) => stack.id === stackId)?.label || "configured runtime";
+    return runtimeStackForId(stackId)?.label || "configured runtime";
   }
 
   function bottleForPrefix(prefix?: string | null) {
@@ -366,11 +370,7 @@
   function runtimeStackIdForBottle(bottle?: Bottle): RuntimeChoiceId {
     if (!bottle) return "custom";
 
-    if (bottle.runtime_profile_id === "wine-vulkan") {
-      return defaultRuntimeStackId;
-    }
-
-    return "custom";
+    return runtimeStacks.find((stack) => stack.profileId === bottle.runtime_profile_id)?.id || "custom";
   }
 
   function buildExeRows(scannedApps: BottleApp[], libraryGames: Game[], filter: string) {
@@ -487,7 +487,7 @@
       <div class="topbar-actions">
         <span class="system-pill" class:ok={wine?.installed} class:bad={!wine?.installed}>
           <Icon name={wine?.installed ? "circleCheck" : "circleAlert"} size={15} />
-          Wine 11 + MoltenVK
+          {runtimeStackLabel(defaultRuntimeStackId)}
         </span>
         <button class="icon-button" title="Refresh" aria-label="Refresh" on:click={refreshAll} disabled={loading || busy !== ""}>
           <span class:spin={loading || appLoading}>
@@ -556,7 +556,7 @@
       <div class="drawer-heading">
         <div>
           <span class="eyebrow">Settings</span>
-          <h2>Wine 11 + MoltenVK</h2>
+          <h2>{runtimeStackLabel(defaultRuntimeStackId)}</h2>
         </div>
         <button class="icon-button" title="Close settings" aria-label="Close settings" on:click={() => (settingsOpen = false)}>
           <Icon name="x" size={17} />
