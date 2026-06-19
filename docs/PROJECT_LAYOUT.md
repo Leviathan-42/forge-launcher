@@ -18,7 +18,7 @@ forge-launcher/
 │   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards, rows, styling
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
 │   │   ├── ForgePersistence.swift       # Config/runtime/bottle JSON persistence
-│   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, seeds, parsing
+│   │   ├── GameCompatibilityProfiles.swift # Per-game profile model, actions, seeds, parsing
 │   │   ├── GameProfileEditorSheet.swift # Per-game profile editor UI
 │   │   └── Resources/AppIcon.png        # Runtime icon resource
 │   └── Tests/ForgeNativeTests/          # Native compatibility profile regression tests

@@ -77,7 +77,7 @@ macOS app/window setup has been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeAppDelegate.swift
 ```
 
-Per-game compatibility profile helpers have been split into:
+Per-game compatibility profile models and store actions have been split into:
 
 ```text
 macos/ForgeNative/Sources/ForgeNative/GameCompatibilityProfiles.swift
