@@ -32,18 +32,18 @@
 //! We never see, store, or transmit the password. The token is managed
 //! entirely by DepotDownloader and Steam.
 
+use std::ffi::CString;
 use std::io::{BufRead, BufReader};
+use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::os::fd::AsRawFd;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::ffi::CString;
 
-use nix::pty::{forkpty, Winsize};
-use nix::unistd::{execvp, read as nix_read};
-use nix::sys::wait::{waitpid, WaitStatus};
 use nix::libc;
+use nix::pty::{forkpty, Winsize};
+use nix::sys::wait::{waitpid, WaitStatus};
+use nix::unistd::{execvp, read as nix_read};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
@@ -466,20 +466,20 @@ where
 
     // Build argv
     let mut args: Vec<CString> = vec![
-        CString::new(exe.as_bytes()).unwrap(),
-        CString::new("-app").unwrap(),
-        CString::new(req.app_id.to_string()).unwrap(),
-        CString::new("-os").unwrap(),
-        CString::new("windows").unwrap(),
-        CString::new("-username").unwrap(),
-        CString::new(req.username.as_bytes()).unwrap(),
-        CString::new("-remember-password").unwrap(),
-        CString::new("-dir").unwrap(),
-        CString::new(req.install_dir.as_bytes()).unwrap(),
+        cstring_arg("executable path", exe.as_bytes())?,
+        cstring_arg("app flag", "-app")?,
+        cstring_arg("app id", req.app_id.to_string())?,
+        cstring_arg("os flag", "-os")?,
+        cstring_arg("os", "windows")?,
+        cstring_arg("username flag", "-username")?,
+        cstring_arg("username", req.username.as_bytes())?,
+        cstring_arg("remember password flag", "-remember-password")?,
+        cstring_arg("install dir flag", "-dir")?,
+        cstring_arg("install dir", req.install_dir.as_bytes())?,
     ];
 
     if req.validate_only {
-        args.push(CString::new("-validate").unwrap());
+        args.push(cstring_arg("validate flag", "-validate")?);
     }
 
     // Fork with a PTY so DepotDownloader sees a real terminal and emits ANSI progress
@@ -490,8 +490,8 @@ where
         ws_ypixel: 0,
     };
 
-    let fork_result = unsafe { forkpty(Some(&winsize), None) }
-        .map_err(|e| format!("forkpty failed: {}", e))?;
+    let fork_result =
+        unsafe { forkpty(Some(&winsize), None) }.map_err(|e| format!("forkpty failed: {}", e))?;
 
     match fork_result {
         nix::pty::ForkptyResult::Child => {
@@ -532,14 +532,21 @@ where
     enum EscState {
         Normal,
         GotEsc,
-        InOsc(String),  // collecting OSC payload
+        InOsc(String), // collecting OSC payload
     }
     let mut esc_state = EscState::Normal;
 
     loop {
         if cancelled.load(Ordering::SeqCst) {
-            unsafe { libc::kill(-(libc::tcgetpgrp(master_fd)), libc::SIGTERM); }
-            emit(0.0, "Cancelled", false, Some("Download cancelled".to_string()));
+            unsafe {
+                libc::kill(-(libc::tcgetpgrp(master_fd)), libc::SIGTERM);
+            }
+            emit(
+                0.0,
+                "Cancelled",
+                false,
+                Some("Download cancelled".to_string()),
+            );
             return Err("Cancelled".to_string());
         }
 
@@ -548,7 +555,12 @@ where
             Ok(n) => n,
             Err(nix::errno::Errno::EAGAIN) | Err(nix::errno::Errno::EINTR) => continue,
             Err(e) => {
-                emit(last_pct, &format!("Read error: {}", e), false, Some(format!("IO error: {}", e)));
+                emit(
+                    last_pct,
+                    &format!("Read error: {}", e),
+                    false,
+                    Some(format!("IO error: {}", e)),
+                );
                 break;
             }
         };
@@ -562,7 +574,12 @@ where
                         let trimmed = line_buf.trim().to_string();
                         line_buf.clear();
                         if !trimmed.is_empty() {
-                            track_status(&trimmed, &mut last_status, &mut saw_depots, &mut total_bytes_line);
+                            track_status(
+                                &trimmed,
+                                &mut last_status,
+                                &mut saw_depots,
+                                &mut total_bytes_line,
+                            );
                             emit(last_pct, &trimmed, false, None);
                         }
                     } else if byte != b'\r' {
@@ -643,7 +660,12 @@ where
 }
 
 /// Update status tracking from a text line emitted by DepotDownloader.
-fn track_status(line: &str, last_status: &mut String, saw_depots: &mut bool, total_bytes_line: &mut String) {
+fn track_status(
+    line: &str,
+    last_status: &mut String,
+    saw_depots: &mut bool,
+    total_bytes_line: &mut String,
+) {
     if line.starts_with("Downloading depot")
         || line.starts_with("Processing depot")
         || line.starts_with("Progress:")
@@ -715,7 +737,10 @@ where
         .spawn()
         .map_err(|e| format!("Failed to start SteamCMD: {}", e))?;
 
-    let stdout = child.stdout.take().unwrap();
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "SteamCMD stdout was not captured.".to_string())?;
     let reader = BufReader::new(stdout);
 
     emit(0.0, "Starting SteamCMD…", false, None);
@@ -753,6 +778,31 @@ where
         let msg = format!("SteamCMD exited with code {}", status.code().unwrap_or(-1));
         emit(0.0, &msg, false, Some(msg.clone()));
         Err(msg)
+    }
+}
+
+fn cstring_arg(label: &str, value: impl Into<Vec<u8>>) -> Result<CString, String> {
+    CString::new(value)
+        .map_err(|_| format!("DepotDownloader argument '{}' contains a NUL byte.", label))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cstring_arg_accepts_regular_values() {
+        assert!(cstring_arg("username", "levi").is_ok());
+    }
+
+    #[test]
+    fn cstring_arg_rejects_nul_bytes() {
+        let result = cstring_arg("username", b"bad\0name".as_slice());
+
+        match result {
+            Ok(_) => panic!("NUL byte should be rejected"),
+            Err(error) => assert!(error.contains("username")),
+        }
     }
 }
 
