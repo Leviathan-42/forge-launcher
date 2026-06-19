@@ -174,11 +174,10 @@ pub fn sync_saves(
         }
     }
 
-    // Return the first error if all mappings failed, otherwise just warn
-    if total == 0 && first_err.is_some() {
-        Err(first_err.unwrap())
-    } else {
-        Ok(total)
+    // Return the first error if all mappings failed, otherwise just warn.
+    match (total, first_err) {
+        (0, Some(error)) => Err(error),
+        _ => Ok(total),
     }
 }
 
@@ -208,4 +207,75 @@ pub fn guess_wine_username(prefix_path: &str) -> String {
 
     // Fall back to macOS username
     std::env::var("USER").unwrap_or_else(|_| "steamuser".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn sync_saves_returns_first_error_when_every_mapping_fails() {
+        let root = make_temp_dir("all-fail");
+        let source_file = root.join("source-file");
+        let target_dir = root.join("target");
+        std::fs::write(&source_file, "not-a-directory").expect("write source file");
+
+        let result = sync_saves(
+            SyncDirection::ToPrefix,
+            &[SaveMapping {
+                source: source_file.to_string_lossy().to_string(),
+                target: target_dir.to_string_lossy().to_string(),
+            }],
+        );
+
+        assert!(result
+            .expect_err("file source should fail")
+            .contains("Source is not a directory"));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sync_saves_keeps_success_count_when_later_mapping_fails() {
+        let root = make_temp_dir("partial-success");
+        let source_dir = root.join("source");
+        let target_dir = root.join("target");
+        let source_file = root.join("source-file");
+        let failing_target = root.join("failing-target");
+        std::fs::create_dir_all(&source_dir).expect("create source dir");
+        std::fs::write(source_dir.join("save.dat"), "save").expect("write save");
+        std::fs::write(&source_file, "not-a-directory").expect("write source file");
+
+        let copied = sync_saves(
+            SyncDirection::ToPrefix,
+            &[
+                SaveMapping {
+                    source: source_dir.to_string_lossy().to_string(),
+                    target: target_dir.to_string_lossy().to_string(),
+                },
+                SaveMapping {
+                    source: source_file.to_string_lossy().to_string(),
+                    target: failing_target.to_string_lossy().to_string(),
+                },
+            ],
+        )
+        .expect("partial success should return copied count");
+
+        assert_eq!(copied, 1);
+        assert_eq!(
+            std::fs::read_to_string(target_dir.join("save.dat")).expect("read copied save"),
+            "save"
+        );
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    fn make_temp_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after Unix epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("forge-saves-test-{}-{}", label, nanos));
+        std::fs::create_dir_all(&dir).expect("create temp test dir");
+        dir
+    }
 }
