@@ -16,7 +16,8 @@ forge-launcher/
 │   │   ├── ForgeAppRow.swift            # App list row, profile badges, status pill
 │   │   ├── ForgeContentView.swift       # Main library shell and app list UI
 │   │   ├── ForgeLaunchSupport.swift     # Spawn orchestration, Wine env, runtime DLL helpers
-│   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards, controls, styling
+│   │   ├── ForgeUIComponents.swift      # Shared SwiftUI cards and controls
+│   │   ├── ForgeVisualStyles.swift      # Background, search field, button/glass styling
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
 │   │   ├── ForgePersistence.swift       # Config/runtime/bottle JSON persistence
 │   │   ├── ForgeStore.swift             # Main store state and high-level actions

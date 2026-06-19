@@ -71,10 +71,16 @@ The profile editor has been split into:
 macos/ForgeNative/Sources/ForgeNative/GameProfileEditorSheet.swift
 ```
 
-Shared SwiftUI components and styling have been split into:
+Shared SwiftUI cards and controls have been split into:
 
 ```text
 macos/ForgeNative/Sources/ForgeNative/ForgeUIComponents.swift
+```
+
+Shared visual styles have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeVisualStyles.swift
 ```
 
 App list row views have been split into:
