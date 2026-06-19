@@ -36,4 +36,83 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
         XCTAssertTrue(candidates.contains(URL(fileURLWithPath: expanded).appendingPathComponent("MoltenVK_icd.json").path))
         XCTAssertTrue(candidates.contains("/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"))
     }
+
+    func testConfigureMoltenVkUsesConfiguredIcdFile() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let icd = root.appendingPathComponent("MoltenVK_icd.json")
+        try "{}".write(to: icd, atomically: true, encoding: .utf8)
+
+        var env: [String: String] = [:]
+        ForgeStore.configureMoltenVK(
+            profile: makeProfile(moltenvkPath: icd.path),
+            config: .defaults,
+            env: &env
+        )
+
+        XCTAssertEqual(env["VK_ICD_FILENAMES"], icd.path)
+        XCTAssertEqual(env["VK_DRIVER_FILES"], icd.path)
+        XCTAssertEqual(env["MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS"], "1")
+        XCTAssertEqual(env["MVK_CONFIG_FULL_IMAGE_VIEW_SWIZZLE"], "1")
+        XCTAssertEqual(env["MOLTENVK_CONFIG_LOG_LEVEL"], "0")
+    }
+
+    func testConfigureMoltenVkSkipsConfiguredDirectoryForNestedIcdFile() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let icd = root.appendingPathComponent("MoltenVK_icd.json")
+        try "{}".write(to: icd, atomically: true, encoding: .utf8)
+
+        var env: [String: String] = [:]
+        ForgeStore.configureMoltenVK(
+            profile: makeProfile(moltenvkPath: root.path),
+            config: .defaults,
+            env: &env
+        )
+
+        XCTAssertEqual(env["VK_ICD_FILENAMES"], icd.path)
+        XCTAssertEqual(env["VK_DRIVER_FILES"], icd.path)
+    }
+
+    func testConfigureMoltenVkPreservesExistingIcdEnvironment() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let icd = root.appendingPathComponent("MoltenVK_icd.json")
+        try "{}".write(to: icd, atomically: true, encoding: .utf8)
+
+        var env = ["VK_ICD_FILENAMES": "/custom/icd.json"]
+        ForgeStore.configureMoltenVK(
+            profile: makeProfile(moltenvkPath: icd.path),
+            config: .defaults,
+            env: &env
+        )
+
+        XCTAssertEqual(env, ["VK_ICD_FILENAMES": "/custom/icd.json"])
+    }
+
+    private func makeProfile(moltenvkPath: String?) -> RuntimeProfile {
+        RuntimeProfile(
+            id: "test",
+            name: "Test",
+            wine64Path: "/tmp/wine",
+            wineserverPath: nil,
+            gptkLibPath: nil,
+            dxvkPath: nil,
+            vkd3dPath: nil,
+            moltenvkPath: moltenvkPath,
+            defaultBackend: .dxvk,
+            env: [:]
+        )
+    }
+
+    private func makeTempDir() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ForgeGraphicsEnvironmentTests", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
 }

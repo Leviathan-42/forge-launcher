@@ -8,7 +8,10 @@ extension ForgeStore {
 
         let configured = profile.moltenvkPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let candidates = moltenVkIcdCandidates(configuredPath: configured)
-        if let icd = candidates.first(where: { FileManager.default.fileExists(atPath: $0) }) {
+        if let icd = candidates.first(where: { path in
+            var isDirectory: ObjCBool = false
+            return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && !isDirectory.boolValue
+        }) {
             env["VK_ICD_FILENAMES"] = icd
             env["VK_DRIVER_FILES"] = icd
         }
