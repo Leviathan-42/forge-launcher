@@ -14,7 +14,11 @@ import type {
 const mockPrefix = `${homeHint()}/Wine/Bottles/default`;
 
 function homeHint() {
-  return "/Users/levi";
+  return "~";
+}
+
+function bottleSlug(name: string) {
+  return name.trim().toLowerCase().replace(/\s+/g, "-") || "bottle";
 }
 
 function hasTauri() {
@@ -55,11 +59,12 @@ export async function listBottles() {
 }
 
 export async function createBottle(name: string, prefixPath?: string) {
+  const slug = bottleSlug(name);
   return command<Bottle[]>("create_bottle", { name, prefixPath }, [
     {
-      id: `${name.toLowerCase().replace(/\s+/g, "-")}-preview`,
+      id: `${slug}-preview`,
       name,
-      prefix_path: prefixPath || `${homeHint()}/Wine/Bottles/${name.toLowerCase().replace(/\s+/g, "-")}`,
+      prefix_path: prefixPath || `${homeHint()}/Wine/Bottles/${slug}`,
       exists: true,
       steam_installed: false,
       runtime_profile_id: "gptk-d3dmetal",
