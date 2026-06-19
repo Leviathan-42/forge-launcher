@@ -114,6 +114,16 @@ final class ForgeRuntimeStagingTests: XCTestCase {
         )
     }
 
+    func testUniqueURLsKeepsFirstPathOccurrence() {
+        let first = URL(fileURLWithPath: "/tmp/ForgeRuntime/a")
+        let second = URL(fileURLWithPath: "/tmp/ForgeRuntime/b")
+
+        XCTAssertEqual(
+            ForgeStore.uniqueURLs([first, second, first]).map(\.path),
+            [first.path, second.path]
+        )
+    }
+
     func testSteamGameDirectoryReadsInstallDirFromCompactManifest() throws {
         let root = try makeTempDir()
         defer { try? FileManager.default.removeItem(at: root) }

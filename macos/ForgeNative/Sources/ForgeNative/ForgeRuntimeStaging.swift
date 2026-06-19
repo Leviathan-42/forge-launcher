@@ -32,8 +32,7 @@ extension ForgeStore {
             targetDirs.append(steamGameDir)
         }
 
-        var seen = Set<String>()
-        let uniqueDirs = targetDirs.filter { seen.insert($0.path).inserted }
+        let uniqueDirs = uniqueURLs(targetDirs)
         let x64 = sourceRoot.appendingPathComponent("x64", isDirectory: true)
         for dir in uniqueDirs {
             for dll in ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d10.dll", "d3d10_1.dll", "d3d11.dll"] {
@@ -60,8 +59,7 @@ extension ForgeStore {
                 roots.append(entry)
             }
         }
-        var seen = Set<String>()
-        return roots.filter { seen.insert($0.path).inserted }
+        return uniqueURLs(roots)
     }
 
     nonisolated static func steamGameDirectory(prefixPath: String, appId: String) -> URL? {
@@ -138,8 +136,7 @@ extension ForgeStore {
             }
         }
         roots.append(wineRoot.appendingPathComponent("lib/dxmt", isDirectory: true))
-        var seen = Set<String>()
-        return roots.filter { seen.insert($0.path).inserted }
+        return uniqueURLs(roots)
     }
 
     nonisolated static func copyIfDifferent(_ source: URL, to destination: URL) throws {
@@ -153,5 +150,10 @@ extension ForgeStore {
             try fm.removeItem(at: destination)
         }
         try fm.copyItem(at: source, to: destination)
+    }
+
+    nonisolated static func uniqueURLs(_ urls: [URL]) -> [URL] {
+        var seen = Set<String>()
+        return urls.filter { seen.insert($0.path).inserted }
     }
 }
