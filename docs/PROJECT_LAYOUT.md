@@ -14,6 +14,7 @@ forge-launcher/
 │   │   ├── ForgeAppScanner.swift        # Bottle EXE and Steam manifest scanning
 │   │   ├── ForgeAppDelegate.swift       # macOS app/window chrome setup
 │   │   ├── ForgeAppRow.swift            # App list row, profile badges, status pill
+│   │   ├── ForgeBackendEnvironment.swift # Backend-specific Wine DLL overrides
 │   │   ├── ForgeContentView.swift       # Main library shell and app list UI
 │   │   ├── ForgeGraphicsEnvironment.swift # MoltenVK/GPTK path and env helpers
 │   │   ├── ForgeLaunchSupport.swift     # Spawn orchestration, Wine env, process helpers

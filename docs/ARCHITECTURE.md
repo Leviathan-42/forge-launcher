@@ -24,6 +24,7 @@ Forge.app / ForgeNative
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppScanner.swift` | Bottle EXE discovery and Steam manifest scanning |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppDelegate.swift` | macOS activation, icon, and window chrome setup |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeAppRow.swift` | App list row, compatibility profile badges, and status pill UI |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeBackendEnvironment.swift` | Backend-specific Wine DLL override strings |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeContentView.swift` | Main library shell, sidebar, runtime panel, app list, and drop handling |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeGraphicsEnvironment.swift` | MoltenVK/GPTK path resolution and graphics environment helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeLaunchSupport.swift` | Spawn orchestration, Wine environment, process, and stop helpers |

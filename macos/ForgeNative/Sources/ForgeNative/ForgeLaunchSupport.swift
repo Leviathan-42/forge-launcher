@@ -95,7 +95,7 @@ extension ForgeStore {
                 }
             }
             try removeStagedD3DMetalDlls(exePath: exePath)
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b;mscoree,mshtml="
+            env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
             if let frameworkPath = d3dMetalFrameworkPath(gptkLibPath: gptkLibPath) {
                 env["D3DMETAL_FRAMEWORK_PATH"] = frameworkPath
             }
@@ -105,23 +105,23 @@ extension ForgeStore {
             env["FORGE_D3DMETAL_RUNTIME"] = "gptk-wine-d3dmetal"
         case .dxvk:
             try ensureDXVKInstalled(exePath: exePath, prefixPath: bottle.prefixPath, steamAppId: steamAppId)
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,user32=n,b;mscoree,mshtml="
+            env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
             env["DXVK_ASYNC"] = "1"
         case .vkd3d:
-            env["WINEDLLOVERRIDES"] = "d3d12,dxgi,user32=n,b;mscoree,mshtml="
+            env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
         case .dxvkVkd3d:
             try ensureDXVKInstalled(exePath: exePath, prefixPath: bottle.prefixPath, steamAppId: steamAppId)
-            env["WINEDLLOVERRIDES"] = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b;mscoree,mshtml="
+            env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
             env["DXVK_ASYNC"] = "1"
         case .wineBuiltin:
             try removeStagedD3DMetalDlls(exePath: exePath)
-            env["WINEDLLOVERRIDES"] = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
+            env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
             env["WINE_D3D_CONFIG"] = "renderer=gl"
             env["LIBGL_ALWAYS_SOFTWARE"] = "1"
         case .dxmt:
             try ensureDXMTInstalled(winePath: winePath, prefixPath: bottle.prefixPath)
             try removeStagedD3DMetalDlls(exePath: exePath)
-            env["WINEDLLOVERRIDES"] = "dd3d11,d3d11,dxgi,d3d10core=b;user32=n,b;mscoree,mshtml="
+            env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
             env["DXMT_LOG_LEVEL"] = env["DXMT_LOG_LEVEL"] ?? "info"
             env["DXMT_LOG_PATH"] = env["DXMT_LOG_PATH"] ?? appSupportDir().appendingPathComponent("Logs", isDirectory: true).path
         case .none:
@@ -192,23 +192,7 @@ extension ForgeStore {
                     gptkBase.appendingPathComponent("wine/x86_32on64-unix").path
                 ].filter { FileManager.default.fileExists(atPath: $0) }.joined(separator: ":")
             }
-            let gameDllOverrides: String
-            switch gameBackend {
-            case .d3dMetal:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12=b;user32=n,b;mscoree,mshtml="
-            case .dxvk:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,user32=n,b;mscoree,mshtml="
-            case .vkd3d:
-                gameDllOverrides = "d3d12,dxgi,user32=n,b;mscoree,mshtml="
-            case .dxvkVkd3d:
-                gameDllOverrides = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b;mscoree,mshtml="
-            case .wineBuiltin:
-                gameDllOverrides = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
-            case .dxmt:
-                gameDllOverrides = "dd3d11,d3d11,dxgi,d3d10core=b;user32=n,b;mscoree,mshtml="
-            case .none:
-                gameDllOverrides = ""
-            }
+            let gameDllOverrides = wineDllOverrides(for: gameBackend) ?? ""
 
             // Steam's Chromium UI is stable in this safe backend, but games launched
             // from Steam must not inherit these variables. Forge Wine detects this

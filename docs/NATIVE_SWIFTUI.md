@@ -89,6 +89,12 @@ App list row views have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeAppRow.swift
 ```
 
+Backend-specific Wine DLL override helpers have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeBackendEnvironment.swift
+```
+
 macOS app/window setup has been split into:
 
 ```text
