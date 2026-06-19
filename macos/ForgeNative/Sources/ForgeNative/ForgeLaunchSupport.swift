@@ -391,9 +391,16 @@ extension ForgeStore {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let target = dir.appendingPathComponent("SteamSetup.exe")
         if FileManager.default.fileExists(atPath: target.path) { return target }
-        let url = URL(string: "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe")!
+        let url = try steamInstallerDownloadURL()
         let data = try Data(contentsOf: url)
         try data.write(to: target, options: .atomic)
         return target
+    }
+
+    nonisolated static func steamInstallerDownloadURL() throws -> URL {
+        guard let url = URL(string: "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe") else {
+            throw ForgeError.message("Steam installer URL is invalid.")
+        }
+        return url
     }
 }

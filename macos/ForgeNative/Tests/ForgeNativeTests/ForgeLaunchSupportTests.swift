@@ -106,6 +106,14 @@ final class ForgeLaunchSupportTests: XCTestCase {
         )
     }
 
+    func testSteamInstallerDownloadURLUsesExpectedEndpoint() throws {
+        let url = try ForgeStore.steamInstallerDownloadURL()
+
+        XCTAssertEqual(url.scheme, "https")
+        XCTAssertEqual(url.host, "cdn.akamai.steamstatic.com")
+        XCTAssertEqual(url.path, "/client/installer/SteamSetup.exe")
+    }
+
     func testSteamGameDirectoryReadsInstallDirFromManifest() throws {
         let prefix = FileManager.default.temporaryDirectory
             .appendingPathComponent("ForgeLaunchSupportTests")
