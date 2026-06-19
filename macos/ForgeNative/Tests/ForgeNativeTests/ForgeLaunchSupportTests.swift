@@ -27,6 +27,39 @@ final class ForgeLaunchSupportTests: XCTestCase {
         XCTAssertEqual(env["WINEPREFIX"], "/tmp/prefix")
     }
 
+    func testFormatLaunchSummaryIncludesForwardedSteamGameEnvironment() {
+        let summary = ForgeStore.formatLaunchSummary(
+            winePath: "/tmp/wine64",
+            prefixPath: "/tmp/prefix",
+            exePath: "/tmp/Steam/steam.exe",
+            isSteam: true,
+            launchBackend: .wineBuiltin,
+            gameBackend: .dxvkVkd3d,
+            steamSafeMode: true,
+            args: ["/tmp/Steam/steam.exe", "-no-cef-sandbox", "-applaunch", "2357570"],
+            env: [
+                "WINEDLLOVERRIDES": "user32=n,b;mscoree,mshtml=",
+                "SteamAppId": "2357570",
+                "FORGE_STACK_GUARANTEE_BYTES": "262144",
+                "FORGE_STEAM_SAFE_MODE": "1",
+                "FORGE_GAME_WINEDLLOVERRIDES": "*dxgi,*d3d11=n",
+                "FORGE_GAME_VK_ICD_FILENAMES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
+                "FORGE_GAME_DXVK_ASYNC": "1"
+            ]
+        )
+
+        XCTAssertTrue(summary.contains("isSteam=true"))
+        XCTAssertTrue(summary.contains("backend=\(GraphicsBackend.wineBuiltin.rawValue)"))
+        XCTAssertTrue(summary.contains("steamGameBackend=\(GraphicsBackend.dxvkVkd3d.rawValue)"))
+        XCTAssertTrue(summary.contains("args=/tmp/Steam/steam.exe -no-cef-sandbox -applaunch 2357570"))
+        XCTAssertTrue(summary.contains("SteamAppId=2357570"))
+        XCTAssertTrue(summary.contains("FORGE_STACK_GUARANTEE_BYTES=262144"))
+        XCTAssertTrue(summary.contains("FORGE_STEAM_SAFE_MODE=1"))
+        XCTAssertTrue(summary.contains("FORGE_GAME_WINEDLLOVERRIDES=*dxgi,*d3d11=n"))
+        XCTAssertTrue(summary.contains("FORGE_GAME_VK_ICD_FILENAMES=/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"))
+        XCTAssertTrue(summary.contains("FORGE_GAME_DXVK_ASYNC=1"))
+    }
+
     func testSteamGameDirectoryReadsInstallDirFromManifest() throws {
         let prefix = FileManager.default.temporaryDirectory
             .appendingPathComponent("ForgeLaunchSupportTests")

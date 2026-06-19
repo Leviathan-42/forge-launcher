@@ -221,48 +221,23 @@ extension ForgeStore {
         // `start` detaches through explorer and can lose/flatten macOS-only env like
         // MTL_HUD_ENABLED before the Unix-side Metal module is loaded. Direct launch
         // keeps Forge's environment on the actual Wine process tree.
-        process.arguments = [exePath] + ((isSteam && steamSafeMode) ? steamSafeArgs(extraArgs) : extraArgs)
+        let launchArgs = [exePath] + ((isSteam && steamSafeMode) ? steamSafeArgs(extraArgs) : extraArgs)
+        process.arguments = launchArgs
         process.currentDirectoryURL = URL(fileURLWithPath: exePath).deletingLastPathComponent()
         process.environment = env
 
         let log = try launchLogHandle()
-        let launchSummary = """
-        Forge Native launch
-        wine=\(winePath)
-        prefix=\(bottle.prefixPath)
-        exe=\(exePath)
-        isSteam=\(isSteam)
-        backend=\(launchBackend.rawValue)
-        steamSafeMode=\(isSteam && steamSafeMode)
-        steamGameBackend=\(isSteam ? gameBackend.rawValue : "")
-        args=\(process.arguments?.joined(separator: " ") ?? "")
-        WINEDLLOVERRIDES=\(env["WINEDLLOVERRIDES"] ?? "")
-        WINE_D3D_CONFIG=\(env["WINE_D3D_CONFIG"] ?? "")
-        VK_ICD_FILENAMES=\(env["VK_ICD_FILENAMES"] ?? "")
-        DYLD_LIBRARY_PATH=\(env["DYLD_LIBRARY_PATH"] ?? "")
-        DYLD_FALLBACK_LIBRARY_PATH=\(env["DYLD_FALLBACK_LIBRARY_PATH"] ?? "")
-        MTL_HUD_ENABLED=\(env["MTL_HUD_ENABLED"] ?? "")
-        MTL_HUD_LAYER=\(env["MTL_HUD_LAYER"] ?? "")
-        WINEDLLPATH=\(env["WINEDLLPATH"] ?? "")
-        DXVK_FILTER_DEVICE_NAME=\(env["DXVK_FILTER_DEVICE_NAME"] ?? "")
-        FORGE_D3DMETAL_RUNTIME=\(env["FORGE_D3DMETAL_RUNTIME"] ?? "")
-        D3DMETAL_FRAMEWORK_PATH=\(env["D3DMETAL_FRAMEWORK_PATH"] ?? "")
-        SteamAppId=\(env["SteamAppId"] ?? "")
-        FORGE_STACK_GUARANTEE_BYTES=\(env["FORGE_STACK_GUARANTEE_BYTES"] ?? "")
-        FORGE_STEAM_SAFE_MODE=\(env["FORGE_STEAM_SAFE_MODE"] ?? "")
-        FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP=\(env["FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP"] ?? "")
-        FORGE_GAME_WINEDLLOVERRIDES=\(env["FORGE_GAME_WINEDLLOVERRIDES"] ?? "")
-        FORGE_GAME_WINE_D3D_CONFIG=\(env["FORGE_GAME_WINE_D3D_CONFIG"] ?? "")
-        FORGE_GAME_LIBGL_ALWAYS_SOFTWARE=\(env["FORGE_GAME_LIBGL_ALWAYS_SOFTWARE"] ?? "")
-        FORGE_GAME_VK_ICD_FILENAMES=\(env["FORGE_GAME_VK_ICD_FILENAMES"] ?? "")
-        FORGE_GAME_VK_DRIVER_FILES=\(env["FORGE_GAME_VK_DRIVER_FILES"] ?? "")
-        FORGE_GAME_MTL_HUD_ENABLED=\(env["FORGE_GAME_MTL_HUD_ENABLED"] ?? "")
-        FORGE_GAME_MTL_HUD_LAYER=\(env["FORGE_GAME_MTL_HUD_LAYER"] ?? "")
-        FORGE_GAME_DXVK_ASYNC=\(env["FORGE_GAME_DXVK_ASYNC"] ?? "")
-        FORGE_GAME_DYLD_LIBRARY_PATH=\(env["FORGE_GAME_DYLD_LIBRARY_PATH"] ?? "")
-        FORGE_GAME_WINEDLLPATH=\(env["FORGE_GAME_WINEDLLPATH"] ?? "")
-
-        """
+        let launchSummary = formatLaunchSummary(
+            winePath: winePath,
+            prefixPath: bottle.prefixPath,
+            exePath: exePath,
+            isSteam: isSteam,
+            launchBackend: launchBackend,
+            gameBackend: gameBackend,
+            steamSafeMode: isSteam && steamSafeMode,
+            args: launchArgs,
+            env: env
+        )
         if let data = launchSummary.data(using: .utf8) {
             log.write(data)
         }
@@ -337,6 +312,56 @@ extension ForgeStore {
         env.removeValue(forKey: "VK_DRIVER_FILES")
         env.removeValue(forKey: "DXVK_ASYNC")
         env.removeValue(forKey: "DXVK_FILTER_DEVICE_NAME")
+    }
+
+    nonisolated static func formatLaunchSummary(
+        winePath: String,
+        prefixPath: String,
+        exePath: String,
+        isSteam: Bool,
+        launchBackend: GraphicsBackend,
+        gameBackend: GraphicsBackend,
+        steamSafeMode: Bool,
+        args: [String],
+        env: [String: String]
+    ) -> String {
+        """
+        Forge Native launch
+        wine=\(winePath)
+        prefix=\(prefixPath)
+        exe=\(exePath)
+        isSteam=\(isSteam)
+        backend=\(launchBackend.rawValue)
+        steamSafeMode=\(steamSafeMode)
+        steamGameBackend=\(isSteam ? gameBackend.rawValue : "")
+        args=\(args.joined(separator: " "))
+        WINEDLLOVERRIDES=\(env["WINEDLLOVERRIDES"] ?? "")
+        WINE_D3D_CONFIG=\(env["WINE_D3D_CONFIG"] ?? "")
+        VK_ICD_FILENAMES=\(env["VK_ICD_FILENAMES"] ?? "")
+        DYLD_LIBRARY_PATH=\(env["DYLD_LIBRARY_PATH"] ?? "")
+        DYLD_FALLBACK_LIBRARY_PATH=\(env["DYLD_FALLBACK_LIBRARY_PATH"] ?? "")
+        MTL_HUD_ENABLED=\(env["MTL_HUD_ENABLED"] ?? "")
+        MTL_HUD_LAYER=\(env["MTL_HUD_LAYER"] ?? "")
+        WINEDLLPATH=\(env["WINEDLLPATH"] ?? "")
+        DXVK_FILTER_DEVICE_NAME=\(env["DXVK_FILTER_DEVICE_NAME"] ?? "")
+        FORGE_D3DMETAL_RUNTIME=\(env["FORGE_D3DMETAL_RUNTIME"] ?? "")
+        D3DMETAL_FRAMEWORK_PATH=\(env["D3DMETAL_FRAMEWORK_PATH"] ?? "")
+        SteamAppId=\(env["SteamAppId"] ?? "")
+        FORGE_STACK_GUARANTEE_BYTES=\(env["FORGE_STACK_GUARANTEE_BYTES"] ?? "")
+        FORGE_STEAM_SAFE_MODE=\(env["FORGE_STEAM_SAFE_MODE"] ?? "")
+        FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP=\(env["FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP"] ?? "")
+        FORGE_GAME_WINEDLLOVERRIDES=\(env["FORGE_GAME_WINEDLLOVERRIDES"] ?? "")
+        FORGE_GAME_WINE_D3D_CONFIG=\(env["FORGE_GAME_WINE_D3D_CONFIG"] ?? "")
+        FORGE_GAME_LIBGL_ALWAYS_SOFTWARE=\(env["FORGE_GAME_LIBGL_ALWAYS_SOFTWARE"] ?? "")
+        FORGE_GAME_VK_ICD_FILENAMES=\(env["FORGE_GAME_VK_ICD_FILENAMES"] ?? "")
+        FORGE_GAME_VK_DRIVER_FILES=\(env["FORGE_GAME_VK_DRIVER_FILES"] ?? "")
+        FORGE_GAME_MTL_HUD_ENABLED=\(env["FORGE_GAME_MTL_HUD_ENABLED"] ?? "")
+        FORGE_GAME_MTL_HUD_LAYER=\(env["FORGE_GAME_MTL_HUD_LAYER"] ?? "")
+        FORGE_GAME_DXVK_ASYNC=\(env["FORGE_GAME_DXVK_ASYNC"] ?? "")
+        FORGE_GAME_DYLD_LIBRARY_PATH=\(env["FORGE_GAME_DYLD_LIBRARY_PATH"] ?? "")
+        FORGE_GAME_WINEDLLPATH=\(env["FORGE_GAME_WINEDLLPATH"] ?? "")
+
+        """
     }
 
     nonisolated static func launchLogHandle() throws -> FileHandle {
