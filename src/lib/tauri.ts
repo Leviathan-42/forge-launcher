@@ -7,7 +7,6 @@ import type {
   Game,
   GraphicsBackend,
   LauncherStatus,
-  RuntimeProfile,
   WineStatus,
 } from "$lib/types";
 
@@ -75,30 +74,6 @@ export async function createBottle(name: string, prefixPath?: string) {
   ]);
 }
 
-export async function listRuntimeProfiles() {
-  return command<RuntimeProfile[]>("list_runtime_profiles", undefined, [
-    {
-      id: "gptk-d3dmetal",
-      name: "GPTK D3DMetal",
-      wine64_path: "/opt/homebrew/bin/wine64",
-      gptk_lib_path: "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external",
-      default_backend: "d3dmetal",
-      env: {},
-    },
-    {
-      id: "wine-vulkan",
-      name: "Wine Vulkan",
-      wine64_path: "/opt/homebrew/bin/wine64",
-      default_backend: "dxvk_vkd3d",
-      env: {},
-    },
-  ]);
-}
-
-export async function saveRuntimeProfiles(profiles: RuntimeProfile[]) {
-  return command<void>("save_runtime_profiles", { profiles });
-}
-
 export async function updateBottleRuntime(
   prefixPath: string,
   runtimeProfileId: string,
@@ -113,10 +88,6 @@ export async function updateBottleRuntime(
     envOverrides,
     force,
   });
-}
-
-export async function createPeakTestBottle() {
-  return command<Bottle[]>("create_peak_test_bottle");
 }
 
 export async function launcherStatus(prefixPath: string) {
@@ -134,18 +105,6 @@ export async function launcherStatus(prefixPath: string) {
 
 export async function listBottleApps(prefixPath: string) {
   return command<BottleApp[]>("list_bottle_apps", { prefixPath }, []);
-}
-
-export async function installSteam(prefixPath: string) {
-  return command<void>("install_steam_in_prefix", { prefixPath });
-}
-
-export async function openSteam(prefixPath: string) {
-  return command<void>("open_steam_in_prefix", { prefixPath });
-}
-
-export async function repairSteam(prefixPath: string) {
-  return command<void>("repair_steam_in_prefix", { prefixPath });
 }
 
 export async function runExe(prefixPath: string, exePath: string, args: string[] = []) {
@@ -200,16 +159,6 @@ export async function pickExe() {
     multiple: false,
     directory: false,
     filters: [{ name: "Windows executable", extensions: ["exe"] }],
-  });
-
-  return typeof picked === "string" ? picked : null;
-}
-
-export async function pickFolder() {
-  if (!hasTauri()) return null;
-  const picked = await open({
-    multiple: false,
-    directory: true,
   });
 
   return typeof picked === "string" ? picked : null;
