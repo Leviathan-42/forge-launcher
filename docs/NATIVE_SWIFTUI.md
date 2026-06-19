@@ -83,6 +83,12 @@ The drop/reveal/rescan runtime controls have been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeRuntimePanel.swift
 ```
 
+Runtime drop/action cards have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeRuntimeComponents.swift
+```
+
 The app list panel has been split into:
 
 ```text

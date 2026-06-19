@@ -66,6 +66,7 @@ Current native code:
 - `ForgeSidebar.swift` owns the bottle/status/sidebar controls.
 - `ForgeSidebarComponents.swift` owns sidebar bottle/backend/HUD cards.
 - `ForgeRuntimePanel.swift` owns the drop/select/reveal/rescan runtime controls.
+- `ForgeRuntimeComponents.swift` owns runtime drop/action cards.
 - `ForgeAppsPanel.swift` owns the app list panel, row actions, and empty search state.
 - `ForgeAppRow.swift` shows per-game profile launch args/env/notes as compact badges in the app list.
 - `ForgeBackendEnvironment.swift` owns backend environment predicates and Wine DLL override strings shared by direct launches and Steam game handoff.
