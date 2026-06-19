@@ -2,6 +2,32 @@ import XCTest
 @testable import ForgeNative
 
 final class ForgeBackendEnvironmentTests: XCTestCase {
+    func testBackendCapabilityPredicatesMatchBackendFamilies() {
+        XCTAssertFalse(ForgeStore.backendUsesMoltenVK(.d3dMetal))
+        XCTAssertTrue(ForgeStore.backendUsesMoltenVK(.dxvk))
+        XCTAssertTrue(ForgeStore.backendUsesMoltenVK(.vkd3d))
+        XCTAssertTrue(ForgeStore.backendUsesMoltenVK(.dxvkVkd3d))
+        XCTAssertFalse(ForgeStore.backendUsesMoltenVK(.wineBuiltin))
+        XCTAssertFalse(ForgeStore.backendUsesMoltenVK(.dxmt))
+        XCTAssertFalse(ForgeStore.backendUsesMoltenVK(.none))
+
+        XCTAssertFalse(ForgeStore.backendUsesDXVKAsync(.d3dMetal))
+        XCTAssertTrue(ForgeStore.backendUsesDXVKAsync(.dxvk))
+        XCTAssertFalse(ForgeStore.backendUsesDXVKAsync(.vkd3d))
+        XCTAssertTrue(ForgeStore.backendUsesDXVKAsync(.dxvkVkd3d))
+        XCTAssertFalse(ForgeStore.backendUsesDXVKAsync(.wineBuiltin))
+        XCTAssertFalse(ForgeStore.backendUsesDXVKAsync(.dxmt))
+        XCTAssertFalse(ForgeStore.backendUsesDXVKAsync(.none))
+
+        XCTAssertFalse(ForgeStore.backendPreservesWineD3DEnvironment(.d3dMetal))
+        XCTAssertFalse(ForgeStore.backendPreservesWineD3DEnvironment(.dxvk))
+        XCTAssertFalse(ForgeStore.backendPreservesWineD3DEnvironment(.vkd3d))
+        XCTAssertFalse(ForgeStore.backendPreservesWineD3DEnvironment(.dxvkVkd3d))
+        XCTAssertTrue(ForgeStore.backendPreservesWineD3DEnvironment(.wineBuiltin))
+        XCTAssertFalse(ForgeStore.backendPreservesWineD3DEnvironment(.dxmt))
+        XCTAssertTrue(ForgeStore.backendPreservesWineD3DEnvironment(.none))
+    }
+
     func testWineDllOverridesMatchBackendDefaults() {
         XCTAssertEqual(
             ForgeStore.wineDllOverrides(for: .d3dMetal),

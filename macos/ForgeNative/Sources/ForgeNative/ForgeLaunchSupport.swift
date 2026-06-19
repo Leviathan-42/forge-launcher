@@ -77,7 +77,7 @@ extension ForgeStore {
             env["SteamAppId"] = steamAppId
             env["SteamGameId"] = steamAppId
         }
-        if launchBackend == .dxvk || launchBackend == .vkd3d || launchBackend == .dxvkVkd3d {
+        if backendUsesMoltenVK(launchBackend) {
             configureMoltenVK(profile: profile, config: config, env: &env)
         }
 
@@ -168,17 +168,17 @@ extension ForgeStore {
         env.removeValue(forKey: "FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP")
 
         if isSteam && steamSafeMode {
-            if gameBackend == .dxvk || gameBackend == .vkd3d || gameBackend == .dxvkVkd3d {
+            if backendUsesMoltenVK(gameBackend) {
                 configureMoltenVK(profile: profile, config: config, env: &env)
             }
             let gameVkIcd = env["VK_ICD_FILENAMES"] ?? ""
             let gameVkDriverFiles = env["VK_DRIVER_FILES"] ?? gameVkIcd
-            let preserveWineD3DEnv = gameBackend == .wineBuiltin || gameBackend == .none
+            let preserveWineD3DEnv = backendPreservesWineD3DEnvironment(gameBackend)
             let gameWineD3DConfig = preserveWineD3DEnv ? (env["WINE_D3D_CONFIG"] ?? "") : ""
             let gameLibGLAlwaysSoftware = preserveWineD3DEnv ? (env["LIBGL_ALWAYS_SOFTWARE"] ?? "") : ""
             let gameMetalHudEnabled = config.globalHud ? "1" : "0"
             let gameMetalHudLayer = config.globalHud ? "1" : "0"
-            let gameDXVKAsync = (gameBackend == .dxvk || gameBackend == .dxvkVkd3d) ? (env["DXVK_ASYNC"] ?? "1") : ""
+            let gameDXVKAsync = backendUsesDXVKAsync(gameBackend) ? (env["DXVK_ASYNC"] ?? "1") : ""
             let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(
                 gptkLibPath: gptkLibPath,
                 existing: dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")

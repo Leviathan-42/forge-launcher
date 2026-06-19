@@ -1,4 +1,31 @@
 extension ForgeStore {
+    nonisolated static func backendUsesMoltenVK(_ backend: GraphicsBackend) -> Bool {
+        switch backend {
+        case .dxvk, .vkd3d, .dxvkVkd3d:
+            true
+        case .d3dMetal, .wineBuiltin, .dxmt, .none:
+            false
+        }
+    }
+
+    nonisolated static func backendUsesDXVKAsync(_ backend: GraphicsBackend) -> Bool {
+        switch backend {
+        case .dxvk, .dxvkVkd3d:
+            true
+        case .d3dMetal, .vkd3d, .wineBuiltin, .dxmt, .none:
+            false
+        }
+    }
+
+    nonisolated static func backendPreservesWineD3DEnvironment(_ backend: GraphicsBackend) -> Bool {
+        switch backend {
+        case .wineBuiltin, .none:
+            true
+        case .d3dMetal, .dxvk, .vkd3d, .dxvkVkd3d, .dxmt:
+            false
+        }
+    }
+
     nonisolated static func wineDllOverrides(for backend: GraphicsBackend) -> String? {
         switch backend {
         case .d3dMetal:
