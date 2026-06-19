@@ -67,14 +67,9 @@ extension ForgeStore {
     nonisolated static func steamGameDirectory(prefixPath: String, appId: String) -> URL? {
         let steamapps = URL(fileURLWithPath: prefixPath).appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)
         let manifest = steamapps.appendingPathComponent("appmanifest_\(appId).acf")
-        guard let text = try? String(contentsOf: manifest, encoding: .utf8) else { return nil }
-        for line in text.components(separatedBy: .newlines) {
-            let parts = line.components(separatedBy: "\"").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            if parts.count >= 2, parts[0].trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare("installdir") == .orderedSame {
-                return steamapps.appendingPathComponent("common", isDirectory: true).appendingPathComponent(parts[1], isDirectory: true)
-            }
-        }
-        return nil
+        guard let text = try? String(contentsOf: manifest, encoding: .utf8),
+              let installDir = acfValue("installdir", in: text) else { return nil }
+        return steamapps.appendingPathComponent("common", isDirectory: true).appendingPathComponent(installDir, isDirectory: true)
     }
 
     nonisolated static func ensureDXMTInstalled(winePath: String, prefixPath: String) throws {

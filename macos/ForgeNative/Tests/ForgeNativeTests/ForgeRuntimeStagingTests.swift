@@ -114,6 +114,24 @@ final class ForgeRuntimeStagingTests: XCTestCase {
         )
     }
 
+    func testSteamGameDirectoryReadsInstallDirFromCompactManifest() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let steamapps = root.appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)
+        try FileManager.default.createDirectory(at: steamapps, withIntermediateDirectories: true)
+        try #""appid" "123" "name" "Example Game" "installdir" "Example Game Folder""#.write(
+            to: steamapps.appendingPathComponent("appmanifest_123.acf"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertEqual(
+            ForgeStore.steamGameDirectory(prefixPath: root.path, appId: "123")?.path,
+            steamapps.appendingPathComponent("common/Example Game Folder", isDirectory: true).path
+        )
+    }
+
     private func standardizedPaths(_ urls: [URL]) -> [String] {
         urls.map { $0.standardizedFileURL.path }
     }
