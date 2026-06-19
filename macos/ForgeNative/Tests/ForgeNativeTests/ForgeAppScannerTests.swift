@@ -22,6 +22,7 @@ final class ForgeAppScannerTests: XCTestCase {
         let gameDir = try makeDirectory("Example Game")
         try touch(gameDir.appendingPathComponent("UnityCrashHandler64.exe"))
         try touch(gameDir.appendingPathComponent("unins000.exe"))
+        try touch(gameDir.appendingPathComponent("CrashReporter.exe"))
         try touch(gameDir.appendingPathComponent("Bootstrap.exe"))
         try touch(gameDir.appendingPathComponent("Example Game.exe"))
         defer { try? FileManager.default.removeItem(at: gameDir.deletingLastPathComponent()) }
@@ -30,6 +31,14 @@ final class ForgeAppScannerTests: XCTestCase {
             ForgeStore.primaryGameExe(in: gameDir)?.lastPathComponent,
             "Example Game.exe"
         )
+    }
+
+    func testUserVisibleExeFilterRejectsHelpersAndAllowsGames() {
+        XCTAssertTrue(ForgeStore.isUserVisibleExe("/tmp/Program Files/Visible Game/Visible Game.exe"))
+        XCTAssertFalse(ForgeStore.isUserVisibleExe("/tmp/Program Files/Visible Game/CrashReporter.exe"))
+        XCTAssertFalse(ForgeStore.isUserVisibleExe("/tmp/Program Files/Visible Game/vc_redist.x64.exe"))
+        XCTAssertFalse(ForgeStore.isUserVisibleExe("/tmp/Program Files/Visible Game/unins999.exe"))
+        XCTAssertFalse(ForgeStore.isUserVisibleExe("/tmp/Program Files/Common Files/Runtime/Helper.exe"))
     }
 
     func testScanSteamGamesAddsNamedGameEntryWithAppId() throws {

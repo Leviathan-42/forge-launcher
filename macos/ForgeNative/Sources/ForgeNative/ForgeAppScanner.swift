@@ -5,6 +5,13 @@ private enum AppScanLimit {
     static let maxDepth = 5
 }
 
+private let hiddenExecutableFileNames: Set<String> = [
+    "steamwebhelper.exe", "steamerrorreporter.exe", "gldriverquery.exe", "gldriverquery64.exe",
+    "vulkandriverquery.exe", "vulkandriverquery64.exe", "steamservice.exe", "steam_monitor.exe",
+    "crashhandler.exe", "crashpad_handler.exe", "uninstall.exe", "unins000.exe", "unins001.exe",
+    "dxsetup.exe", "vc_redist.x64.exe", "vc_redist.x86.exe", "installscript.vdf.exe"
+]
+
 extension ForgeStore {
     nonisolated static func findSteam(prefixPath: String) -> String? {
         steamCandidates(prefixPath: prefixPath).first(where: { FileManager.default.fileExists(atPath: $0) })
@@ -108,10 +115,7 @@ extension ForgeStore {
         let exes = entries.filter { entry in
             let file = entry.lastPathComponent.lowercased()
             return entry.pathExtension.caseInsensitiveCompare("exe") == .orderedSame
-                && !file.contains("unitycrashhandler")
-                && !file.contains("crash")
-                && !file.hasPrefix("unins")
-                && file != "uninstall.exe"
+                && !isHiddenHelperExecutableName(file)
         }
         if let exact = exes.first(where: { $0.deletingPathExtension().lastPathComponent.caseInsensitiveCompare(dir.lastPathComponent) == .orderedSame }) {
             return exact
@@ -140,15 +144,15 @@ extension ForgeStore {
             return false
         }
 
-        let hidden: Set<String> = [
-            "steamwebhelper.exe", "steamerrorreporter.exe", "gldriverquery.exe", "gldriverquery64.exe",
-            "vulkandriverquery.exe", "vulkandriverquery64.exe", "steamservice.exe", "steam_monitor.exe",
-            "crashhandler.exe", "crashpad_handler.exe", "uninstall.exe", "unins000.exe", "unins001.exe",
-            "dxsetup.exe", "vc_redist.x64.exe", "vc_redist.x86.exe", "installscript.vdf.exe"
-        ]
-        if hidden.contains(file) { return false }
-        if file.hasPrefix("unins") || file.contains("crash") || file.contains("reporter") { return false }
-        return true
+        return !isHiddenHelperExecutableName(file)
+    }
+
+    nonisolated static func isHiddenHelperExecutableName(_ file: String) -> Bool {
+        let normalized = file.lowercased()
+        return hiddenExecutableFileNames.contains(normalized)
+            || normalized.hasPrefix("unins")
+            || normalized.contains("crash")
+            || normalized.contains("reporter")
     }
 
     nonisolated static func isManagedLauncherContainer(_ raw: String) -> Bool {
