@@ -21,10 +21,13 @@ extension ForgeStore {
         env["MOLTENVK_CONFIG_LOG_LEVEL"] = env["MOLTENVK_CONFIG_LOG_LEVEL"] ?? "0"
     }
 
-    nonisolated static func moltenVkIcdCandidates(configuredPath: String) -> [String] {
+    nonisolated static func moltenVkIcdCandidates(configuredPath rawConfiguredPath: String) -> [String] {
+        let configuredPath = trimmedNonEmptyPath(rawConfiguredPath) ?? ""
         var candidates: [String] = []
         func add(_ path: String) {
-            if !path.isEmpty { candidates.append((path as NSString).expandingTildeInPath) }
+            if let path = trimmedNonEmptyPath(path) {
+                candidates.append((path as NSString).expandingTildeInPath)
+            }
         }
 
         add(configuredPath)
@@ -35,12 +38,12 @@ extension ForgeStore {
         add("/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json")
         add("/usr/local/share/vulkan/icd.d/MoltenVK_icd.json")
         add("/opt/homebrew/Cellar/molten-vk/share/vulkan/icd.d/MoltenVK_icd.json")
-        return Array(NSOrderedSet(array: candidates)) as? [String] ?? candidates
+        return dedupePathParts(candidates)
     }
 
     nonisolated static func buildDyldPath(gptkLibPath: String?, existing: String) -> String {
         var parts: [String] = []
-        if let gptkLibPath, !gptkLibPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let gptkLibPath = trimmedNonEmptyPath(gptkLibPath) {
             let configured = URL(fileURLWithPath: gptkLibPath)
             parts.append(configured.path)
             if configured.lastPathComponent.caseInsensitiveCompare("external") == .orderedSame {
@@ -57,7 +60,7 @@ extension ForgeStore {
     }
 
     nonisolated static func gptkWineLibBase(gptkLibPath: String?) -> URL? {
-        guard let gptkLibPath, !gptkLibPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        guard let gptkLibPath = trimmedNonEmptyPath(gptkLibPath) else { return nil }
         let configured = URL(fileURLWithPath: gptkLibPath)
         if configured.lastPathComponent.caseInsensitiveCompare("external") == .orderedSame {
             return configured.deletingLastPathComponent()
@@ -96,5 +99,11 @@ extension ForgeStore {
             output.append(part)
         }
         return output
+    }
+
+    nonisolated static func trimmedNonEmptyPath(_ path: String?) -> String? {
+        guard let path else { return nil }
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

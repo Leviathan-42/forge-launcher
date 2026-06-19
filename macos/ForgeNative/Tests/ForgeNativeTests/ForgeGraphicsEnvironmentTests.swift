@@ -26,6 +26,22 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
         )
     }
 
+    func testBuildDyldPathTrimsConfiguredGptkPath() {
+        let dyldPath = ForgeStore.buildDyldPath(
+            gptkLibPath: "  /Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib  \n",
+            existing: ""
+        )
+
+        XCTAssertEqual(
+            dyldPath,
+            [
+                "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib",
+                "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external",
+                "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external/D3DMetal.framework/Versions/A"
+            ].joined(separator: ":")
+        )
+    }
+
     func testMoltenVkCandidatesExpandConfiguredTildePath() {
         let configured = "~/Wine/Runtimes/moltenvk"
         let expanded = (configured as NSString).expandingTildeInPath
@@ -35,6 +51,31 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
         XCTAssertTrue(candidates.contains(expanded))
         XCTAssertTrue(candidates.contains(URL(fileURLWithPath: expanded).appendingPathComponent("MoltenVK_icd.json").path))
         XCTAssertTrue(candidates.contains("/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"))
+    }
+
+    func testMoltenVkCandidatesTrimAndDedupeConfiguredPath() {
+        let configured = "  /opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json  "
+
+        let candidates = ForgeStore.moltenVkIcdCandidates(configuredPath: configured)
+
+        XCTAssertEqual(
+            candidates.filter { $0 == "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json" }.count,
+            1
+        )
+    }
+
+    func testGptkWineLibBaseTrimsConfiguredPath() {
+        let base = ForgeStore.gptkWineLibBase(
+            gptkLibPath: "  /Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external  "
+        )
+
+        XCTAssertEqual(base?.path, "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib")
+    }
+
+    func testTrimmedNonEmptyPathRejectsBlankValues() {
+        XCTAssertNil(ForgeStore.trimmedNonEmptyPath(nil))
+        XCTAssertNil(ForgeStore.trimmedNonEmptyPath(" \n\t "))
+        XCTAssertEqual(ForgeStore.trimmedNonEmptyPath(" /opt/runtime/lib "), "/opt/runtime/lib")
     }
 
     func testConfigureMoltenVkUsesConfiguredIcdFile() throws {
