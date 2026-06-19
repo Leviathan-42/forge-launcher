@@ -1,5 +1,33 @@
 import Foundation
 
+private let launchSummaryEnvironmentKeys = [
+    "WINEDLLOVERRIDES",
+    "WINE_D3D_CONFIG",
+    "VK_ICD_FILENAMES",
+    "DYLD_LIBRARY_PATH",
+    "DYLD_FALLBACK_LIBRARY_PATH",
+    "MTL_HUD_ENABLED",
+    "MTL_HUD_LAYER",
+    "WINEDLLPATH",
+    "DXVK_FILTER_DEVICE_NAME",
+    "FORGE_D3DMETAL_RUNTIME",
+    "D3DMETAL_FRAMEWORK_PATH",
+    "SteamAppId",
+    "FORGE_STACK_GUARANTEE_BYTES",
+    "FORGE_STEAM_SAFE_MODE",
+    "FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP",
+    "FORGE_GAME_WINEDLLOVERRIDES",
+    "FORGE_GAME_WINE_D3D_CONFIG",
+    "FORGE_GAME_LIBGL_ALWAYS_SOFTWARE",
+    "FORGE_GAME_VK_ICD_FILENAMES",
+    "FORGE_GAME_VK_DRIVER_FILES",
+    "FORGE_GAME_MTL_HUD_ENABLED",
+    "FORGE_GAME_MTL_HUD_LAYER",
+    "FORGE_GAME_DXVK_ASYNC",
+    "FORGE_GAME_DYLD_LIBRARY_PATH",
+    "FORGE_GAME_WINEDLLPATH"
+]
+
 extension ForgeStore {
     nonisolated static func spawn(
         exePath: String,
@@ -325,43 +353,21 @@ extension ForgeStore {
         args: [String],
         env: [String: String]
     ) -> String {
-        """
-        Forge Native launch
-        wine=\(winePath)
-        prefix=\(prefixPath)
-        exe=\(exePath)
-        isSteam=\(isSteam)
-        backend=\(launchBackend.rawValue)
-        steamSafeMode=\(steamSafeMode)
-        steamGameBackend=\(isSteam ? gameBackend.rawValue : "")
-        args=\(args.joined(separator: " "))
-        WINEDLLOVERRIDES=\(env["WINEDLLOVERRIDES"] ?? "")
-        WINE_D3D_CONFIG=\(env["WINE_D3D_CONFIG"] ?? "")
-        VK_ICD_FILENAMES=\(env["VK_ICD_FILENAMES"] ?? "")
-        DYLD_LIBRARY_PATH=\(env["DYLD_LIBRARY_PATH"] ?? "")
-        DYLD_FALLBACK_LIBRARY_PATH=\(env["DYLD_FALLBACK_LIBRARY_PATH"] ?? "")
-        MTL_HUD_ENABLED=\(env["MTL_HUD_ENABLED"] ?? "")
-        MTL_HUD_LAYER=\(env["MTL_HUD_LAYER"] ?? "")
-        WINEDLLPATH=\(env["WINEDLLPATH"] ?? "")
-        DXVK_FILTER_DEVICE_NAME=\(env["DXVK_FILTER_DEVICE_NAME"] ?? "")
-        FORGE_D3DMETAL_RUNTIME=\(env["FORGE_D3DMETAL_RUNTIME"] ?? "")
-        D3DMETAL_FRAMEWORK_PATH=\(env["D3DMETAL_FRAMEWORK_PATH"] ?? "")
-        SteamAppId=\(env["SteamAppId"] ?? "")
-        FORGE_STACK_GUARANTEE_BYTES=\(env["FORGE_STACK_GUARANTEE_BYTES"] ?? "")
-        FORGE_STEAM_SAFE_MODE=\(env["FORGE_STEAM_SAFE_MODE"] ?? "")
-        FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP=\(env["FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP"] ?? "")
-        FORGE_GAME_WINEDLLOVERRIDES=\(env["FORGE_GAME_WINEDLLOVERRIDES"] ?? "")
-        FORGE_GAME_WINE_D3D_CONFIG=\(env["FORGE_GAME_WINE_D3D_CONFIG"] ?? "")
-        FORGE_GAME_LIBGL_ALWAYS_SOFTWARE=\(env["FORGE_GAME_LIBGL_ALWAYS_SOFTWARE"] ?? "")
-        FORGE_GAME_VK_ICD_FILENAMES=\(env["FORGE_GAME_VK_ICD_FILENAMES"] ?? "")
-        FORGE_GAME_VK_DRIVER_FILES=\(env["FORGE_GAME_VK_DRIVER_FILES"] ?? "")
-        FORGE_GAME_MTL_HUD_ENABLED=\(env["FORGE_GAME_MTL_HUD_ENABLED"] ?? "")
-        FORGE_GAME_MTL_HUD_LAYER=\(env["FORGE_GAME_MTL_HUD_LAYER"] ?? "")
-        FORGE_GAME_DXVK_ASYNC=\(env["FORGE_GAME_DXVK_ASYNC"] ?? "")
-        FORGE_GAME_DYLD_LIBRARY_PATH=\(env["FORGE_GAME_DYLD_LIBRARY_PATH"] ?? "")
-        FORGE_GAME_WINEDLLPATH=\(env["FORGE_GAME_WINEDLLPATH"] ?? "")
-
-        """
+        let headerLines = [
+            "Forge Native launch",
+            "wine=\(winePath)",
+            "prefix=\(prefixPath)",
+            "exe=\(exePath)",
+            "isSteam=\(isSteam)",
+            "backend=\(launchBackend.rawValue)",
+            "steamSafeMode=\(steamSafeMode)",
+            "steamGameBackend=\(isSteam ? gameBackend.rawValue : "")",
+            "args=\(args.joined(separator: " "))"
+        ]
+        let envLines = launchSummaryEnvironmentKeys.map { key in
+            "\(key)=\(env[key] ?? "")"
+        }
+        return (headerLines + envLines).joined(separator: "\n") + "\n\n"
     }
 
     nonisolated static func launchLogHandle() throws -> FileHandle {

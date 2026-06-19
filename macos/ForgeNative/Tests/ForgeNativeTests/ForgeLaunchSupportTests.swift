@@ -60,6 +60,24 @@ final class ForgeLaunchSupportTests: XCTestCase {
         XCTAssertTrue(summary.contains("FORGE_GAME_DXVK_ASYNC=1"))
     }
 
+    func testFormatLaunchSummaryIncludesEmptyTrackedEnvironmentKeys() {
+        let summary = ForgeStore.formatLaunchSummary(
+            winePath: "/tmp/wine64",
+            prefixPath: "/tmp/prefix",
+            exePath: "/tmp/Game.exe",
+            isSteam: false,
+            launchBackend: .dxvk,
+            gameBackend: .dxvk,
+            steamSafeMode: false,
+            args: ["/tmp/Game.exe"],
+            env: [:]
+        )
+
+        XCTAssertTrue(summary.contains("\nVK_ICD_FILENAMES=\n"))
+        XCTAssertTrue(summary.contains("\nFORGE_GAME_WINEDLLOVERRIDES=\n"))
+        XCTAssertTrue(summary.hasSuffix("\n\n"))
+    }
+
     func testSteamGameDirectoryReadsInstallDirFromManifest() throws {
         let prefix = FileManager.default.temporaryDirectory
             .appendingPathComponent("ForgeLaunchSupportTests")
