@@ -711,7 +711,8 @@ fn rank_kind(kind: &str) -> u8 {
 }
 
 fn default_prefix_for_name(default_prefix: &str, name: &str) -> String {
-    let default = Path::new(default_prefix);
+    let normalized_default = normalize_path(default_prefix);
+    let default = Path::new(&normalized_default);
     let base = default
         .parent()
         .map(|path| path.to_path_buf())
@@ -780,4 +781,23 @@ fn stable_hash(input: &str) -> u64 {
         hash = hash.wrapping_mul(0x100000001b3);
     }
     hash
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_prefix_for_name_normalizes_configured_default_prefix() {
+        assert_eq!(
+            default_prefix_for_name("  /Users/levi/Wine/Bottles/default  ", "PEAK Test"),
+            "/Users/levi/Wine/Bottles/peak-test"
+        );
+    }
+
+    #[test]
+    fn slug_falls_back_for_blank_names() {
+        assert_eq!(slug("  ---  "), "bottle");
+        assert_eq!(slug("Wine 11 + MoltenVK"), "wine-11-moltenvk");
+    }
 }
