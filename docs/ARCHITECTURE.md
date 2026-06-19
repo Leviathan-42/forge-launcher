@@ -32,6 +32,7 @@ Forge.app / ForgeNative
 | `macos/ForgeNative/Sources/ForgeNative/ForgeVisualStyles.swift` | Visual background, search field, button/glass styling, backend display text |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeModels.swift` | Core config, bottle, app, backend models and JSON helpers |
 | `macos/ForgeNative/Sources/ForgeNative/ForgePersistence.swift` | Config, runtime profile, and bottle JSON load/save helpers |
+| `macos/ForgeNative/Sources/ForgeNative/ForgeRuntimePanel.swift` | Drop/reveal/rescan runtime controls |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeRuntimeStaging.swift` | DXVK/DXMT/D3DMetal runtime DLL staging and source discovery |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeSidebar.swift` | Bottle/status/sidebar controls |
 | `macos/ForgeNative/Sources/ForgeNative/ForgeStore.swift` | Main store state, high-level launch requests, and bottle/HUD actions |

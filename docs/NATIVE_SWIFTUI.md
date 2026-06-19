@@ -71,6 +71,12 @@ The bottle/status sidebar has been split into:
 macos/ForgeNative/Sources/ForgeNative/ForgeSidebar.swift
 ```
 
+The drop/reveal/rescan runtime controls have been split into:
+
+```text
+macos/ForgeNative/Sources/ForgeNative/ForgeRuntimePanel.swift
+```
+
 The profile editor has been split into:
 
 ```text

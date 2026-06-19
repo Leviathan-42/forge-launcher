@@ -1,7 +1,5 @@
-import AppKit
 import Foundation
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var store = ForgeStore()
@@ -81,7 +79,7 @@ struct ContentView: View {
 
             VStack(spacing: 14) {
                 topBar
-                runtimePanel(bottle)
+                ForgeRuntimePanel(store: store, bottle: bottle, isDropTarget: $isDropTarget)
                 appsPanel(bottle)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -121,59 +119,6 @@ struct ContentView: View {
             GlassSearchField(text: $searchText)
                 .frame(width: 285)
         }
-    }
-
-    private func runtimePanel(_ bottle: BottleEntry) -> some View {
-        HStack(spacing: 14) {
-            DropExeCard(
-                isTargeted: isDropTarget,
-                isDisabled: store.isLaunching,
-                isRunning: store.runningAppPath != nil,
-                selectAction: { store.selectExe() },
-                stopAction: { store.stopRunningApp() }
-            )
-            .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTarget) { providers in
-                handleExeDrop(providers)
-            }
-
-            RuntimeActionCard(
-                icon: "folder.fill",
-                title: "Bottle Folder",
-                subtitle: bottle.prefixPath,
-                primaryTitle: "Reveal",
-                isDisabled: false,
-                primaryAction: { store.revealBottle() }
-            )
-
-            RuntimeActionCard(
-                icon: "arrow.clockwise.circle.fill",
-                title: "Rescan",
-                subtitle: "Refresh installed launchers and EXEs.",
-                primaryTitle: "Refresh",
-                isDisabled: false,
-                primaryAction: { store.reload() }
-            )
-        }
-    }
-
-    private func handleExeDrop(_ providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
-        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-            let url: URL?
-            if let data = item as? Data {
-                url = URL(dataRepresentation: data, relativeTo: nil)
-            } else if let raw = item as? URL {
-                url = raw
-            } else {
-                url = nil
-            }
-
-            guard let url else { return }
-            Task { @MainActor in
-                store.runExe(at: url)
-            }
-        }
-        return true
     }
 
     private func appsPanel(_ bottle: BottleEntry) -> some View {

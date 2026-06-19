@@ -22,6 +22,7 @@ forge-launcher/
 │   │   ├── ForgeVisualStyles.swift      # Background, search field, button/glass styling
 │   │   ├── ForgeModels.swift            # Core config, bottle, app, backend models
 │   │   ├── ForgePersistence.swift       # Config/runtime/bottle JSON persistence
+│   │   ├── ForgeRuntimePanel.swift      # Drop/reveal/rescan runtime controls
 │   │   ├── ForgeRuntimeStaging.swift    # DXVK/DXMT/D3DMetal runtime DLL staging
 │   │   ├── ForgeSidebar.swift           # Bottle/status/sidebar controls
 │   │   ├── ForgeStore.swift             # Main store state and high-level actions
