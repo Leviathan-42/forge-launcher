@@ -6,7 +6,6 @@ import type {
   BottleApp,
   Game,
   GraphicsBackend,
-  LauncherStatus,
   WineStatus,
 } from "$lib/types";
 
@@ -87,19 +86,6 @@ export async function updateBottleRuntime(
     envOverrides,
     force,
   });
-}
-
-export async function launcherStatus(prefixPath: string) {
-  return command<LauncherStatus>(
-    "bottle_launcher_status",
-    { prefixPath },
-    {
-      prefix_path: prefixPath,
-      prefix_exists: false,
-      steam_installed: false,
-      steam_path: null,
-    },
-  );
 }
 
 export async function listBottleApps(prefixPath: string) {

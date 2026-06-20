@@ -6,7 +6,6 @@
     canUseDesktopCommands,
     checkWine,
     createBottle as createBottleCommand,
-    launcherStatus,
     listBottleApps,
     listBottles,
     loadConfig,
@@ -218,8 +217,8 @@
     return app.name.toLowerCase() === "steam" || isSteamPath(app.path);
   }
 
-  function steamAppLaunchArgs(appId?: string | number) {
-    return appId ? [...steamSafeArgs, "-applaunch", String(appId)] : [...steamSafeArgs];
+  function steamAppLaunchArgs() {
+    return [...steamSafeArgs];
   }
 
   function launchArgsForPath(path: string) {
@@ -242,26 +241,21 @@
     });
   }
 
-  async function runRegisteredGame(game: Game, mode: "steam" | "direct") {
+  async function runRegisteredGame(game: Game) {
     if (!config) return;
     const prefixPath = game.wine_prefix || config.default_prefix;
 
     if (!canRunDesktopLaunch()) return;
 
-    await withBusy(`${mode}-${game.id}`, async () => {
-      const targetStatus = mode === "steam" ? await launcherStatus(prefixPath) : null;
-      if (mode === "steam" && game.steam_app_id && targetStatus?.steam_path) {
-        await runExe(prefixPath, targetStatus.steam_path, steamAppLaunchArgs(game.steam_app_id));
-      } else {
-        await runExe(prefixPath, game.exe_path, launchArgsForPath(game.exe_path));
-      }
+    await withBusy(`game-${game.id}`, async () => {
+      await runExe(prefixPath, game.exe_path, launchArgsForPath(game.exe_path));
       notify("ok", `${game.name} started.`);
     });
   }
 
   async function runExeEntry(entry: ExeEntry) {
     if (entry.game) {
-      await runRegisteredGame(entry.game, "direct");
+      await runRegisteredGame(entry.game);
       return;
     }
 

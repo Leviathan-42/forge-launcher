@@ -18,13 +18,6 @@ export type Bottle = {
   app_count: number;
 };
 
-export type LauncherStatus = {
-  prefix_path: string;
-  prefix_exists: boolean;
-  steam_installed: boolean;
-  steam_path: string | null;
-};
-
 export type BottleApp = {
   id: string;
   name: string;
