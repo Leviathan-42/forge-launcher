@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct CompatibilityProfileBadge: View {
+private struct CompatibilityProfileBadge: View {
     let icon: String
     let text: String
 

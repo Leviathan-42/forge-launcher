@@ -71,7 +71,7 @@ struct ForgeButtonStyle: ButtonStyle {
     }
 }
 
-struct LiquidGlassModifier: ViewModifier {
+private struct LiquidGlassModifier: ViewModifier {
     var cornerRadius: CGFloat = 28
     var opacity: Double = 0.52
 

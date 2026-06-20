@@ -124,7 +124,7 @@ struct BackendPickerCard: View {
     }
 }
 
-struct BackendGuideRow: View {
+private struct BackendGuideRow: View {
     let label: String
     let value: String
 
