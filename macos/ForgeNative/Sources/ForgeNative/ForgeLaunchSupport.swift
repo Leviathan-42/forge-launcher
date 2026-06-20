@@ -112,12 +112,7 @@ extension ForgeStore {
         switch launchBackend {
         case .d3dMetal:
             if let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {
-                let dllPaths = [
-                    gptkBase.appendingPathComponent("wine/x86_64-windows").path,
-                    gptkBase.appendingPathComponent("wine/x86_64-unix").path,
-                    gptkBase.appendingPathComponent("wine/i386-windows").path,
-                    gptkBase.appendingPathComponent("wine/x86_32on64-unix").path
-                ].filter { FileManager.default.fileExists(atPath: $0) }
+                let dllPaths = gptkWineDllSearchPaths(gptkBase: gptkBase)
                 if !dllPaths.isEmpty {
                     env["WINEDLLPATH"] = dedupePathParts(dllPaths + [env["WINEDLLPATH"] ?? ""]).joined(separator: ":")
                 }
@@ -211,12 +206,7 @@ extension ForgeStore {
             ) : (env["DYLD_LIBRARY_PATH"] ?? "")
             var gameWineDllPath = ""
             if gameBackend == .d3dMetal, let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {
-                gameWineDllPath = [
-                    gptkBase.appendingPathComponent("wine/x86_64-windows").path,
-                    gptkBase.appendingPathComponent("wine/x86_64-unix").path,
-                    gptkBase.appendingPathComponent("wine/i386-windows").path,
-                    gptkBase.appendingPathComponent("wine/x86_32on64-unix").path
-                ].filter { FileManager.default.fileExists(atPath: $0) }.joined(separator: ":")
+                gameWineDllPath = gptkWineDllSearchPaths(gptkBase: gptkBase).joined(separator: ":")
             }
             let gameDllOverrides = wineDllOverrides(for: gameBackend) ?? ""
 

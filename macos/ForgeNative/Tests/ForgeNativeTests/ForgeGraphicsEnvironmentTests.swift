@@ -102,6 +102,21 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
         XCTAssertEqual(base?.path, gptkLibPath)
     }
 
+    func testGptkWineDllSearchPathsKeepsExistingSubpathsInOrder() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let windows64 = root.appendingPathComponent("wine/x86_64-windows", isDirectory: true)
+        let windows32 = root.appendingPathComponent("wine/i386-windows", isDirectory: true)
+        try FileManager.default.createDirectory(at: windows64, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: windows32, withIntermediateDirectories: true)
+
+        XCTAssertEqual(
+            ForgeStore.gptkWineDllSearchPaths(gptkBase: root),
+            [windows64.path, windows32.path]
+        )
+    }
+
     func testTrimmedNonEmptyPathRejectsBlankValues() {
         XCTAssertNil(ForgeStore.trimmedNonEmptyPath(nil))
         XCTAssertNil(ForgeStore.trimmedNonEmptyPath(" \n\t "))

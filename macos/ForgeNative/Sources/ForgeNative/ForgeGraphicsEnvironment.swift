@@ -1,6 +1,12 @@
 import Foundation
 
 private let moltenVkIcdRelativePath = "share/vulkan/icd.d/MoltenVK_icd.json"
+private let gptkWineDllSearchSubpaths = [
+    "wine/x86_64-windows",
+    "wine/x86_64-unix",
+    "wine/i386-windows",
+    "wine/x86_32on64-unix"
+]
 let defaultMoltenVkIcdPath = "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
 
 extension ForgeStore {
@@ -87,6 +93,12 @@ extension ForgeStore {
             return configured
         }
         return configured
+    }
+
+    nonisolated static func gptkWineDllSearchPaths(gptkBase: URL) -> [String] {
+        gptkWineDllSearchSubpaths
+            .map { gptkBase.appendingPathComponent($0).path }
+            .filter { FileManager.default.fileExists(atPath: $0) }
     }
 
     nonisolated static func d3dMetalFrameworkPath(gptkLibPath: String?) -> String? {
