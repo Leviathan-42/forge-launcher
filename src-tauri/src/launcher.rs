@@ -266,7 +266,7 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         cmd.env_remove("DYLD_LIBRARY_PATH");
     }
 
-    // ── Sync mode ─────────────────────────────────────────────────────────
+    // Sync mode
     // MSYNC trick from Whisky: D3DMetal checks for WINEESYNC internally,
     // so when using MSYNC we must lie and set WINEESYNC=1 too.
     if opts.msync {
@@ -276,7 +276,7 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         cmd.env("WINEESYNC", "1");
     }
 
-    // ── Graphics backend DLL overrides ───────────────────────────────────
+    // Graphics backend DLL overrides
     match &launch_backend {
         GraphicsBackend::D3DMetal => {
             // Prefer GPTK/D3DMetal's D3D/DXGI modules when a GPTK Wine lib
@@ -340,7 +340,7 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         }
     }
 
-    // ── D3DMetal / GPTK extras ────────────────────────────────────────────
+    // D3DMetal / GPTK extras
 
     if opts.enable_dxr {
         cmd.env("D3DM_SUPPORT_DXR", "1");
@@ -349,7 +349,7 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         cmd.env("D3DM_ENABLE_METALFX", "1");
     }
 
-    // ── MangoHud (comprehensive overlay: FPS, CPU, GPU, RAM, VRAM) ───────
+    // MangoHud (comprehensive overlay: FPS, CPU, GPU, RAM, VRAM)
     // Only works with DXVK + MoltenVK (Vulkan pipeline). Requires:
     //   brew install mangohud
     // For D3DMetal (Metal pipeline), the in-game Metal HUD via
@@ -362,12 +362,12 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         );
     }
 
-    // ── Rosetta / CPU ─────────────────────────────────────────────────────
+    // Rosetta / CPU
     if opts.advertise_avx {
         cmd.env("ROSETTA_ADVERTISE_AVX", "1");
     }
 
-    // ── Metal GPU trace (for profiling) ───────────────────────────────────
+    // Metal GPU trace (for profiling)
     if opts.metal_trace {
         cmd.env("METAL_CAPTURE_ENABLED", "1");
     }
