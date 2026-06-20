@@ -44,7 +44,11 @@ final class ForgeStore: ObservableObject {
         do {
             try Self.saveConfig(config, to: Self.appSupportDir())
         } catch {
-            alertMessage = "Bottle changed for this session, but Forge could not save config.json: \(error.localizedDescription)"
+            alertMessage = Self.sessionOnlyChangeMessage(
+                change: "Bottle",
+                destination: "config.json",
+                error: error
+            )
         }
         refreshBottleState()
     }
@@ -236,7 +240,11 @@ final class ForgeStore: ObservableObject {
         do {
             try Self.saveBottle(current, to: Self.appSupportDir(), config: config)
         } catch {
-            alertMessage = "Backend changed for this session, but Forge could not save bottles.json: \(error.localizedDescription)"
+            alertMessage = Self.sessionOnlyChangeMessage(
+                change: "Backend",
+                destination: "bottles.json",
+                error: error
+            )
         }
     }
 
@@ -246,7 +254,11 @@ final class ForgeStore: ObservableObject {
             try Self.saveConfig(config, to: Self.appSupportDir())
             try Self.setMetalHudDefaults(enabled)
         } catch {
-            alertMessage = "Metal HUD changed for this session, but Forge could not save config: \(error.localizedDescription)"
+            alertMessage = Self.sessionOnlyChangeMessage(
+                change: "Metal HUD",
+                destination: "config",
+                error: error
+            )
         }
     }
 
@@ -266,5 +278,13 @@ final class ForgeStore: ObservableObject {
         profiles.first(where: { $0.id == bottle.runtimeProfileId })
             ?? profiles.first
             ?? RuntimeProfile.defaultProfile(config: config)
+    }
+
+    private nonisolated static func sessionOnlyChangeMessage(
+        change: String,
+        destination: String,
+        error: Error
+    ) -> String {
+        "\(change) changed for this session, but Forge could not save \(destination): \(error.localizedDescription)"
     }
 }
