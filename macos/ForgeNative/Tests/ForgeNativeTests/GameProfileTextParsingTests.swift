@@ -6,8 +6,12 @@ final class GameProfileTextParsingTests: XCTestCase {
         let args = try ForgeStore.parseLaunchArgs("-force-vulkan \"value with spaces\" plain\\ value C:\\Games\\Tool")
 
         XCTAssertEqual(args, ["-force-vulkan", "value with spaces", "plain value", "C:\\Games\\Tool"])
-        XCTAssertEqual(ForgeStore.formatLaunchArgs(args), "-force-vulkan \"value with spaces\" \"plain value\" \"C:\\\\Games\\\\Tool\"")
-        XCTAssertEqual(try ForgeStore.parseLaunchArgs(ForgeStore.formatLaunchArgs(args)), args)
+        let formattedArgs = ForgeStore.formatLaunchArgs(args)
+        XCTAssertEqual(
+            formattedArgs,
+            "-force-vulkan \"value with spaces\" \"plain value\" \"C:\\\\Games\\\\Tool\""
+        )
+        XCTAssertEqual(try ForgeStore.parseLaunchArgs(formattedArgs), args)
 
         let emptyArgs = try ForgeStore.parseLaunchArgs("\"\" '' --name=\"\"")
         XCTAssertEqual(emptyArgs, ["", "", "--name="])
@@ -25,6 +29,16 @@ final class GameProfileTextParsingTests: XCTestCase {
             ForgeStore.formatEnvOverrides(env),
             "FORGE_STACK_GUARANTEE_BYTES=262144\nVK_ICD_FILENAMES=/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
         )
+    }
+
+    func testEnvOverridesAllowEqualsInValues() throws {
+        let env = try ForgeStore.parseEnvOverrides("""
+        WINEDLLOVERRIDES=dxgi=n,b;mscoree,mshtml=
+        QUERY=a=b=c
+        """)
+
+        XCTAssertEqual(env["WINEDLLOVERRIDES"], "dxgi=n,b;mscoree,mshtml=")
+        XCTAssertEqual(env["QUERY"], "a=b=c")
     }
 
     func testProfileTextHelpersRejectInvalidInput() {

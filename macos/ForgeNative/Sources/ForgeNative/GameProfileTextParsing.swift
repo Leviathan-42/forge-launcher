@@ -79,9 +79,15 @@ extension ForgeStore {
                 || arg.contains("'")
                 || arg.contains("\\")
             guard needsQuoting else { return arg }
-            return "\"\(arg.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\""))\""
+            return "\"\(escapedLaunchArg(arg))\""
         }
         .joined(separator: " ")
+    }
+
+    nonisolated private static func escapedLaunchArg(_ arg: String) -> String {
+        arg
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
     nonisolated static func parseEnvOverrides(_ text: String) throws -> [String: String] {
