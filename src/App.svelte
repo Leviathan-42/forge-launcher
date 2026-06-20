@@ -43,6 +43,7 @@
 
   const steamSafeArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"] as const;
   const desktopLaunchUnavailableMessage = "Launch is only available in the Tauri desktop app.";
+  const desktopLaunchUnavailableLabel = "Open the Tauri desktop app to launch";
   const defaultRuntimeStackId: RuntimeStackId = "wine11-moltenvk";
   const runtimeStacks: {
     id: RuntimeStackId;
@@ -307,6 +308,10 @@
     return false;
   }
 
+  function runButtonLabel(entry: ExeEntry) {
+    return desktopCommandsAvailable ? `Run ${entry.name}` : desktopLaunchUnavailableLabel;
+  }
+
   function currentBottle() {
     return bottles.find((bottle) => bottle.id === selectedBottleId) || bottles[0];
   }
@@ -545,8 +550,8 @@
             </div>
             <button
               class="run-button"
-              title={desktopCommandsAvailable ? `Run ${entry.name}` : "Open the Tauri desktop app to launch"}
-              aria-label={desktopCommandsAvailable ? `Run ${entry.name}` : "Open the Tauri desktop app to launch"}
+              title={runButtonLabel(entry)}
+              aria-label={runButtonLabel(entry)}
               on:click={() => runExeEntry(entry)}
               disabled={busy !== "" || !desktopCommandsAvailable}
             >
