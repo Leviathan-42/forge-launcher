@@ -56,7 +56,7 @@ final class CompatibilityProfileTests: XCTestCase {
     }
 
     func testLoadGameProfilesMigratesOldAgainstTheStormD3DMetalOverrideToDXMT() throws {
-        let support = try makeSupportDir()
+        let support = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: support) }
 
         let staleProfile = GameCompatibilityProfile(
@@ -77,7 +77,7 @@ final class CompatibilityProfileTests: XCTestCase {
     }
 
     func testLoadGameProfilesMigratesAmongUsNonWineD3DOverrideToSeed() throws {
-        let support = try makeSupportDir()
+        let support = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: support) }
 
         let staleProfile = GameCompatibilityProfile(
@@ -97,7 +97,7 @@ final class CompatibilityProfileTests: XCTestCase {
     }
 
     func testLoadGameProfilesMigratesOverwatchD3DMetalOverrideToSeed() throws {
-        let support = try makeSupportDir()
+        let support = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: support) }
 
         let staleProfile = GameCompatibilityProfile(
@@ -117,7 +117,7 @@ final class CompatibilityProfileTests: XCTestCase {
     }
 
     func testLoadGameProfilesAddsOverwatchStackGuaranteeToExistingProfile() throws {
-        let support = try makeSupportDir()
+        let support = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: support) }
 
         let existingProfile = GameCompatibilityProfile(
@@ -178,15 +178,6 @@ final class CompatibilityProfileTests: XCTestCase {
         XCTAssertNil(reset[key])
         XCTAssertFalse(ForgeStore.gameProfileCanReset(reset, key: key))
     }
-
-    private func makeSupportDir() throws -> URL {
-        let support = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ForgeNativeTests-", isDirectory: true)
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        return support
-    }
-
     private func writeProfiles(_ profiles: [GameCompatibilityProfile], to support: URL) throws {
         let data = try JSONEncoder.forge.encode(profiles)
         try data.write(to: support.appendingPathComponent("game_compatibility_profiles.json"), options: .atomic)

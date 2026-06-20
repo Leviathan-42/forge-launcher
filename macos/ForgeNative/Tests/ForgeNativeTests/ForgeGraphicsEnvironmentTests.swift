@@ -103,7 +103,7 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
     }
 
     func testGptkWineDllSearchPathsKeepsExistingSubpathsInOrder() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let windows64 = root.appendingPathComponent("wine/x86_64-windows", isDirectory: true)
@@ -124,7 +124,7 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
     }
 
     func testConfigureMoltenVkUsesConfiguredIcdFile() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let icd = root.appendingPathComponent("MoltenVK_icd.json")
@@ -145,7 +145,7 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
     }
 
     func testConfigureMoltenVkSkipsConfiguredDirectoryForNestedIcdFile() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let icd = root.appendingPathComponent("MoltenVK_icd.json")
@@ -163,7 +163,7 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
     }
 
     func testConfigureMoltenVkPreservesExistingIcdEnvironment() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let icd = root.appendingPathComponent("MoltenVK_icd.json")
@@ -192,13 +192,5 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
             defaultBackend: .dxvk,
             env: [:]
         )
-    }
-
-    private func makeTempDir() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ForgeGraphicsEnvironmentTests", isDirectory: true)
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
     }
 }

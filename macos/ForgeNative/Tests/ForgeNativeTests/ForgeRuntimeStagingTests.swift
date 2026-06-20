@@ -3,7 +3,7 @@ import XCTest
 
 final class ForgeRuntimeStagingTests: XCTestCase {
     func testCopyIfDifferentCopiesMissingFileAndCreatesParentDirectory() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let source = root.appendingPathComponent("source/d3d11.dll")
@@ -20,7 +20,7 @@ final class ForgeRuntimeStagingTests: XCTestCase {
     }
 
     func testCopyIfDifferentSkipsExistingFileWithMatchingSize() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let source = root.appendingPathComponent("source.dll")
@@ -34,7 +34,7 @@ final class ForgeRuntimeStagingTests: XCTestCase {
     }
 
     func testCopyIfDifferentReplacesExistingFileWithDifferentSize() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let source = root.appendingPathComponent("source.dll")
@@ -48,7 +48,7 @@ final class ForgeRuntimeStagingTests: XCTestCase {
     }
 
     func testRemoveStagedD3DMetalDllsRemovesOnlyStagedDllFiles() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let gameDir = root.appendingPathComponent("Game", isDirectory: true)
@@ -79,7 +79,7 @@ final class ForgeRuntimeStagingTests: XCTestCase {
     }
 
     func testDXVKSourceRootsFindsNestedRuntimeVersionsBeforeBundleRoot() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let runtimes = root.appendingPathComponent("Runtimes", isDirectory: true)
@@ -98,7 +98,7 @@ final class ForgeRuntimeStagingTests: XCTestCase {
     }
 
     func testDXMTSourceRootsIncludesRuntimeBundlesAndWineBundledFallback() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let runtimes = root.appendingPathComponent("Runtimes", isDirectory: true)
@@ -118,7 +118,7 @@ final class ForgeRuntimeStagingTests: XCTestCase {
     }
 
     func testEnsureDXMTInstalledStagesD3D11AliasWithoutRealRuntime() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let wineRoot = root.appendingPathComponent("wine-runtime", isDirectory: true)
@@ -177,7 +177,7 @@ final class ForgeRuntimeStagingTests: XCTestCase {
     }
 
     func testSteamGameDirectoryReadsInstallDirFromCompactManifest() throws {
-        let root = try makeTempDir()
+        let root = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
 
         let steamapps = root.appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)
@@ -200,13 +200,5 @@ final class ForgeRuntimeStagingTests: XCTestCase {
 
     private func standardizedPaths(_ paths: [String]) -> [String] {
         paths.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
-    }
-
-    private func makeTempDir() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ForgeRuntimeStagingTests", isDirectory: true)
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
     }
 }

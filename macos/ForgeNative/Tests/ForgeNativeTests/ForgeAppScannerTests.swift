@@ -119,13 +119,11 @@ final class ForgeAppScannerTests: XCTestCase {
     }
 
     private func makePrefix() throws -> URL {
-        try makeDirectory(UUID().uuidString)
+        try makeTempDirectory()
     }
 
     private func makeDirectory(_ name: String) throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ForgeAppScannerTests", isDirectory: true)
-            .appendingPathComponent(name, isDirectory: true)
+        let url = try makeTempDirectory().appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }

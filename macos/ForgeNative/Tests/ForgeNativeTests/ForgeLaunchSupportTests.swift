@@ -125,9 +125,7 @@ final class ForgeLaunchSupportTests: XCTestCase {
     }
 
     func testSteamGameDirectoryReadsInstallDirFromManifest() throws {
-        let prefix = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ForgeLaunchSupportTests")
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let prefix = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: prefix) }
 
         let steamapps = prefix.appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)

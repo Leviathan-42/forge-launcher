@@ -3,7 +3,7 @@ import XCTest
 
 final class ForgePersistenceTests: XCTestCase {
     func testLoadConfigReturnsDefaultsWhenMissingAndRoundTripsSavedConfig() throws {
-        let support = try makeSupportDir()
+        let support = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: support) }
 
         XCTAssertEqual(try ForgeStore.loadConfig(from: support).defaultPrefix, AppConfig.defaults.defaultPrefix)
@@ -30,7 +30,7 @@ final class ForgePersistenceTests: XCTestCase {
     }
 
     func testLoadProfilesReturnsDefaultForMissingOrEmptyProfileFile() throws {
-        let support = try makeSupportDir()
+        let support = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: support) }
         let config = AppConfig.defaults
 
@@ -74,7 +74,7 @@ final class ForgePersistenceTests: XCTestCase {
     }
 
     func testSaveBottleUpdatesExistingBottleAndInsertsNewBottle() throws {
-        let support = try makeSupportDir()
+        let support = try makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: support) }
         let config = AppConfig.defaults
         let existing = BottleEntry(
@@ -105,13 +105,5 @@ final class ForgePersistenceTests: XCTestCase {
         XCTAssertEqual(bottles.first(where: { $0.prefixPath == config.defaultPrefix })?.graphicsBackend, .dxmt)
         XCTAssertEqual(bottles.first(where: { $0.prefixPath == config.defaultPrefix })?.envOverrides, ["TEST": "1"])
         XCTAssertEqual(bottles.first?.prefixPath, "/tmp/extra-prefix")
-    }
-
-    private func makeSupportDir() throws -> URL {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ForgePersistenceTests", isDirectory: true)
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
     }
 }
