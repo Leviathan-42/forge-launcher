@@ -52,17 +52,12 @@ use tauri::{AppHandle, Emitter};
 // Public types
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum DownloadBackend {
+    #[default]
     DepotDownloader,
     SteamCmd,
-}
-
-impl Default for DownloadBackend {
-    fn default() -> Self {
-        DownloadBackend::DepotDownloader
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -217,7 +212,7 @@ fn extract_username_from_bytes(bytes: &[u8]) -> Option<String> {
     while i < bytes.len() {
         // Protobuf length-delimited fields: the length byte precedes the string.
         let len = bytes[i] as usize;
-        if len >= 3 && len <= 32 && i + 1 + len <= bytes.len() {
+        if (3..=32).contains(&len) && i + 1 + len <= bytes.len() {
             let slice = &bytes[i + 1..i + 1 + len];
             if let Ok(s) = std::str::from_utf8(slice) {
                 if s.chars()
@@ -501,7 +496,7 @@ where
         nix::pty::ForkptyResult::Child => {
             // Child: exec DepotDownloader. The PTY becomes its stdin/stdout/stderr.
             let args_refs: Vec<&CString> = args.iter().collect();
-            let _ = execvp(&args_refs[0], &args_refs);
+            let _ = execvp(args_refs[0], &args_refs);
             // execvp never returns on success
             std::process::exit(1);
         }
@@ -790,6 +785,21 @@ fn cstring_arg(label: &str, value: impl Into<Vec<u8>>) -> Result<CString, String
         .map_err(|_| format!("DepotDownloader argument '{}' contains a NUL byte.", label))
 }
 
+fn parse_steamcmd_progress(line: &str) -> Option<f32> {
+    if line.contains("fully installed") || line.contains("up to date") {
+        return Some(100.0);
+    }
+    if let Some(start) = line.find('[') {
+        if let Some(end) = line[start..].find('%') {
+            let inner = line[start + 1..start + end].trim();
+            if inner != "----" {
+                return inner.parse::<f32>().ok();
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -808,19 +818,4 @@ mod tests {
             Err(error) => assert!(error.contains("username")),
         }
     }
-}
-
-fn parse_steamcmd_progress(line: &str) -> Option<f32> {
-    if line.contains("fully installed") || line.contains("up to date") {
-        return Some(100.0);
-    }
-    if let Some(start) = line.find('[') {
-        if let Some(end) = line[start..].find('%') {
-            let inner = line[start + 1..start + end].trim();
-            if inner != "----" {
-                return inner.parse::<f32>().ok();
-            }
-        }
-    }
-    None
 }

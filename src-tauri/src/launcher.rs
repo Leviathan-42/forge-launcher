@@ -42,10 +42,11 @@ use crate::steam::SteamGame;
 // DXVK HUD level
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum DxvkHud {
     /// No HUD
+    #[default]
     Off,
     /// FPS counter only
     Fps,
@@ -53,12 +54,6 @@ pub enum DxvkHud {
     Partial,
     /// All DXVK stats
     Full,
-}
-
-impl Default for DxvkHud {
-    fn default() -> Self {
-        DxvkHud::Off
-    }
 }
 
 // ---------------------------------------------------------------------------

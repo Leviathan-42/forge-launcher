@@ -613,8 +613,7 @@ async fn process_stats(
     // (the first line is the header, second is the data)
     let data_line = stdout
         .lines()
-        .skip(1)
-        .next()
+        .nth(1)
         .ok_or_else(|| "ps returned no data for pid".to_string())?;
 
     let parts: Vec<&str> = data_line.split_whitespace().collect();

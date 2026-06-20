@@ -23,10 +23,11 @@ pub const LEGACY_GPTK_RUNTIME_PROFILE_ID: &str = "gptk-d3dmetal";
 // ---------------------------------------------------------------------------
 
 /// Translation backend to use for a specific game.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum TranslationBackend {
     /// Apple's D3DMetal (best for DX12, requires GPTK).
+    #[default]
     D3DMetal,
     /// DXVK (Vulkan-based; use MoltenVK on macOS, better DX9/10/11 compat).
     Dxvk,
@@ -34,26 +35,15 @@ pub enum TranslationBackend {
     None,
 }
 
-impl Default for TranslationBackend {
-    fn default() -> Self {
-        TranslationBackend::D3DMetal
-    }
-}
-
 /// Source of the game entry so the UI can show the right badge/icon.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum GameSource {
     /// Manually added .exe
+    #[default]
     Manual,
     /// Imported from the local Steam library
     Steam,
-}
-
-impl Default for GameSource {
-    fn default() -> Self {
-        GameSource::Manual
-    }
 }
 
 /// A single game in the user's library.
@@ -213,9 +203,10 @@ impl Default for AppConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub enum GraphicsBackend {
     #[serde(rename = "d3dmetal")]
+    #[default]
     D3DMetal,
     #[serde(rename = "dxvk")]
     Dxvk,
@@ -227,12 +218,6 @@ pub enum GraphicsBackend {
     WineBuiltin,
     #[serde(rename = "none")]
     None,
-}
-
-impl Default for GraphicsBackend {
-    fn default() -> Self {
-        GraphicsBackend::D3DMetal
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
