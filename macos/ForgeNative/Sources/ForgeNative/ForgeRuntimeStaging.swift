@@ -32,7 +32,7 @@ extension ForgeStore {
 
         var targetDirs: [URL] = []
         let exeURL = URL(fileURLWithPath: exePath)
-        if exeURL.lastPathComponent.caseInsensitiveCompare("steam.exe") != .orderedSame {
+        if !isSteamExecutable(exePath, forceSteamMode: false) {
             targetDirs.append(exeURL.deletingLastPathComponent())
         }
         if let steamAppId, let steamGameDir = steamGameDirectory(prefixPath: prefixPath, appId: steamAppId) {
