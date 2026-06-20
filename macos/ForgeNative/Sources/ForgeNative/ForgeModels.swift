@@ -68,7 +68,7 @@ struct BottleAppItem: Identifiable, Hashable {
     var steamAppId: String? = nil
 
     var isSteamClient: Bool {
-        URL(fileURLWithPath: path).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
+        ForgeStore.isSteamExecutable(path, forceSteamMode: false)
     }
 }
 

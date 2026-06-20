@@ -19,9 +19,15 @@ final class ForgeModelTests: XCTestCase {
             path: "/tmp/prefix/drive_c/Games/Example.exe",
             kind: "game"
         )
+        let helper = BottleAppItem(
+            name: "Steam Web Helper",
+            path: "/tmp/prefix/drive_c/Program Files (x86)/Steam/steamwebhelper.exe",
+            kind: "helper"
+        )
 
         XCTAssertTrue(steam.isSteamClient)
         XCTAssertFalse(game.isSteamClient)
+        XCTAssertFalse(helper.isSteamClient)
     }
 
     func testDisplayNameNormalizesSeparatorsAndSteamName() {
