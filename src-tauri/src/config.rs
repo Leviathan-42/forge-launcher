@@ -14,6 +14,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
+pub const DEFAULT_RUNTIME_PROFILE_ID: &str = "wine-vulkan";
+pub const DEFAULT_RUNTIME_PROFILE_NAME: &str = "Forge Wine 11 + MoltenVK";
+pub const LEGACY_GPTK_RUNTIME_PROFILE_ID: &str = "gptk-d3dmetal";
+
 // ---------------------------------------------------------------------------
 // Game — one entry in the library
 // ---------------------------------------------------------------------------
@@ -430,8 +434,8 @@ pub fn default_runtime_profiles(_cfg: &AppConfig) -> Vec<RuntimeProfile> {
     }
 
     let profiles = vec![RuntimeProfile {
-        id: "wine-vulkan".to_string(),
-        name: "Forge Wine 11 + MoltenVK".to_string(),
+        id: DEFAULT_RUNTIME_PROFILE_ID.to_string(),
+        name: DEFAULT_RUNTIME_PROFILE_NAME.to_string(),
         wine64_path: detect_wine10_plus().unwrap_or_else(|| {
             "/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine".to_string()
         }),
@@ -461,7 +465,7 @@ pub fn load_runtime_profiles(app: &AppHandle) -> Result<Vec<RuntimeProfile>, Str
         serde_json::from_str(&raw).map_err(|e| format!("Parse runtime_profiles.json: {}", e))?;
 
     let defaults = default_runtime_profiles(&load_config(app)?);
-    profiles.retain(|profile| profile.id == "wine-vulkan");
+    profiles.retain(|profile| profile.id == DEFAULT_RUNTIME_PROFILE_ID);
     for default in defaults {
         if let Some(existing) = profiles.iter_mut().find(|profile| profile.id == default.id) {
             let default_is_forge_runtime =

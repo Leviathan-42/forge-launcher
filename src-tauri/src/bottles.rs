@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::{AppHandle, Manager};
 
-use crate::config::{self, GraphicsBackend};
+use crate::config::{
+    self, GraphicsBackend, DEFAULT_RUNTIME_PROFILE_ID, LEGACY_GPTK_RUNTIME_PROFILE_ID,
+};
 use crate::launcher::{self, LaunchOptions};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -168,8 +170,8 @@ pub fn update_bottle_runtime(
 
     if !force && Path::new(&prefix).join("drive_c").exists() {
         let old_profile = config::runtime_profile_by_id(app, &entry.runtime_profile_id).ok();
-        if old_profile.as_ref().map(|p| p.id.as_str()) == Some("gptk-d3dmetal")
-            && new_profile.id != "gptk-d3dmetal"
+        if old_profile.as_ref().map(|p| p.id.as_str()) == Some(LEGACY_GPTK_RUNTIME_PROFILE_ID)
+            && new_profile.id != LEGACY_GPTK_RUNTIME_PROFILE_ID
         {
             return Err(
                 "Safety warning: this bottle already exists and was using GPTK/D3DMetal. \
@@ -192,7 +194,7 @@ pub fn update_bottle_runtime(
 pub fn create_peak_test_bottle(app: &AppHandle) -> Result<Vec<Bottle>, String> {
     let cfg = config::load_config(app)?;
     let prefix = default_prefix_for_name(&cfg.default_prefix, "PEAK Test");
-    let profile = config::runtime_profile_by_id(app, "wine-vulkan")?;
+    let profile = config::runtime_profile_by_id(app, DEFAULT_RUNTIME_PROFILE_ID)?;
     launcher::init_wine_prefix(&prefix, &profile.wine64_path)?;
 
     let mut registry = load_registry(app)?;
@@ -201,13 +203,13 @@ pub fn create_peak_test_bottle(app: &AppHandle) -> Result<Vec<Bottle>, String> {
         .find(|entry| normalize_path(&entry.prefix_path) == normalize_path(&prefix))
     {
         existing.name = "PEAK Test".to_string();
-        existing.runtime_profile_id = "wine-vulkan".to_string();
+        existing.runtime_profile_id = DEFAULT_RUNTIME_PROFILE_ID.to_string();
         existing.graphics_backend = Some(GraphicsBackend::DxvkVkd3d);
     } else {
         registry.push(BottleRegistryEntry {
             name: "PEAK Test".to_string(),
             prefix_path: prefix,
-            runtime_profile_id: "wine-vulkan".to_string(),
+            runtime_profile_id: DEFAULT_RUNTIME_PROFILE_ID.to_string(),
             graphics_backend: Some(GraphicsBackend::DxvkVkd3d),
             env_overrides: HashMap::new(),
         });
@@ -438,7 +440,7 @@ fn load_registry(app: &AppHandle) -> Result<Vec<BottleRegistryEntry>, String> {
     // records to the Vulkan runtime so the UI cannot accidentally launch Steam
     // or games through the old Wine 7.7 GPTK stack.
     for entry in &mut entries {
-        entry.runtime_profile_id = "wine-vulkan".to_string();
+        entry.runtime_profile_id = DEFAULT_RUNTIME_PROFILE_ID.to_string();
         if entry.graphics_backend == Some(GraphicsBackend::D3DMetal) {
             entry.graphics_backend = Some(GraphicsBackend::DxvkVkd3d);
         }
@@ -480,7 +482,7 @@ fn bottle_entry_for_prefix(
 }
 
 fn default_runtime_profile_id() -> String {
-    "wine-vulkan".to_string()
+    DEFAULT_RUNTIME_PROFILE_ID.to_string()
 }
 
 fn save_registry(app: &AppHandle, entries: &[BottleRegistryEntry]) -> Result<(), String> {
