@@ -1,6 +1,8 @@
 # Launch Args and Graphics Backend Notes
 
-Forge is experimental. Launch args are compatibility hints, not guaranteed fixes. The right settings depend on what renderers the game actually ships and what translation backend works best on macOS.
+Forge is experimental. Launch args are compatibility hints, not guaranteed fixes. The
+right settings depend on what renderers the game actually ships and what translation
+backend works best on macOS.
 
 ## Quick rule of thumb
 
@@ -41,7 +43,9 @@ DXVK is for games using Direct3D 9/10/11:
 Game D3D11 renderer -> DXVK -> Vulkan -> MoltenVK -> Metal
 ```
 
-So if a game supports native Vulkan well, forcing Vulkan can avoid DXVK entirely. If a game is D3D11-only, DXVK may help — but on macOS it depends on whether MoltenVK supports the Vulkan features DXVK needs for that game.
+So if a game supports native Vulkan well, forcing Vulkan can avoid DXVK entirely. If a
+game is D3D11-only, DXVK may help, but on macOS it depends on whether MoltenVK supports
+the Vulkan features DXVK needs for that game.
 
 ## Common Unity launch args
 

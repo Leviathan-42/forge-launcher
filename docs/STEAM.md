@@ -10,7 +10,10 @@ One main Forge bottle
     -> installed Windows games
 ```
 
-Steam owns authentication, updates, DRM, Steam Cloud, and Steamworks APIs. Forge scans the bottle and exposes launchable entries in the native SwiftUI app. Do not create separate per-game bottles for normal Steam usage; keep games in the main Steam bottle and use per-game launch options for compatibility.
+Steam owns authentication, updates, DRM, Steam Cloud, and Steamworks APIs. Forge scans
+the bottle and exposes launchable entries in the native SwiftUI app. Do not create
+separate per-game bottles for normal Steam usage; keep games in the main Steam bottle
+and use per-game launch options for compatibility.
 
 ## Detection
 
@@ -63,13 +66,18 @@ SteamAppId=<appid>
 SteamGameId=<appid>
 ```
 
-but many games still fail because `SteamAPI_Init()` cannot connect to a valid Steam session. Use direct launch only for diagnostics or non-Steam applications.
+but many games still fail because `SteamAPI_Init()` cannot connect to a valid Steam
+session. Use direct launch only for diagnostics or non-Steam applications.
 
 ## Steam safe mode split
 
-Steam UI safe mode should not become the game backend. Forge uses `FORGE_GAME_*` variables so a patched Forge Wine runtime can restore the intended game backend for child game processes.
+Steam UI safe mode should not become the game backend. Forge uses `FORGE_GAME_*`
+variables so a patched Forge Wine runtime can restore the intended game backend for
+child game processes.
 
-Per-game non-graphics diagnostics such as `FORGE_STACK_GUARANTEE_BYTES` may also be set from the game compatibility profile. Keep these narrowly scoped and documented; they are not a replacement for a real Steam session or a finished compatibility fix.
+Per-game non-graphics diagnostics such as `FORGE_STACK_GUARANTEE_BYTES` may also be set
+from the game compatibility profile. Keep these narrowly scoped and documented; they are
+not a replacement for a real Steam session or a finished compatibility fix.
 
 ## Compatibility limits
 
@@ -89,7 +97,9 @@ Examples that usually fail on Wine/macOS:
 
 ## Unity game launch options
 
-Unity titles can show mesh/avatar corruption under translation layers. First try keeping the game in the main Steam bottle and adding launch options rather than making a separate bottle.
+Unity titles can show mesh/avatar corruption under translation layers. First try keeping
+the game in the main Steam bottle and adding launch options rather than making a separate
+bottle.
 
 Useful options:
 

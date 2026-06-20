@@ -108,7 +108,8 @@ ForgeNative uses:
 
 ## Adding launch/runtime behavior
 
-Launch requests start in `ForgeStore.launch(_:)` inside `ForgeStore.swift`; process orchestration lives in `ForgeStore.spawn(...)` inside `ForgeLaunchSupport.swift`:
+Launch requests start in `ForgeStore.launch(_:)` inside `ForgeStore.swift`; process
+orchestration lives in `ForgeStore.spawn(...)` inside `ForgeLaunchSupport.swift`:
 
 - Wine path resolution
 - backend-specific env vars

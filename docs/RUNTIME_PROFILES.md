@@ -94,9 +94,12 @@ Direct game launches clear Steam-only DXVK filters so Steam safe mode does not l
 
 ## Compatibility notes
 
-Per-game launch options are expected. Keep these in a compatibility profile, not in a separate bottle, when the game is installed through Steam.
+Per-game launch options are expected. Keep these in a compatibility profile, not in a
+separate bottle, when the game is installed through Steam.
 
-The native app now exposes those profiles directly from the app list. Each row shows compact profile badges when launch args, env overrides, or notes exist, and the pencil action opens an editor for:
+The native app now exposes those profiles directly from the app list. Each row shows
+compact profile badges when launch args, env overrides, or notes exist, and the pencil
+action opens an editor for:
 
 ```text
 Backend override
@@ -106,7 +109,8 @@ Notes
 Reset to seeded profile
 ```
 
-Unity games are especially sensitive to graphics threading and GPU skinning under translation layers. Useful launch options to test:
+Unity games are especially sensitive to graphics threading and GPU skinning under
+translation layers. Useful launch options to test:
 
 ```text
 -force-vulkan
@@ -121,11 +125,15 @@ Known local example:
 PEAK: -force-vulkan -force-gfx-st -disable-gpu-skinning -screen-fullscreen 1
 ```
 
-Direct-launching Steam games can fail because Steamworks is unavailable. Prefer Windows Steam `-applaunch <appid>` from the main bottle for Steam games.
+Direct-launching Steam games can fail because Steamworks is unavailable. Prefer Windows
+Steam `-applaunch <appid>` from the main bottle for Steam games.
 
 ## Current per-game notes
 
-- Against the Storm (`steam:1336490`): DXMT; Unity D3D11 path works through D3D11 -> Metal after staging DXMT DLLs.
-- Among Us (`steam:945360`): WineD3D with `WINE_D3D_CONFIG=renderer=vulkan`; DXMT/DXVK are not viable for its 32-bit Unity build in the current WoW64 runtime.
-- PEAK (`name:peak`): native Unity Vulkan via `-force-vulkan -force-gfx-st -disable-gpu-skinning -screen-fullscreen 1`.
+- Against the Storm (`steam:1336490`): DXMT; Unity D3D11 path works through
+  D3D11 -> Metal after staging DXMT DLLs.
+- Among Us (`steam:945360`): WineD3D with `WINE_D3D_CONFIG=renderer=vulkan`;
+  DXMT/DXVK are not viable for its 32-bit Unity build in the current WoW64 runtime.
+- PEAK (`name:peak`): native Unity Vulkan via
+  `-force-vulkan -force-gfx-st -disable-gpu-skinning -screen-fullscreen 1`.
 - Overwatch 2 (`steam:2357570`): still under investigation. The active Wine patch behind `FORGE_STACK_GUARANTEE_BYTES=262144` changes the failure from an immediate `virtual_setup_exception stack overflow` / loader-lock spin to a short exit before rendering. Steam tracks the game briefly, then reports exit code `0xe1d0ffff`. This is progress, not a working profile yet.
