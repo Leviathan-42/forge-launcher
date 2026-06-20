@@ -223,8 +223,7 @@ extension ForgeStore {
 
     nonisolated static func guessKind(_ path: String) -> String {
         let raw = normalizedForFilter(path)
-        let file = URL(fileURLWithPath: path).lastPathComponent.lowercased()
-        if file == "steam.exe"
+        if isSteamExecutable(path, forceSteamMode: false)
             || raw.contains("/launcher/")
             || raw.contains("battle.net")
             || raw.contains("ubisoft") {

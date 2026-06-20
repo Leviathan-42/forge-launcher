@@ -36,6 +36,7 @@ final class ForgeModelTests: XCTestCase {
     }
 
     func testGuessKindClassifiesKnownLaunchers() {
+        XCTAssertEqual(ForgeStore.guessKind("/tmp/Steam/Steam.EXE"), "launcher")
         XCTAssertEqual(ForgeStore.guessKind("/tmp/Battle.net/Battle.net.exe"), "launcher")
         XCTAssertEqual(ForgeStore.guessKind("/tmp/Games/Example.exe"), "game")
     }
