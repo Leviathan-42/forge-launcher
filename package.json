@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "rust:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "rust:check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "rust:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
     "native:dev": "scripts/run-native-app.sh",
@@ -15,7 +16,7 @@
     "native:build": "swift build --package-path macos/ForgeNative -c release",
     "native:test": "swift test --package-path macos/ForgeNative",
     "native:check": "swift build --package-path macos/ForgeNative -c debug && npm run native:test",
-    "check:all": "npm run check && npm run build && npm run rust:check && npm run rust:clippy && npm run native:check",
+    "check:all": "npm run check && npm run build && npm run rust:fmt && npm run rust:check && npm run rust:clippy && npm run native:check",
     "kill": "scripts/forge-kill.sh",
     "doctor": "scripts/forge-doctor.sh"
   },
