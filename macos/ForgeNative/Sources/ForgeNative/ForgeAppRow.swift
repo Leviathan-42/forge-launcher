@@ -44,7 +44,7 @@ struct LiquidAppRow: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(.thinMaterial)
-                Image(systemName: appIconName)
+                Image(systemName: app.symbolName)
                     .font(.system(size: 17, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.secondary)
@@ -117,10 +117,6 @@ struct LiquidAppRow: View {
         .padding(.vertical, 9)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.09), lineWidth: 1))
-    }
-
-    private var appIconName: String {
-        app.kind == "launcher" ? "bolt.fill" : "gamecontroller.fill"
     }
 
     private var resetProfileIconName: String {

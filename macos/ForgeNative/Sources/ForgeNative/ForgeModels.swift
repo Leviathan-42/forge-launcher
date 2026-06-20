@@ -70,6 +70,10 @@ struct BottleAppItem: Identifiable, Hashable {
     var isSteamClient: Bool {
         ForgeStore.isSteamExecutable(path, forceSteamMode: false)
     }
+
+    var symbolName: String {
+        kind == "launcher" ? "bolt.fill" : "gamecontroller.fill"
+    }
 }
 
 enum GraphicsBackend: String, Codable, Equatable, CaseIterable {

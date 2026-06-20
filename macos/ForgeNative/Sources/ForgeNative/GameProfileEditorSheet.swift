@@ -43,7 +43,7 @@ struct GameProfileEditorSheet: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(.white.opacity(0.10))
-                    Image(systemName: appIconName)
+                    Image(systemName: app.symbolName)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.74))
                 }
@@ -155,10 +155,6 @@ struct GameProfileEditorSheet: View {
         .padding(22)
         .frame(width: 640)
         .background(.black.opacity(0.56))
-    }
-
-    private var appIconName: String {
-        app.kind == "launcher" ? "bolt.fill" : "gamecontroller.fill"
     }
 
     private var resetButtonForeground: Color {
