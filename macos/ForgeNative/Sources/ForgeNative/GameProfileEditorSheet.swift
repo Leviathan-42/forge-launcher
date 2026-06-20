@@ -93,8 +93,7 @@ struct GameProfileEditorSheet: View {
                     .font(.system(size: 12, weight: .regular, design: .monospaced))
                     .padding(.horizontal, 10)
                     .frame(height: 36)
-                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+                    .profileEditorFieldBackground()
             }
 
             HStack(alignment: .top, spacing: 14) {
@@ -105,8 +104,7 @@ struct GameProfileEditorSheet: View {
                         .scrollContentBackground(.hidden)
                         .padding(8)
                         .frame(height: 128)
-                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+                        .profileEditorFieldBackground()
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -116,8 +114,7 @@ struct GameProfileEditorSheet: View {
                         .scrollContentBackground(.hidden)
                         .padding(8)
                         .frame(height: 128)
-                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+                        .profileEditorFieldBackground()
                 }
             }
 
@@ -134,7 +131,12 @@ struct GameProfileEditorSheet: View {
                 } label: {
                     Label("Reset", systemImage: "arrow.uturn.backward")
                 }
-                .buttonStyle(ForgeButtonStyle(tint: .white.opacity(0.09), foreground: .white.opacity(canReset ? 0.84 : 0.42)))
+                .buttonStyle(
+                    ForgeButtonStyle(
+                        tint: .white.opacity(0.09),
+                        foreground: .white.opacity(canReset ? 0.84 : 0.42)
+                    )
+                )
                 .disabled(!canReset)
 
                 Spacer()
@@ -167,5 +169,21 @@ struct GameProfileEditorSheet: View {
         } catch {
             validationMessage = error.localizedDescription
         }
+    }
+}
+
+private struct ProfileEditorFieldBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+
+        content
+            .background(.white.opacity(0.07), in: shape)
+            .overlay(shape.stroke(.white.opacity(0.10), lineWidth: 1))
+    }
+}
+
+private extension View {
+    func profileEditorFieldBackground() -> some View {
+        modifier(ProfileEditorFieldBackground())
     }
 }
