@@ -40,7 +40,11 @@ struct ForgeSidebar: View {
 
             VStack(alignment: .leading, spacing: 9) {
                 SectionLabel("Status")
-                StatusLine(icon: "shippingbox.fill", title: store.prefixExists ? "Bottle ready" : "Bottle missing", value: bottle.name)
+                StatusLine(
+                    icon: "shippingbox.fill",
+                    title: store.prefixExists ? "Bottle ready" : "Bottle missing",
+                    value: bottle.name
+                )
                 StatusLine(icon: "app.badge.fill", title: "Launchable apps", value: "\(store.apps.count)")
                 BackendPickerCard(
                     selection: Binding(

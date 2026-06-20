@@ -53,8 +53,7 @@ struct BottleCard: View {
                 .truncationMode(.middle)
         }
         .padding(14)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
+        .sidebarCardBackground(cornerRadius: 22, fillOpacity: 0.06, strokeOpacity: 0.12)
     }
 }
 
@@ -121,8 +120,7 @@ struct BackendPickerCard: View {
             }
         }
         .padding(13)
-        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+        .sidebarCardBackground()
     }
 }
 
@@ -166,13 +164,45 @@ struct HudToggleCard: View {
             }
             .toggleStyle(.switch)
 
-            Text("Only appears for Metal-backed rendering. Steam itself may hide it; games launched after toggling should inherit it.")
+            Text(
+                "Only appears for Metal-backed rendering. " +
+                    "Steam itself may hide it; games launched after toggling should inherit it."
+            )
                 .font(.system(size: 10.5, weight: .medium))
                 .foregroundStyle(.white.opacity(0.34))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(13)
-        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 1))
+        .sidebarCardBackground()
+    }
+}
+
+private struct SidebarCardBackground: ViewModifier {
+    var cornerRadius: CGFloat = 20
+    var fillOpacity = 0.055
+    var strokeOpacity = 0.10
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        content
+            .background(.white.opacity(fillOpacity), in: shape)
+            .overlay(shape.stroke(.white.opacity(strokeOpacity), lineWidth: 1))
+    }
+}
+
+private extension View {
+    func sidebarCardBackground(
+        cornerRadius: CGFloat = 20,
+        fillOpacity: Double = 0.055,
+        strokeOpacity: Double = 0.10
+    ) -> some View {
+        modifier(
+            SidebarCardBackground(
+                cornerRadius: cornerRadius,
+                fillOpacity: fillOpacity,
+                strokeOpacity: strokeOpacity
+            )
+        )
     }
 }
