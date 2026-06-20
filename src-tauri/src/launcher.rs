@@ -38,6 +38,9 @@ use std::process::{Child, Command};
 use crate::config::{AppConfig, GraphicsBackend};
 use crate::steam::SteamGame;
 
+pub(crate) const QUIET_WINEDEBUG: &str = "fixme-all";
+
+const GST_DEBUG_LEVEL: &str = "1";
 const FIRST_RUN_DLL_OVERRIDES: &str = "mscoree,mshtml=";
 const D3DMETAL_DLL_OVERRIDES: &str = "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b";
 const DXVK_DLL_OVERRIDES: &str = "dxgi,d3d9,d3d10core,d3d11,user32=n,b";
@@ -103,7 +106,7 @@ pub struct LaunchOptions {
 impl LaunchOptions {
     pub fn from_steam_game(steam_game: &SteamGame, prefix_path: &str, cfg: &AppConfig) -> Self {
         let wine_debug = if cfg.suppress_wine_debug {
-            "fixme-all".to_string()
+            QUIET_WINEDEBUG.to_string()
         } else {
             String::new()
         };
@@ -216,8 +219,8 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         let boot = Command::new(&opts.wine64_path)
             .args(["wineboot", "--init"])
             .env("WINEPREFIX", &wine_prefix)
-            .env("WINEDEBUG", "fixme-all")
-            .env("GST_DEBUG", "1")
+            .env("WINEDEBUG", QUIET_WINEDEBUG)
+            .env("GST_DEBUG", GST_DEBUG_LEVEL)
             // Avoid first-run Mono/Gecko prompts blocking unattended bottle setup.
             .env("WINEDLLOVERRIDES", FIRST_RUN_DLL_OVERRIDES)
             .status();
@@ -258,7 +261,7 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         // Whisky uses "fixme-all" not "-all" — keeps real errors visible
         .env("WINEDEBUG", &opts.wine_debug)
         // GStreamer verbosity (matches Whisky)
-        .env("GST_DEBUG", "1")
+        .env("GST_DEBUG", GST_DEBUG_LEVEL)
         // Metal HUD
         .env("MTL_HUD_ENABLED", if opts.show_hud { "1" } else { "0" })
         // Mouse warp — helps cursor capture in games on macOS
@@ -455,8 +458,8 @@ pub fn init_wine_prefix(prefix_path: &str, wine64_path: &str) -> Result<(), Stri
     let status = Command::new(wine64_path)
         .args(["wineboot", "--init"])
         .env("WINEPREFIX", &prefix_path)
-        .env("WINEDEBUG", "fixme-all")
-        .env("GST_DEBUG", "1")
+        .env("WINEDEBUG", QUIET_WINEDEBUG)
+        .env("GST_DEBUG", GST_DEBUG_LEVEL)
         // Avoid first-run Mono/Gecko prompts blocking unattended bottle setup.
         .env("WINEDLLOVERRIDES", FIRST_RUN_DLL_OVERRIDES)
         .status()

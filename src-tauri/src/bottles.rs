@@ -386,7 +386,7 @@ pub fn resolve_launch_options(
         dxvk_hud: Default::default(),
         mangohud_enabled: false,
         wine_debug: if cfg.suppress_wine_debug {
-            "fixme-all".to_string()
+            launcher::QUIET_WINEDEBUG.to_string()
         } else {
             String::new()
         },
