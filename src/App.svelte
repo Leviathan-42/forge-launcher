@@ -21,7 +21,7 @@
 
   type Toast = {
     id: number;
-    tone: "ok" | "bad" | "info";
+    tone: "ok" | "bad";
     text: string;
   };
 
