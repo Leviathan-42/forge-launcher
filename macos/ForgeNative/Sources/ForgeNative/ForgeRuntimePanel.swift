@@ -21,6 +21,23 @@ struct ForgeRuntimePanel: View {
             }
 
             RuntimeActionCard(
+                icon: steamInstalled ? "checkmark.circle.fill" : "arrow.down.circle.fill",
+                title: "Windows Steam",
+                subtitle: steamInstalled
+                    ? "Open the Steam client inside this bottle."
+                    : "Download and run the Steam installer.",
+                primaryTitle: steamInstalled ? "Open" : "Install",
+                isDisabled: store.isLaunching,
+                primaryAction: {
+                    if steamInstalled {
+                        store.openSteam()
+                    } else {
+                        store.installSteam()
+                    }
+                }
+            )
+
+            RuntimeActionCard(
                 icon: "folder.fill",
                 title: "Bottle Folder",
                 subtitle: bottle.prefixPath,
@@ -38,6 +55,10 @@ struct ForgeRuntimePanel: View {
                 primaryAction: { store.reload() }
             )
         }
+    }
+
+    private var steamInstalled: Bool {
+        store.steamPath != nil
     }
 
     private func handleExeDrop(_ providers: [NSItemProvider]) -> Bool {
