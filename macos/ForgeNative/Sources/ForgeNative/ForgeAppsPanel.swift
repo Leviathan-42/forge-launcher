@@ -78,7 +78,9 @@ struct ForgeAppsPanel: View {
             Text(searchText.isEmpty ? "No apps found yet" : "No apps match your search")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.82))
-            Text(searchText.isEmpty ? "Install Steam, then install games or launchers inside this bottle." : "Try another title, path, or launcher type.")
+            Text(searchText.isEmpty
+                ? "Install Steam, then install games or launchers inside this bottle."
+                : "Try another title, path, or launcher type.")
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.46))
                 .multilineTextAlignment(.center)

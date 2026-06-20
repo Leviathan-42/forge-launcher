@@ -117,7 +117,9 @@ extension ForgeStore {
             return entry.pathExtension.caseInsensitiveCompare("exe") == .orderedSame
                 && !isHiddenHelperExecutableName(file)
         }
-        if let exact = exes.first(where: { $0.deletingPathExtension().lastPathComponent.caseInsensitiveCompare(dir.lastPathComponent) == .orderedSame }) {
+        if let exact = exes.first(where: {
+            $0.deletingPathExtension().lastPathComponent.caseInsensitiveCompare(dir.lastPathComponent) == .orderedSame
+        }) {
             return exact
         }
         return exes.sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }.first
