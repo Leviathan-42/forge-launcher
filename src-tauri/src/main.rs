@@ -18,6 +18,11 @@ use downloader::{DownloadBackend, DownloadRequest, ToolStatus};
 use launcher::LaunchOptions;
 use steam::SteamGame;
 
+const FIREFOX_STEAM_COOKIE_MISSING: &str =
+    "No Steam session cookie found in Firefox. Make sure you're logged into Steam in Firefox first.";
+const STEAM_LOGIN_SECURE_QUERY: &str =
+    "SELECT value FROM moz_cookies WHERE host='store.steampowered.com' AND name='steamLoginSecure' LIMIT 1;";
+
 // ---------------------------------------------------------------------------
 // Global app state
 // ---------------------------------------------------------------------------
@@ -702,8 +707,8 @@ async fn download_steam_cloud_saves(app_id: u64, target_dir: String) -> Result<S
     std::fs::create_dir_all(&target).map_err(|e| format!("Cannot create target dir: {}", e))?;
 
     // Try to find steamLoginSecure cookie from Firefox
-    let cookie = get_firefox_steam_cookie()
-        .ok_or_else(|| "No Steam session cookie found in Firefox. Make sure you're logged into Steam in Firefox first.".to_string())?;
+    let cookie =
+        get_firefox_steam_cookie().ok_or_else(|| FIREFOX_STEAM_COOKIE_MISSING.to_string())?;
 
     // Build the remote storage URL
     let rs_url = format!(
@@ -823,10 +828,7 @@ fn get_firefox_steam_cookie() -> Option<String> {
         std::fs::copy(&cookies_path, &tmp).ok()?;
 
         let output = std::process::Command::new("sqlite3")
-            .args([
-                tmp.to_str()?,
-                "SELECT value FROM moz_cookies WHERE host='store.steampowered.com' AND name='steamLoginSecure' LIMIT 1;",
-            ])
+            .args([tmp.to_str()?, STEAM_LOGIN_SECURE_QUERY])
             .output()
             .ok()?;
 
