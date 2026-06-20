@@ -610,20 +610,39 @@
 </div>
 
 <style>
-  :global(*) { box-sizing: border-box; }
+  :global(*) {
+    box-sizing: border-box;
+  }
   :global(html), :global(body), :global(#app) {
-    width: 100%; height: 100%; margin: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
   }
   :global(body) {
     overflow: hidden;
     background: #000;
     color: #f5f5f5;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
   }
 
-  button, input { font: inherit; }
-  button { border: 0; }
-  h1, h2, p { margin: 0; }
+  button, input {
+    font: inherit;
+  }
+
+  button {
+    border: 0;
+  }
+
+  h1, h2, p {
+    margin: 0;
+  }
 
   .app-shell {
     width: 100vw;
@@ -782,7 +801,10 @@
     color: #f5f5f5;
   }
 
-  input::placeholder { color: #666; }
+  input::placeholder {
+    color: #666;
+  }
+
   input:focus, button:focus-visible {
     border-color: #2bf0a1;
     box-shadow: 0 0 0 3px rgba(43, 240, 161, 0.14);
@@ -854,7 +876,9 @@
     color: #000;
   }
 
-  .primary-button:hover, .run-button:hover { background: #78ffd0; }
+  .primary-button:hover, .run-button:hover {
+    background: #78ffd0;
+  }
 
   .icon-button {
     width: 40px;
@@ -864,7 +888,10 @@
     color: #f2f2f2;
   }
 
-  .icon-button:hover { background: #121212; }
+  .icon-button:hover {
+    background: #121212;
+  }
+
   .icon-button.small {
     width: 26px;
     height: 26px;
@@ -903,10 +930,28 @@
     background: #050505;
   }
 
-  .drawer-heading, .toggle-row { justify-content: space-between; gap: 12px; }
-  label { display: grid; gap: 6px; min-width: 0; }
-  .toggle-row { color: #d8d8d8; font-size: 13px; font-weight: 700; }
-  .toggle-row input { width: 18px; height: 18px; accent-color: #2bf0a1; }
+  .drawer-heading, .toggle-row {
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  label {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .toggle-row {
+    color: #d8d8d8;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .toggle-row input {
+    width: 18px;
+    height: 18px;
+    accent-color: #2bf0a1;
+  }
 
   .toast-stack {
     position: fixed;
@@ -932,21 +977,64 @@
     font-size: 13px;
   }
 
-  .toast.ok { border-color: rgba(43, 240, 161, 0.34); }
-  .toast.bad { border-color: rgba(255, 92, 92, 0.42); }
+  .toast.ok {
+    border-color: rgba(43, 240, 161, 0.34);
+  }
 
-  .spin { display: inline-flex; animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast.bad {
+    border-color: rgba(255, 92, 92, 0.42);
+  }
+
+  .spin {
+    display: inline-flex;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 
   @media (max-width: 720px) {
-    .workspace { padding: 16px; }
-    .topbar { display: grid; grid-template-columns: 44px minmax(0, 1fr); }
-    .topbar-actions { grid-column: 1 / -1; justify-content: space-between; }
-    .system-pill { flex: 1; justify-content: center; }
-    h1 { font-size: 28px; }
-    .exe-panel { padding: 14px; }
-    .panel-heading { align-items: flex-start; }
-    .exe-row { grid-template-columns: 44px minmax(0, 1fr); }
-    .run-button { grid-column: 1 / -1; width: 100%; }
+    .workspace {
+      padding: 16px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .topbar-actions {
+      grid-column: 1 / -1;
+      justify-content: space-between;
+    }
+
+    .system-pill {
+      flex: 1;
+      justify-content: center;
+    }
+
+    h1 {
+      font-size: 28px;
+    }
+
+    .exe-panel {
+      padding: 14px;
+    }
+
+    .panel-heading {
+      align-items: flex-start;
+    }
+
+    .exe-row {
+      grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .run-button {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
   }
 </style>
