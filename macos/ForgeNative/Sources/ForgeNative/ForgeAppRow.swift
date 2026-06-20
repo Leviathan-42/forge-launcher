@@ -44,7 +44,7 @@ struct LiquidAppRow: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(.thinMaterial)
-                Image(systemName: app.kind == "launcher" ? "bolt.fill" : "gamecontroller.fill")
+                Image(systemName: appIconName)
                     .font(.system(size: 17, weight: .semibold))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.secondary)
@@ -85,16 +85,12 @@ struct LiquidAppRow: View {
                 .frame(width: 118, alignment: .leading)
 
                 Button(action: resetProfile) {
-                    Image(systemName: profileCanReset
-                          ? "arrow.uturn.backward.circle.fill"
-                          : (backendIsAppSpecific ? "checkmark.seal.fill" : "checkmark.circle"))
+                    Image(systemName: resetProfileIconName)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(profileCanReset ? Color.primary : Color.secondary.opacity(0.45))
+                        .foregroundStyle(resetProfileIconColor)
                 }
                 .buttonStyle(.plain)
-                .help(profileCanReset
-                      ? "Reset to recommended profile"
-                      : (backendIsAppSpecific ? "Using recommended profile" : "Using bottle default"))
+                .help(resetProfileHelp)
                 .disabled(!profileCanReset)
 
                 Button(action: editProfile) {
@@ -112,20 +108,53 @@ struct LiquidAppRow: View {
                 .foregroundStyle(hudText == "Off" ? Color.secondary : Color.primary)
                 .frame(width: 92, alignment: .leading)
 
-            HStack(spacing: 8) {
-                Button(isRunning ? "Stop" : "Play", action: isRunning ? stop : launch)
-                    .buttonStyle(ForgeButtonStyle(
-                        tint: isRunning ? .red.opacity(0.24) : .white.opacity(0.11),
-                        foreground: .primary
-                    ))
-                    .disabled(isLaunching && !isRunning)
-            }
-            .frame(width: 92, alignment: .trailing)
+            Button(launchButtonTitle, action: launchButtonAction)
+                .buttonStyle(ForgeButtonStyle(tint: launchButtonTint, foreground: .primary))
+                .disabled(launchButtonIsDisabled)
+                .frame(width: 92, alignment: .trailing)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.09), lineWidth: 1))
+    }
+
+    private var appIconName: String {
+        app.kind == "launcher" ? "bolt.fill" : "gamecontroller.fill"
+    }
+
+    private var resetProfileIconName: String {
+        if profileCanReset {
+            return "arrow.uturn.backward.circle.fill"
+        }
+        return backendIsAppSpecific ? "checkmark.seal.fill" : "checkmark.circle"
+    }
+
+    private var resetProfileIconColor: Color {
+        profileCanReset ? Color.primary : Color.secondary.opacity(0.45)
+    }
+
+    private var resetProfileHelp: String {
+        if profileCanReset {
+            return "Reset to recommended profile"
+        }
+        return backendIsAppSpecific ? "Using recommended profile" : "Using bottle default"
+    }
+
+    private var launchButtonTitle: String {
+        isRunning ? "Stop" : "Play"
+    }
+
+    private var launchButtonAction: () -> Void {
+        isRunning ? stop : launch
+    }
+
+    private var launchButtonTint: Color {
+        isRunning ? .red.opacity(0.24) : .white.opacity(0.11)
+    }
+
+    private var launchButtonIsDisabled: Bool {
+        isLaunching && !isRunning
     }
 
     @ViewBuilder
