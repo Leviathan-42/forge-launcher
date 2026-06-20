@@ -27,7 +27,6 @@
 
   type ExeEntry = {
     key: string;
-    id: string;
     name: string;
     path: string;
     kind: string;
@@ -377,7 +376,6 @@
       const key = exeKey(app.path);
       rows.set(key, {
         key,
-        id: `app-${app.id}`,
         name: app.name,
         path: app.path,
         kind: app.kind,
@@ -390,7 +388,6 @@
       const key = exeKey(game.exe_path);
       rows.set(key, {
         key,
-        id: `game-${game.id}`,
         name: game.name,
         path: game.exe_path,
         kind: game.source || "manual",
