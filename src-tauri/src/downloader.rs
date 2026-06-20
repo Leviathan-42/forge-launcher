@@ -291,7 +291,11 @@ pub fn find_steamcmd() -> Result<String, String> {
                 String::from_utf8_lossy(&out.stderr)
             );
             if combined.contains("Failed to load steamconsole") {
-                Err("SteamCMD is installed but broken (steamconsole.dylib missing).\nThis is a known Homebrew macOS ARM bug. Use DepotDownloader instead.".to_string())
+                Err(
+                    "SteamCMD is installed but broken (steamconsole.dylib missing).\n\
+                     This is a known Homebrew macOS ARM bug. Use DepotDownloader instead."
+                        .to_string(),
+                )
             } else {
                 Ok(exe.to_string())
             }
