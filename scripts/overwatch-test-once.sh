@@ -12,6 +12,8 @@ set -euo pipefail
 MODE="${1:-dxvk}"
 SECONDS_TO_RUN="${2:-30}"
 OW_WORKER_THREADS="${FORGE_OW_WORKER_THREADS:-2}"
+OVERWATCH_STEAM_APP_ID=2357570
+STEAM_SAFE_ARGS=(-no-cef-sandbox -cef-disable-sandbox)
 # Overwatch_loader uses a deep VEH/stack-overflow recovery path while the loader
 # lock is held. Forge's Wine runtime can reserve a larger guaranteed stack band
 # for the second-chance exception dispatch with this variable.
@@ -88,7 +90,7 @@ cd "$GAME_DIR"
 
 if [[ "$MODE" == "steam-dxvk" ]]; then
   EXE="$STEAM"
-  ARGS=(-no-cef-sandbox -cef-disable-sandbox -applaunch 2357570 -tank_WorkerThreadCount "$OW_WORKER_THREADS")
+  ARGS=("${STEAM_SAFE_ARGS[@]}" -applaunch "$OVERWATCH_STEAM_APP_ID" -tank_WorkerThreadCount "$OW_WORKER_THREADS")
 else
   EXE="$GAME"
   ARGS=(-tank_WorkerThreadCount "$OW_WORKER_THREADS")
@@ -101,8 +103,8 @@ ENV_VARS=(
   WINEESYNC="${WINEESYNC:-1}"
   WINEMSYNC="${WINEMSYNC:-1}"
   FORGE_STACK_GUARANTEE_BYTES="$FORGE_STACK_GUARANTEE_BYTES"
-  SteamAppId=2357570
-  SteamGameId=2357570
+  SteamAppId="$OVERWATCH_STEAM_APP_ID"
+  SteamGameId="$OVERWATCH_STEAM_APP_ID"
   DYLD_LIBRARY_PATH="$RUNTIME/lib:/opt/homebrew/lib"
   DYLD_FALLBACK_LIBRARY_PATH="$RUNTIME/lib:/opt/homebrew/lib:/usr/local/lib"
 )
