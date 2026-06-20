@@ -62,7 +62,8 @@ extension ForgeStore {
                 backendOverride: .dxmt,
                 launchArgs: ["-screen-fullscreen", "1"],
                 env: [:],
-                notes: "D3D11-only Unity build; Vulkan/OpenGL shaders are unavailable and DXVK is blocked by MoltenVK geometryShader support. Uses DXMT's D3D11 -> Metal path."
+                notes: "D3D11-only Unity build; Vulkan/OpenGL shaders are unavailable " +
+                    "and DXVK is blocked by MoltenVK geometryShader support. Uses DXMT's D3D11 -> Metal path."
             ),
             GameCompatibilityProfile(
                 id: SeededGameProfileID.amongUs,
@@ -75,7 +76,8 @@ extension ForgeStore {
                     "VK_ICD_FILENAMES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
                     "VK_DRIVER_FILES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
                 ],
-                notes: "32-bit Unity D3D11 build; DXMT/DXVK are not viable in this WoW64 runtime. WineD3D's Vulkan renderer reaches D3D11 level 11.1."
+                notes: "32-bit Unity D3D11 build; DXMT/DXVK are not viable in this WoW64 runtime. " +
+                    "WineD3D's Vulkan renderer reaches D3D11 level 11.1."
             ),
             GameCompatibilityProfile(
                 id: SeededGameProfileID.overwatch,
@@ -83,7 +85,8 @@ extension ForgeStore {
                 backendOverride: .dxvkVkd3d,
                 launchArgs: [],
                 env: [GameProfileEnvKey.overwatchStackGuarantee: "262144"],
-                notes: "Steam build. Use DXVK/VKD3D and reserve a larger stack-overflow handling guarantee for Blizzard's loader/VEH path; do not use D3DMetal for the current Forge runtime."
+                notes: "Steam build. Use DXVK/VKD3D and reserve a larger stack-overflow handling guarantee " +
+                    "for Blizzard's loader/VEH path; do not use D3DMetal for the current Forge runtime."
             ),
             GameCompatibilityProfile(
                 id: SeededGameProfileID.peak,
@@ -143,7 +146,10 @@ extension ForgeStore {
         return true
     }
 
-    nonisolated static func resetGameProfiles(_ profiles: [String: GameCompatibilityProfile], key: String) -> [String: GameCompatibilityProfile] {
+    nonisolated static func resetGameProfiles(
+        _ profiles: [String: GameCompatibilityProfile],
+        key: String
+    ) -> [String: GameCompatibilityProfile] {
         var updated = profiles
         if let seed = seededGameProfile(forKey: key) {
             updated[key] = seed

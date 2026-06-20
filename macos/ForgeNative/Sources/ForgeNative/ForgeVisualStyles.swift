@@ -61,7 +61,12 @@ struct ForgeButtonStyle: ButtonStyle {
                     .overlay(shape.fill(tint.opacity(configuration.isPressed ? 0.45 : 0.88)))
             }
             .overlay(shape.stroke(.white.opacity(configuration.isPressed ? 0.08 : 0.16), lineWidth: 1))
-            .shadow(color: .black.opacity(configuration.isPressed ? 0.08 : 0.14), radius: configuration.isPressed ? 4 : 10, x: 0, y: configuration.isPressed ? 2 : 5)
+            .shadow(
+                color: .black.opacity(configuration.isPressed ? 0.08 : 0.14),
+                radius: configuration.isPressed ? 4 : 10,
+                x: 0,
+                y: configuration.isPressed ? 2 : 5
+            )
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
     }
 }

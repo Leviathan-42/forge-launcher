@@ -51,8 +51,20 @@ final class ForgePersistenceTests: XCTestCase {
             metalfxEnabled: false,
             env: [:]
         )
-        let first = BottleEntry(name: "First", prefixPath: "/tmp/first", runtimeProfileId: "default", graphicsBackend: .dxvk, envOverrides: [:])
-        let selected = BottleEntry(name: "Selected", prefixPath: "/tmp/selected", runtimeProfileId: "default", graphicsBackend: .dxmt, envOverrides: [:])
+        let first = BottleEntry(
+            name: "First",
+            prefixPath: "/tmp/first",
+            runtimeProfileId: "default",
+            graphicsBackend: .dxvk,
+            envOverrides: [:]
+        )
+        let selected = BottleEntry(
+            name: "Selected",
+            prefixPath: "/tmp/selected",
+            runtimeProfileId: "default",
+            graphicsBackend: .dxmt,
+            envOverrides: [:]
+        )
 
         XCTAssertEqual(ForgeStore.selectBottle(from: [first, selected], config: config).name, "Selected")
         XCTAssertEqual(ForgeStore.selectBottle(from: [first], config: config).name, "First")
