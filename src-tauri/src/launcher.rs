@@ -38,6 +38,14 @@ use std::process::{Child, Command};
 use crate::config::{AppConfig, GraphicsBackend};
 use crate::steam::SteamGame;
 
+const FIRST_RUN_DLL_OVERRIDES: &str = "mscoree,mshtml=";
+const D3DMETAL_DLL_OVERRIDES: &str = "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b";
+const DXVK_DLL_OVERRIDES: &str = "dxgi,d3d9,d3d10core,d3d11,user32=n,b";
+const VKD3D_DLL_OVERRIDES: &str = "d3d12,dxgi,user32=n,b";
+const DXVK_VKD3D_DLL_OVERRIDES: &str = "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b";
+const WINE_BUILTIN_DLL_OVERRIDES: &str =
+    "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml=";
+
 // ---------------------------------------------------------------------------
 // DXVK HUD level
 // ---------------------------------------------------------------------------
@@ -215,7 +223,7 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
             .env("WINEDEBUG", "fixme-all")
             .env("GST_DEBUG", "1")
             // Avoid first-run Mono/Gecko prompts blocking unattended bottle setup.
-            .env("WINEDLLOVERRIDES", "mscoree,mshtml=")
+            .env("WINEDLLOVERRIDES", FIRST_RUN_DLL_OVERRIDES)
             .status();
 
         match boot {
@@ -294,29 +302,23 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
                     cmd.env("WINEDLLPATH", dll_path);
                 }
             }
-            cmd.env(
-                "WINEDLLOVERRIDES",
-                "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b",
-            );
+            cmd.env("WINEDLLOVERRIDES", D3DMETAL_DLL_OVERRIDES);
         }
         GraphicsBackend::Dxvk => {
-            cmd.env("WINEDLLOVERRIDES", "dxgi,d3d9,d3d10core,d3d11,user32=n,b");
+            cmd.env("WINEDLLOVERRIDES", DXVK_DLL_OVERRIDES);
             cmd.env("DXVK_ASYNC", "1");
         }
         GraphicsBackend::Vkd3d => {
-            cmd.env("WINEDLLOVERRIDES", "d3d12,dxgi,user32=n,b");
+            cmd.env("WINEDLLOVERRIDES", VKD3D_DLL_OVERRIDES);
         }
         GraphicsBackend::DxvkVkd3d => {
-            cmd.env(
-                "WINEDLLOVERRIDES",
-                "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b",
-            );
+            cmd.env("WINEDLLOVERRIDES", DXVK_VKD3D_DLL_OVERRIDES);
             cmd.env("DXVK_ASYNC", "1");
         }
         GraphicsBackend::WineBuiltin => {
             // Force Wine builtin D3D/DXGI for explicit compatibility mode only.
             // Do not use this for Steam when games will inherit the environment.
-            cmd.env("WINEDLLOVERRIDES", "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml=");
+            cmd.env("WINEDLLOVERRIDES", WINE_BUILTIN_DLL_OVERRIDES);
             // Wine 11 wined3d defaults to Vulkan on macOS. OpenGL is safer for
             // legacy launcher UI compatibility mode, but slower for games.
             cmd.env("WINE_D3D_CONFIG", "renderer=gl");
@@ -378,16 +380,7 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
     }
 
     if is_steam {
-        let game_dll_overrides = match game_backend {
-            GraphicsBackend::D3DMetal => "dxgi,d3d9,d3d10core,d3d11,d3d12=n,b;user32=n,b",
-            GraphicsBackend::Dxvk => "dxgi,d3d9,d3d10core,d3d11,user32=n,b",
-            GraphicsBackend::Vkd3d => "d3d12,dxgi,user32=n,b",
-            GraphicsBackend::DxvkVkd3d => "dxgi,d3d9,d3d10core,d3d11,d3d12,user32=n,b",
-            GraphicsBackend::WineBuiltin => {
-                "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml="
-            }
-            GraphicsBackend::None => "",
-        };
+        let game_dll_overrides = wine_dll_overrides_for_backend(&game_backend).unwrap_or("");
         let game_vk_icd = opts
             .env
             .get("VK_ICD_FILENAMES")
@@ -400,14 +393,20 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
         cmd.env("FORGE_STEAM_SAFE_MODE", "1")
             .env("FORGE_GAME_WINEDLLOVERRIDES", game_dll_overrides)
             .env("FORGE_GAME_VK_ICD_FILENAMES", game_vk_icd)
-            .env("FORGE_GAME_MTL_HUD_ENABLED", if opts.show_hud { "1" } else { "0" })
+            .env(
+                "FORGE_GAME_MTL_HUD_ENABLED",
+                if opts.show_hud { "1" } else { "0" },
+            )
             .env("MOLTENVK_CONFIG_LOG_LEVEL", "0")
-            .env("WINEDLLOVERRIDES", "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;user32=n,b;mscoree,mshtml=")
+            .env("WINEDLLOVERRIDES", WINE_BUILTIN_DLL_OVERRIDES)
             .env("WINE_D3D_CONFIG", "renderer=gl")
             .env("LIBGL_ALWAYS_SOFTWARE", "1")
             .env("VK_ICD_FILENAMES", "/dev/null")
             .env("VK_DRIVER_FILES", "/dev/null")
-            .env("DXVK_FILTER_DEVICE_NAME", "__forge_disable_dxvk_for_steam__")
+            .env(
+                "DXVK_FILTER_DEVICE_NAME",
+                "__forge_disable_dxvk_for_steam__",
+            )
             .env("MTL_HUD_ENABLED", "0");
     }
 
@@ -463,7 +462,7 @@ pub fn init_wine_prefix(prefix_path: &str, wine64_path: &str) -> Result<(), Stri
         .env("WINEDEBUG", "fixme-all")
         .env("GST_DEBUG", "1")
         // Avoid first-run Mono/Gecko prompts blocking unattended bottle setup.
-        .env("WINEDLLOVERRIDES", "mscoree,mshtml=")
+        .env("WINEDLLOVERRIDES", FIRST_RUN_DLL_OVERRIDES)
         .status()
         .map_err(|e| format!("Failed to run wineboot: {}", e))?;
 
@@ -494,6 +493,17 @@ pub fn merge_env(
         }
     }
     merged
+}
+
+fn wine_dll_overrides_for_backend(backend: &GraphicsBackend) -> Option<&'static str> {
+    match backend {
+        GraphicsBackend::D3DMetal => Some(D3DMETAL_DLL_OVERRIDES),
+        GraphicsBackend::Dxvk => Some(DXVK_DLL_OVERRIDES),
+        GraphicsBackend::Vkd3d => Some(VKD3D_DLL_OVERRIDES),
+        GraphicsBackend::DxvkVkd3d => Some(DXVK_VKD3D_DLL_OVERRIDES),
+        GraphicsBackend::WineBuiltin => Some(WINE_BUILTIN_DLL_OVERRIDES),
+        GraphicsBackend::None => None,
+    }
 }
 
 fn build_dyld_path(gptk_lib: &str, existing: &str) -> String {
@@ -625,5 +635,30 @@ mod tests {
             trimmed_non_empty_path(" /opt/runtime/lib "),
             Some("/opt/runtime/lib")
         );
+    }
+
+    #[test]
+    fn wine_dll_overrides_match_backend_defaults() {
+        assert_eq!(
+            wine_dll_overrides_for_backend(&GraphicsBackend::D3DMetal),
+            Some(D3DMETAL_DLL_OVERRIDES)
+        );
+        assert_eq!(
+            wine_dll_overrides_for_backend(&GraphicsBackend::Dxvk),
+            Some(DXVK_DLL_OVERRIDES)
+        );
+        assert_eq!(
+            wine_dll_overrides_for_backend(&GraphicsBackend::Vkd3d),
+            Some(VKD3D_DLL_OVERRIDES)
+        );
+        assert_eq!(
+            wine_dll_overrides_for_backend(&GraphicsBackend::DxvkVkd3d),
+            Some(DXVK_VKD3D_DLL_OVERRIDES)
+        );
+        assert_eq!(
+            wine_dll_overrides_for_backend(&GraphicsBackend::WineBuiltin),
+            Some(WINE_BUILTIN_DLL_OVERRIDES)
+        );
+        assert_eq!(wine_dll_overrides_for_backend(&GraphicsBackend::None), None);
     }
 }
