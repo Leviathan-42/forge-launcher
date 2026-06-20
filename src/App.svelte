@@ -488,7 +488,13 @@
           <Icon name={wine?.installed ? "circleCheck" : "circleAlert"} size={15} />
           {runtimeStackLabel(defaultRuntimeStackId)}
         </span>
-        <button class="icon-button" title="Refresh" aria-label="Refresh" on:click={refreshAll} disabled={loading || busy !== ""}>
+        <button
+          class="icon-button"
+          title="Refresh"
+          aria-label="Refresh"
+          on:click={refreshAll}
+          disabled={loading || busy !== ""}
+        >
           <span class:spin={loading || appLoading}>
             <Icon name="refreshCw" size={16} />
           </span>
@@ -557,14 +563,22 @@
           <span class="eyebrow">Settings</span>
           <h2>{runtimeStackLabel(defaultRuntimeStackId)}</h2>
         </div>
-        <button class="icon-button" title="Close settings" aria-label="Close settings" on:click={() => (settingsOpen = false)}>
+        <button
+          class="icon-button"
+          title="Close settings"
+          aria-label="Close settings"
+          on:click={() => (settingsOpen = false)}
+        >
           <Icon name="x" size={17} />
         </button>
       </div>
 
       <label>
         <span>Wine 11 binary</span>
-        <input bind:value={config.wine64_path} placeholder="/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine" />
+        <input
+          bind:value={config.wine64_path}
+          placeholder="/Applications/Wine Devel.app/Contents/Resources/wine/bin/wine"
+        />
       </label>
       <label>
         <span>Default bottle</span>
