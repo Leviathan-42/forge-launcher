@@ -63,31 +63,29 @@ extension ForgeStore {
 
         try ensurePrefix(prefixPath: bottle.prefixPath, winePath: winePath)
         var env = ProcessInfo.processInfo.environment
+        let runtimeDyldPath = runtimeLibrarySearchPath(
+            runtimeLibPath: runtimeLibPath,
+            existing: env["DYLD_LIBRARY_PATH"]
+        )
+        let runtimeFallbackDyldPath = runtimeFallbackLibrarySearchPath(
+            runtimeLibPath: runtimeLibPath,
+            existing: env["DYLD_FALLBACK_LIBRARY_PATH"]
+        )
         env["WINEPREFIX"] = bottle.prefixPath
         if launchBackend == .d3dMetal {
             env["DYLD_LIBRARY_PATH"] = buildDyldPath(
                 gptkLibPath: gptkLibPath,
-                existing: dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
+                existing: runtimeDyldPath
             )
-            env["DYLD_FALLBACK_LIBRARY_PATH"] = dedupePathParts([
-                runtimeLibPath,
-                "/opt/homebrew/lib",
-                "/usr/local/lib",
-                env["DYLD_FALLBACK_LIBRARY_PATH"] ?? ""
-            ]).joined(separator: ":")
+            env["DYLD_FALLBACK_LIBRARY_PATH"] = runtimeFallbackDyldPath
             if !gptkLibPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 env["DYLD_FRAMEWORK_PATH"] = URL(fileURLWithPath: gptkLibPath).path
             }
         } else {
             // DXVK/VKD3D should use Forge/Homebrew MoltenVK. Do not let GPTK's
             // older external libMoltenVK shadow the Vulkan 1.3+ ICD needed by DXVK.
-            env["DYLD_LIBRARY_PATH"] = dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
-            env["DYLD_FALLBACK_LIBRARY_PATH"] = dedupePathParts([
-                runtimeLibPath,
-                "/opt/homebrew/lib",
-                "/usr/local/lib",
-                env["DYLD_FALLBACK_LIBRARY_PATH"] ?? ""
-            ]).joined(separator: ":")
+            env["DYLD_LIBRARY_PATH"] = runtimeDyldPath
+            env["DYLD_FALLBACK_LIBRARY_PATH"] = runtimeFallbackDyldPath
             env.removeValue(forKey: "DYLD_FRAMEWORK_PATH")
         }
         env["WINEDEBUG"] = config.suppressWineDebug ? "fixme-all" : ""
@@ -151,7 +149,8 @@ extension ForgeStore {
             try removeStagedD3DMetalDlls(exePath: exePath)
             env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
             env["DXMT_LOG_LEVEL"] = env["DXMT_LOG_LEVEL"] ?? "info"
-            env["DXMT_LOG_PATH"] = env["DXMT_LOG_PATH"] ?? appSupportDir().appendingPathComponent("Logs", isDirectory: true).path
+            env["DXMT_LOG_PATH"] = env["DXMT_LOG_PATH"] ??
+                appSupportDir().appendingPathComponent("Logs", isDirectory: true).path
         case .none:
             break
         }
@@ -203,7 +202,10 @@ extension ForgeStore {
             let gameDXVKAsync = backendUsesDXVKAsync(gameBackend) ? (env["DXVK_ASYNC"] ?? "1") : ""
             let gameDyldPath = gameBackend == .d3dMetal ? buildDyldPath(
                 gptkLibPath: gptkLibPath,
-                existing: dedupePathParts([runtimeLibPath, env["DYLD_LIBRARY_PATH"] ?? ""]).joined(separator: ":")
+                existing: runtimeLibrarySearchPath(
+                    runtimeLibPath: runtimeLibPath,
+                    existing: env["DYLD_LIBRARY_PATH"]
+                )
             ) : (env["DYLD_LIBRARY_PATH"] ?? "")
             var gameWineDllPath = ""
             if gameBackend == .d3dMetal, let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {

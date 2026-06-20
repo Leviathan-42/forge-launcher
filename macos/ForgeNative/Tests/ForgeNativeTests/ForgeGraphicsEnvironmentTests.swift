@@ -45,6 +45,31 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
         )
     }
 
+    func testRuntimeLibrarySearchPathPrependsRuntimePath() {
+        XCTAssertEqual(
+            ForgeStore.runtimeLibrarySearchPath(runtimeLibPath: "/opt/runtime/lib", existing: "/usr/local/lib"),
+            "/opt/runtime/lib:/usr/local/lib"
+        )
+        XCTAssertEqual(
+            ForgeStore.runtimeLibrarySearchPath(runtimeLibPath: "/opt/runtime/lib", existing: "/opt/runtime/lib"),
+            "/opt/runtime/lib"
+        )
+    }
+
+    func testRuntimeFallbackLibrarySearchPathIncludesHomebrewFallbacks() {
+        XCTAssertEqual(
+            ForgeStore.runtimeFallbackLibrarySearchPath(runtimeLibPath: "/opt/runtime/lib", existing: "/custom/lib"),
+            "/opt/runtime/lib:/opt/homebrew/lib:/usr/local/lib:/custom/lib"
+        )
+        XCTAssertEqual(
+            ForgeStore.runtimeFallbackLibrarySearchPath(
+                runtimeLibPath: "/opt/runtime/lib",
+                existing: "/opt/homebrew/lib"
+            ),
+            "/opt/runtime/lib:/opt/homebrew/lib:/usr/local/lib"
+        )
+    }
+
     func testMoltenVkCandidatesExpandConfiguredTildePath() {
         let configured = "~/Wine/Runtimes/moltenvk"
         let expanded = (configured as NSString).expandingTildeInPath

@@ -63,6 +63,19 @@ extension ForgeStore {
         return dedupePathParts(parts).joined(separator: ":")
     }
 
+    nonisolated static func runtimeLibrarySearchPath(runtimeLibPath: String, existing: String?) -> String {
+        dedupePathParts([runtimeLibPath, existing ?? ""]).joined(separator: ":")
+    }
+
+    nonisolated static func runtimeFallbackLibrarySearchPath(runtimeLibPath: String, existing: String?) -> String {
+        dedupePathParts([
+            runtimeLibPath,
+            "/opt/homebrew/lib",
+            "/usr/local/lib",
+            existing ?? ""
+        ]).joined(separator: ":")
+    }
+
     nonisolated static func gptkWineLibBase(gptkLibPath: String?) -> URL? {
         guard let gptkLibPath = trimmedNonEmptyPath(gptkLibPath) else { return nil }
         let configured = URL(fileURLWithPath: gptkLibPath)
