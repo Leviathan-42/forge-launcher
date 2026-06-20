@@ -480,7 +480,7 @@
   <title>Forge Launcher</title>
 </svelte:head>
 
-<div class="app-shell single-bottle-shell">
+<div class="app-shell">
   <main class="workspace">
     <header class="topbar">
       <div class="brand-mark">
@@ -513,7 +513,7 @@
       </div>
     </header>
 
-    <section class="exe-panel full-exe-panel" aria-label="Executables">
+    <section class="exe-panel" aria-label="Executables">
       <div class="panel-heading">
         <div>
           <span class="eyebrow">Installed apps</span>
