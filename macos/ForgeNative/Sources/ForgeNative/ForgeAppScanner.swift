@@ -67,11 +67,18 @@ extension ForgeStore {
             if leftRank != rightRank { return leftRank < rightRank }
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
-        if apps.count > AppScanLimit.maxApps { apps.removeSubrange(AppScanLimit.maxApps..<apps.count) }
+        if apps.count > AppScanLimit.maxApps {
+            apps.removeSubrange(AppScanLimit.maxApps..<apps.count)
+        }
         return apps
     }
 
-    nonisolated static func collectExes(_ dir: URL, depth: Int, into apps: inout [BottleAppItem], seen: inout Set<String>) {
+    nonisolated static func collectExes(
+        _ dir: URL,
+        depth: Int,
+        into apps: inout [BottleAppItem],
+        seen: inout Set<String>
+    ) {
         guard depth <= AppScanLimit.maxDepth, apps.count < AppScanLimit.maxApps else { return }
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: dir,
@@ -103,10 +110,21 @@ extension ForgeStore {
     ) {
         let normalized = path.standardizingPath
         guard seen.insert(normalized.lowercased()).inserted else { return }
-        apps.append(BottleAppItem(name: name ?? displayName(for: normalized), path: normalized, kind: kind, steamAppId: steamAppId))
+        apps.append(
+            BottleAppItem(
+                name: name ?? displayName(for: normalized),
+                path: normalized,
+                kind: kind,
+                steamAppId: steamAppId
+            )
+        )
     }
 
-    nonisolated static func scanSteamGames(prefixPath: String, into apps: inout [BottleAppItem], seen: inout Set<String>) {
+    nonisolated static func scanSteamGames(
+        prefixPath: String,
+        into apps: inout [BottleAppItem],
+        seen: inout Set<String>
+    ) {
         let steamApps = URL(fileURLWithPath: prefixPath)
             .appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps")
         guard let manifests = try? FileManager.default.contentsOfDirectory(
@@ -115,7 +133,9 @@ extension ForgeStore {
             options: [.skipsHiddenFiles]
         ) else { return }
 
-        for manifest in manifests where manifest.lastPathComponent.hasPrefix("appmanifest_") && manifest.pathExtension == "acf" {
+        for manifest in manifests {
+            guard manifest.lastPathComponent.hasPrefix("appmanifest_"),
+                  manifest.pathExtension == "acf" else { continue }
             guard let text = try? String(contentsOf: manifest, encoding: .utf8) else { continue }
             let appId = acfValue("appid", in: text)
             let name = acfValue("name", in: text)
@@ -151,7 +171,9 @@ extension ForgeStore {
         }) {
             return exact
         }
-        return exes.sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }.first
+        return exes.sorted {
+            $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending
+        }.first
     }
 
     nonisolated static func shouldDescendForUserApps(_ path: String) -> Bool {
@@ -202,7 +224,10 @@ extension ForgeStore {
     nonisolated static func guessKind(_ path: String) -> String {
         let raw = normalizedForFilter(path)
         let file = URL(fileURLWithPath: path).lastPathComponent.lowercased()
-        if file == "steam.exe" || raw.contains("/launcher/") || raw.contains("battle.net") || raw.contains("ubisoft") {
+        if file == "steam.exe"
+            || raw.contains("/launcher/")
+            || raw.contains("battle.net")
+            || raw.contains("ubisoft") {
             return "launcher"
         }
         return "game"
@@ -232,12 +257,20 @@ extension ForgeStore {
     nonisolated static func knownLauncherPaths(prefixPath: String) -> [String] {
         let driveC = URL(fileURLWithPath: prefixPath).appendingPathComponent("drive_c")
         return steamCandidates(prefixPath: prefixPath) + [
-            driveC.appendingPathComponent("Program Files (x86)/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe").path,
-            driveC.appendingPathComponent("Program Files (x86)/Epic Games/Launcher/Portal/Binaries/Win32/EpicGamesLauncher.exe").path,
+            driveC
+                .appendingPathComponent("Program Files (x86)/Epic Games")
+                .appendingPathComponent("Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe")
+                .path,
+            driveC
+                .appendingPathComponent("Program Files (x86)/Epic Games")
+                .appendingPathComponent("Launcher/Portal/Binaries/Win32/EpicGamesLauncher.exe")
+                .path,
             driveC.appendingPathComponent("Program Files (x86)/Battle.net/Battle.net.exe").path,
             driveC.appendingPathComponent("Program Files/Battle.net/Battle.net.exe").path,
             driveC.appendingPathComponent("Program Files/Electronic Arts/EA Desktop/EA Desktop/EALauncher.exe").path,
-            driveC.appendingPathComponent("Program Files (x86)/Ubisoft/Ubisoft Game Launcher/UbisoftConnect.exe").path,
+            driveC
+                .appendingPathComponent("Program Files (x86)/Ubisoft/Ubisoft Game Launcher/UbisoftConnect.exe")
+                .path,
             driveC.appendingPathComponent("Program Files/Rockstar Games/Launcher/Launcher.exe").path
         ]
     }
