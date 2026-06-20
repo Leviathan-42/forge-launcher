@@ -9,6 +9,8 @@ use crate::config::{
 };
 use crate::launcher::{self, LaunchOptions};
 
+const STEAM_SAFE_CEF_ARGS: [&str; 2] = ["-no-cef-sandbox", "-cef-disable-sandbox"];
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bottle {
     pub id: String,
@@ -272,10 +274,7 @@ pub fn install_steam(app: &AppHandle, prefix_path: String) -> Result<(), String>
 fn steam_safe_args(extra: Vec<String>) -> Vec<String> {
     // Keep only the sandbox-safe args. Over-forcing CEF GPU flags can make
     // Chromium pick stranger paths under Wine.
-    let mut args = vec![
-        "-no-cef-sandbox".to_string(),
-        "-cef-disable-sandbox".to_string(),
-    ];
+    let mut args = STEAM_SAFE_CEF_ARGS.map(str::to_string).to_vec();
     args.extend(extra);
     args
 }
