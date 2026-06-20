@@ -8,7 +8,10 @@ final class ForgeRuntimeStagingTests: XCTestCase {
 
         let source = root.appendingPathComponent("source/d3d11.dll")
         let destination = root.appendingPathComponent("target/nested/d3d11.dll")
-        try FileManager.default.createDirectory(at: source.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: source.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         try "runtime-dll".write(to: source, atomically: true, encoding: .utf8)
 
         try ForgeStore.copyIfDifferent(source, to: destination)

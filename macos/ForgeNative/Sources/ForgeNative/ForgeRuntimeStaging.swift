@@ -1,13 +1,17 @@
 import Foundation
 
+private let stagedD3DMetalDllNames = ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "d3d12.dll"]
+private let dxvkDllNames = ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d10.dll", "d3d10_1.dll", "d3d11.dll"]
+private let dxmtDllNames = ["d3d11.dll", "dxgi.dll", "d3d10core.dll", "winemetal.dll"]
+
 extension ForgeStore {
     nonisolated static func removeStagedD3DMetalDlls(exePath: String) throws {
         let gameDir = URL(fileURLWithPath: exePath).deletingLastPathComponent()
-        for dll in ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "d3d12.dll"] {
+        for dll in stagedD3DMetalDllNames {
             let target = gameDir.appendingPathComponent(dll)
             guard FileManager.default.fileExists(atPath: target.path) else { continue }
             let attrs = try? FileManager.default.attributesOfItem(atPath: target.path)
-            if attrs?[.type] as? FileAttributeType == .typeRegular || attrs?[.type] as? FileAttributeType == .typeSymbolicLink {
+            if isRegularFileOrSymlink(attrs) {
                 try FileManager.default.removeItem(at: target)
             }
         }
@@ -20,7 +24,10 @@ extension ForgeStore {
             fm.fileExists(atPath: $0.appendingPathComponent("x64/d3d11.dll").path)
                 && fm.fileExists(atPath: $0.appendingPathComponent("x64/dxgi.dll").path)
         }) else {
-            throw ForgeError.message("DXVK runtime files were not found. Expected ~/Wine/Runtimes/dxvk-*/dxvk-*/x64/d3d11.dll.")
+            throw ForgeError.message(
+                "DXVK runtime files were not found. " +
+                    "Expected ~/Wine/Runtimes/dxvk-*/dxvk-*/x64/d3d11.dll."
+            )
         }
 
         var targetDirs: [URL] = []
@@ -35,7 +42,7 @@ extension ForgeStore {
         let uniqueDirs = uniqueURLs(targetDirs)
         let x64 = sourceRoot.appendingPathComponent("x64", isDirectory: true)
         for dir in uniqueDirs {
-            for dll in ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d10.dll", "d3d10_1.dll", "d3d11.dll"] {
+            for dll in dxvkDllNames {
                 let source = x64.appendingPathComponent(dll)
                 if fm.fileExists(atPath: source.path) {
                     try copyIfDifferent(source, to: dir.appendingPathComponent(dll))
@@ -78,7 +85,9 @@ extension ForgeStore {
         let manifest = steamapps.appendingPathComponent("appmanifest_\(appId).acf")
         guard let text = try? String(contentsOf: manifest, encoding: .utf8),
               let installDir = acfValue("installdir", in: text) else { return nil }
-        return steamapps.appendingPathComponent("common", isDirectory: true).appendingPathComponent(installDir, isDirectory: true)
+        return steamapps
+            .appendingPathComponent("common", isDirectory: true)
+            .appendingPathComponent(installDir, isDirectory: true)
     }
 
     nonisolated static func ensureDXMTInstalled(winePath: String, prefixPath: String) throws {
@@ -89,11 +98,16 @@ extension ForgeStore {
         let runtimeWin64Dir = wineRoot.appendingPathComponent("lib/wine/x86_64-windows", isDirectory: true)
         let runtimeWin32Dir = wineRoot.appendingPathComponent("lib/wine/i386-windows", isDirectory: true)
         let runtimeUnixDir = wineRoot.appendingPathComponent("lib/wine/x86_64-unix", isDirectory: true)
-        let system32 = URL(fileURLWithPath: prefixPath).appendingPathComponent("drive_c/windows/system32", isDirectory: true)
-        let syswow64 = URL(fileURLWithPath: prefixPath).appendingPathComponent("drive_c/windows/syswow64", isDirectory: true)
+        let system32 = URL(fileURLWithPath: prefixPath)
+            .appendingPathComponent("drive_c/windows/system32", isDirectory: true)
+        let syswow64 = URL(fileURLWithPath: prefixPath)
+            .appendingPathComponent("drive_c/windows/syswow64", isDirectory: true)
 
         guard fm.fileExists(atPath: runtimeWin64Dir.path), fm.fileExists(atPath: runtimeUnixDir.path) else {
-            throw ForgeError.message("DXMT needs a Wine runtime with lib/wine/x86_64-windows and x86_64-unix directories.")
+            throw ForgeError.message(
+                "DXMT needs a Wine runtime with lib/wine/x86_64-windows " +
+                    "and x86_64-unix directories."
+            )
         }
         try fm.createDirectory(at: system32, withIntermediateDirectories: true)
         try fm.createDirectory(at: syswow64, withIntermediateDirectories: true)
@@ -113,7 +127,7 @@ extension ForgeStore {
         let windows64Source = sourceRoot.appendingPathComponent("x86_64-windows", isDirectory: true)
         let windows32Source = sourceRoot.appendingPathComponent("i386-windows", isDirectory: true)
         let unixSource = sourceRoot.appendingPathComponent("x86_64-unix", isDirectory: true)
-        for dll in ["d3d11.dll", "dxgi.dll", "d3d10core.dll", "winemetal.dll"] {
+        for dll in dxmtDllNames {
             let source64 = windows64Source.appendingPathComponent(dll)
             if fm.fileExists(atPath: source64.path) {
                 try copyIfDifferent(source64, to: runtimeWin64Dir.appendingPathComponent(dll))
@@ -194,4 +208,9 @@ extension ForgeStore {
         var seen = Set<String>()
         return urls.filter { seen.insert($0.path).inserted }
     }
+}
+
+private func isRegularFileOrSymlink(_ attributes: [FileAttributeKey: Any]?) -> Bool {
+    let type = attributes?[.type] as? FileAttributeType
+    return type == .typeRegular || type == .typeSymbolicLink
 }
