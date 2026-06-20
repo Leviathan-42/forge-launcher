@@ -173,7 +173,7 @@ pub fn update_bottle_runtime(
         {
             return Err(
                 "Safety warning: this bottle already exists and was using GPTK/D3DMetal. \
-                 Switching it to a Wine 10/11+ Vulkan profile may modify the prefix. \
+                 Switching it to the Wine 11 + MoltenVK profile may modify the prefix. \
                  Create a cloned/test bottle instead, or retry with force=true."
                     .to_string(),
             );
