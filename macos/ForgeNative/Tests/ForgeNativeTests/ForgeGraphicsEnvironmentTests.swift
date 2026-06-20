@@ -1,6 +1,9 @@
 import XCTest
 @testable import ForgeNative
 
+private let gptkLibPath = "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib"
+private let homebrewMoltenVkIcdPath = "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+
 final class ForgeGraphicsEnvironmentTests: XCTestCase {
     func testDedupePathPartsKeepsFirstNonEmptyOccurrence() {
         XCTAssertEqual(
@@ -11,16 +14,16 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
 
     func testBuildDyldPathAddsGptkExternalSearchPaths() {
         let dyldPath = ForgeStore.buildDyldPath(
-            gptkLibPath: "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external",
+            gptkLibPath: "\(gptkLibPath)/external",
             existing: "/opt/forge-wine/lib"
         )
 
         XCTAssertEqual(
             dyldPath,
             [
-                "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external",
-                "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external/D3DMetal.framework/Versions/A",
-                "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib",
+                "\(gptkLibPath)/external",
+                "\(gptkLibPath)/external/D3DMetal.framework/Versions/A",
+                gptkLibPath,
                 "/opt/forge-wine/lib"
             ].joined(separator: ":")
         )
@@ -28,16 +31,16 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
 
     func testBuildDyldPathTrimsConfiguredGptkPath() {
         let dyldPath = ForgeStore.buildDyldPath(
-            gptkLibPath: "  /Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib  \n",
+            gptkLibPath: "  \(gptkLibPath)  \n",
             existing: ""
         )
 
         XCTAssertEqual(
             dyldPath,
             [
-                "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib",
-                "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external",
-                "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external/D3DMetal.framework/Versions/A"
+                gptkLibPath,
+                "\(gptkLibPath)/external",
+                "\(gptkLibPath)/external/D3DMetal.framework/Versions/A"
             ].joined(separator: ":")
         )
     }
@@ -49,27 +52,29 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
         let candidates = ForgeStore.moltenVkIcdCandidates(configuredPath: configured)
 
         XCTAssertTrue(candidates.contains(expanded))
-        XCTAssertTrue(candidates.contains(URL(fileURLWithPath: expanded).appendingPathComponent("MoltenVK_icd.json").path))
-        XCTAssertTrue(candidates.contains("/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"))
+        XCTAssertTrue(
+            candidates.contains(URL(fileURLWithPath: expanded).appendingPathComponent("MoltenVK_icd.json").path)
+        )
+        XCTAssertTrue(candidates.contains(homebrewMoltenVkIcdPath))
     }
 
     func testMoltenVkCandidatesTrimAndDedupeConfiguredPath() {
-        let configured = "  /opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json  "
+        let configured = "  \(homebrewMoltenVkIcdPath)  "
 
         let candidates = ForgeStore.moltenVkIcdCandidates(configuredPath: configured)
 
         XCTAssertEqual(
-            candidates.filter { $0 == "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json" }.count,
+            candidates.filter { $0 == homebrewMoltenVkIcdPath }.count,
             1
         )
     }
 
     func testGptkWineLibBaseTrimsConfiguredPath() {
         let base = ForgeStore.gptkWineLibBase(
-            gptkLibPath: "  /Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/external  "
+            gptkLibPath: "  \(gptkLibPath)/external  "
         )
 
-        XCTAssertEqual(base?.path, "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib")
+        XCTAssertEqual(base?.path, gptkLibPath)
     }
 
     func testTrimmedNonEmptyPathRejectsBlankValues() {

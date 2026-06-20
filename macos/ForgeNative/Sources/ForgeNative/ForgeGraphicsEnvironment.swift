@@ -1,17 +1,21 @@
 import Foundation
 
+private let moltenVkIcdRelativePath = "share/vulkan/icd.d/MoltenVK_icd.json"
+
 extension ForgeStore {
-    nonisolated static func configureMoltenVK(profile: RuntimeProfile, config: AppConfig, env: inout [String: String]) {
-        if let existing = env["VK_ICD_FILENAMES"], !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    nonisolated static func configureMoltenVK(
+        profile: RuntimeProfile,
+        config: AppConfig,
+        env: inout [String: String]
+    ) {
+        if let existing = env["VK_ICD_FILENAMES"],
+           !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return
         }
 
         let configured = profile.moltenvkPath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let candidates = moltenVkIcdCandidates(configuredPath: configured)
-        if let icd = candidates.first(where: { path in
-            var isDirectory: ObjCBool = false
-            return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) && !isDirectory.boolValue
-        }) {
+        if let icd = candidates.first(where: isExistingRegularFile) {
             env["VK_ICD_FILENAMES"] = icd
             env["VK_DRIVER_FILES"] = icd
         }
@@ -32,7 +36,7 @@ extension ForgeStore {
 
         add(configuredPath)
         if !configuredPath.isEmpty {
-            add(URL(fileURLWithPath: configuredPath).appendingPathComponent("share/vulkan/icd.d/MoltenVK_icd.json").path)
+            add(URL(fileURLWithPath: configuredPath).appendingPathComponent(moltenVkIcdRelativePath).path)
             add(URL(fileURLWithPath: configuredPath).appendingPathComponent("MoltenVK_icd.json").path)
         }
         add("/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json")
@@ -106,4 +110,10 @@ extension ForgeStore {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+}
+
+private func isExistingRegularFile(path: String) -> Bool {
+    var isDirectory: ObjCBool = false
+    return FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
+        && !isDirectory.boolValue
 }
