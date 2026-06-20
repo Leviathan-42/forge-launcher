@@ -9,26 +9,16 @@ struct DropExeCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 11) {
-                RuntimeCardIcon(
-                    systemName: isTargeted ? "arrow.down.doc.fill" : "plus.app.fill",
-                    fontSize: 22,
-                    frameSize: 46,
-                    cornerRadius: 17,
-                    backgroundOpacity: isTargeted ? 0.18 : 0.10,
-                    foregroundOpacity: 0.88
-                )
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(isTargeted ? "Drop to Run" : "Add EXE")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.94))
-                    Text("Drag a Windows .exe here or select one from Finder.")
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.44))
-                        .lineLimit(2)
-                }
-            }
+            RuntimeCardHeader(
+                icon: isTargeted ? "arrow.down.doc.fill" : "plus.app.fill",
+                title: isTargeted ? "Drop to Run" : "Add EXE",
+                subtitle: "Drag a Windows .exe here or select one from Finder.",
+                iconFontSize: 22,
+                iconFrameSize: 46,
+                iconCornerRadius: 17,
+                iconBackgroundOpacity: isTargeted ? 0.18 : 0.10,
+                iconForegroundOpacity: 0.88
+            )
 
             Spacer(minLength: 0)
 
@@ -56,20 +46,14 @@ struct RuntimeActionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 11) {
-                RuntimeCardIcon(systemName: icon)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.92))
-                    Text(subtitle)
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.42))
-                        .lineLimit(2)
-                        .truncationMode(.middle)
-                }
-            }
+            RuntimeCardHeader(
+                icon: icon,
+                title: title,
+                subtitle: subtitle,
+                titleOpacity: 0.92,
+                subtitleOpacity: 0.42,
+                subtitleTruncationMode: .middle
+            )
 
             Spacer(minLength: 0)
 
@@ -80,6 +64,44 @@ struct RuntimeActionCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 145, alignment: .leading)
         .liquidGlass(cornerRadius: 26, opacity: 0.26)
+    }
+}
+
+private struct RuntimeCardHeader: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    var titleOpacity = 0.94
+    var subtitleOpacity = 0.44
+    var subtitleTruncationMode: Text.TruncationMode = .tail
+    var iconFontSize: CGFloat = 20
+    var iconFrameSize: CGFloat = 42
+    var iconCornerRadius: CGFloat = 16
+    var iconBackgroundOpacity = 0.10
+    var iconForegroundOpacity = 0.84
+
+    var body: some View {
+        HStack(spacing: 11) {
+            RuntimeCardIcon(
+                systemName: icon,
+                fontSize: iconFontSize,
+                frameSize: iconFrameSize,
+                cornerRadius: iconCornerRadius,
+                backgroundOpacity: iconBackgroundOpacity,
+                foregroundOpacity: iconForegroundOpacity
+            )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white.opacity(titleOpacity))
+                Text(subtitle)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.white.opacity(subtitleOpacity))
+                    .lineLimit(2)
+                    .truncationMode(subtitleTruncationMode)
+            }
+        }
     }
 }
 
