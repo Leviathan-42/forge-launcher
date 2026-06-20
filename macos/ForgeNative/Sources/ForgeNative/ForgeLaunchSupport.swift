@@ -28,6 +28,8 @@ private let launchSummaryEnvironmentKeys = [
     "FORGE_GAME_WINEDLLPATH"
 ]
 
+private let steamSafeCefArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"]
+
 extension ForgeStore {
     nonisolated static func spawn(
         exePath: String,
@@ -339,7 +341,7 @@ extension ForgeStore {
     }
 
     nonisolated static func steamSafeArgs(_ extra: [String]) -> [String] {
-        ["-no-cef-sandbox", "-cef-disable-sandbox"] + extra
+        steamSafeCefArgs + extra
     }
 
     nonisolated static func isSteamExecutable(_ exePath: String, forceSteamMode: Bool) -> Bool {
