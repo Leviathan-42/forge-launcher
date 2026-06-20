@@ -2,7 +2,9 @@ import Foundation
 
 private let stagedD3DMetalDllNames = ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d11.dll", "d3d12.dll"]
 private let dxvkDllNames = ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d10.dll", "d3d10_1.dll", "d3d11.dll"]
-private let dxmtDllNames = ["d3d11.dll", "dxgi.dll", "d3d10core.dll", "winemetal.dll"]
+private let dxmtD3D11DllName = "d3d11.dll"
+private let dxmtD3D11AliasName = "dd3d11.dll"
+private let dxmtDllNames = [dxmtD3D11DllName, "dxgi.dll", "d3d10core.dll", "winemetal.dll"]
 
 extension ForgeStore {
     nonisolated static func removeStagedD3DMetalDlls(exePath: String) throws {
@@ -90,7 +92,7 @@ extension ForgeStore {
             .appendingPathComponent(installDir, isDirectory: true)
     }
 
-    nonisolated static func ensureDXMTInstalled(winePath: String, prefixPath: String) throws {
+    nonisolated static func ensureDXMTInstalled(winePath: String, prefixPath: String, runtimesDir: URL? = nil) throws {
         let fm = FileManager.default
         let wineRoot = URL(fileURLWithPath: winePath)
             .deletingLastPathComponent()
@@ -112,9 +114,9 @@ extension ForgeStore {
         try fm.createDirectory(at: system32, withIntermediateDirectories: true)
         try fm.createDirectory(at: syswow64, withIntermediateDirectories: true)
 
-        let sourceRoots = dxmtSourceRoots(wineRoot: wineRoot)
+        let sourceRoots = dxmtSourceRoots(wineRoot: wineRoot, runtimesDir: runtimesDir)
         guard let sourceRoot = sourceRoots.first(where: {
-            fm.fileExists(atPath: $0.appendingPathComponent("x86_64-windows/d3d11.dll").path)
+            fm.fileExists(atPath: $0.appendingPathComponent("x86_64-windows/\(dxmtD3D11DllName)").path)
                 && fm.fileExists(atPath: $0.appendingPathComponent("x86_64-windows/dxgi.dll").path)
                 && fm.fileExists(atPath: $0.appendingPathComponent("x86_64-unix/winemetal.so").path)
         }) else {
@@ -144,22 +146,22 @@ extension ForgeStore {
             }
         }
         try copyIfDifferent(
-            windows64Source.appendingPathComponent("d3d11.dll"),
-            to: runtimeWin64Dir.appendingPathComponent("dd3d11.dll")
+            windows64Source.appendingPathComponent(dxmtD3D11DllName),
+            to: runtimeWin64Dir.appendingPathComponent(dxmtD3D11AliasName)
         )
         try copyIfDifferent(
-            windows64Source.appendingPathComponent("d3d11.dll"),
-            to: system32.appendingPathComponent("dd3d11.dll")
+            windows64Source.appendingPathComponent(dxmtD3D11DllName),
+            to: system32.appendingPathComponent(dxmtD3D11AliasName)
         )
-        if fm.fileExists(atPath: windows32Source.appendingPathComponent("d3d11.dll").path),
+        if fm.fileExists(atPath: windows32Source.appendingPathComponent(dxmtD3D11DllName).path),
            fm.fileExists(atPath: runtimeWin32Dir.path) {
             try copyIfDifferent(
-                windows32Source.appendingPathComponent("d3d11.dll"),
-                to: runtimeWin32Dir.appendingPathComponent("dd3d11.dll")
+                windows32Source.appendingPathComponent(dxmtD3D11DllName),
+                to: runtimeWin32Dir.appendingPathComponent(dxmtD3D11AliasName)
             )
             try copyIfDifferent(
-                windows32Source.appendingPathComponent("d3d11.dll"),
-                to: syswow64.appendingPathComponent("dd3d11.dll")
+                windows32Source.appendingPathComponent(dxmtD3D11DllName),
+                to: syswow64.appendingPathComponent(dxmtD3D11AliasName)
             )
         }
         try copyIfDifferent(

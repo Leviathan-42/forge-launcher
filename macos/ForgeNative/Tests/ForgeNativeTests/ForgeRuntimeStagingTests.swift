@@ -117,6 +117,55 @@ final class ForgeRuntimeStagingTests: XCTestCase {
         )
     }
 
+    func testEnsureDXMTInstalledStagesD3D11AliasWithoutRealRuntime() throws {
+        let root = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let wineRoot = root.appendingPathComponent("wine-runtime", isDirectory: true)
+        let winePath = wineRoot.appendingPathComponent("bin/wine")
+        let runtimeWin64 = wineRoot.appendingPathComponent("lib/wine/x86_64-windows", isDirectory: true)
+        let runtimeWin32 = wineRoot.appendingPathComponent("lib/wine/i386-windows", isDirectory: true)
+        let runtimeUnix = wineRoot.appendingPathComponent("lib/wine/x86_64-unix", isDirectory: true)
+        try FileManager.default.createDirectory(at: winePath.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: runtimeWin64, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: runtimeWin32, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: runtimeUnix, withIntermediateDirectories: true)
+
+        let runtimes = root.appendingPathComponent("Runtimes", isDirectory: true)
+        let dxmtRoot = runtimes.appendingPathComponent("dxmt-test/v0.6", isDirectory: true)
+        let windows64 = dxmtRoot.appendingPathComponent("x86_64-windows", isDirectory: true)
+        let windows32 = dxmtRoot.appendingPathComponent("i386-windows", isDirectory: true)
+        let unix64 = dxmtRoot.appendingPathComponent("x86_64-unix", isDirectory: true)
+        try FileManager.default.createDirectory(at: windows64, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: windows32, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: unix64, withIntermediateDirectories: true)
+
+        try "d3d11-64".write(to: windows64.appendingPathComponent("d3d11.dll"), atomically: true, encoding: .utf8)
+        try "dxgi-64".write(to: windows64.appendingPathComponent("dxgi.dll"), atomically: true, encoding: .utf8)
+        try "d3d11-32".write(to: windows32.appendingPathComponent("d3d11.dll"), atomically: true, encoding: .utf8)
+        try "winemetal".write(to: unix64.appendingPathComponent("winemetal.so"), atomically: true, encoding: .utf8)
+
+        let prefix = root.appendingPathComponent("prefix", isDirectory: true)
+        try ForgeStore.ensureDXMTInstalled(winePath: winePath.path, prefixPath: prefix.path, runtimesDir: runtimes)
+
+        XCTAssertEqual(
+            try String(contentsOf: runtimeWin64.appendingPathComponent("dd3d11.dll"), encoding: .utf8),
+            "d3d11-64"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: prefix.appendingPathComponent("drive_c/windows/system32/dd3d11.dll"), encoding: .utf8),
+            "d3d11-64"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: runtimeWin32.appendingPathComponent("dd3d11.dll"), encoding: .utf8),
+            "d3d11-32"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: prefix.appendingPathComponent("drive_c/windows/syswow64/dd3d11.dll"), encoding: .utf8),
+            "d3d11-32"
+        )
+    }
+
     func testUniqueURLsKeepsFirstPathOccurrence() {
         let first = URL(fileURLWithPath: "/tmp/ForgeRuntime/a")
         let second = URL(fileURLWithPath: "/tmp/ForgeRuntime/b")
