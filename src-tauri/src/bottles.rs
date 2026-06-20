@@ -336,11 +336,7 @@ pub fn resolve_launch_options(
         .graphics_backend
         .clone()
         .unwrap_or_else(|| profile.default_backend.clone());
-    let is_steam_client = Path::new(&exe)
-        .file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| name.eq_ignore_ascii_case("steam.exe"))
-        .unwrap_or(false);
+    let is_steam_client = launcher::is_steam_executable(&exe);
     let gptk_lib_path = profile
         .gptk_lib_path
         .clone()

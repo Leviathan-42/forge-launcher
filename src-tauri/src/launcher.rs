@@ -184,11 +184,7 @@ pub fn spawn(opts: LaunchOptions) -> Result<GameProcess, String> {
     // Expand ~ in all paths
     let wine_prefix = expand_tilde(&opts.wine_prefix);
     let exe_path = expand_tilde(&opts.exe_path);
-    let is_steam = std::path::Path::new(&exe_path)
-        .file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| name.eq_ignore_ascii_case("steam.exe"))
-        .unwrap_or(false);
+    let is_steam = is_steam_executable(&exe_path);
     let game_backend = opts.graphics_backend.clone();
     let launch_backend = if is_steam {
         GraphicsBackend::WineBuiltin
@@ -603,6 +599,14 @@ pub fn expand_tilde(path: &str) -> String {
     path.to_string()
 }
 
+pub(crate) fn is_steam_executable(path: &str) -> bool {
+    std::path::Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("steam.exe"))
+        .unwrap_or(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -635,6 +639,17 @@ mod tests {
             trimmed_non_empty_path(" /opt/runtime/lib "),
             Some("/opt/runtime/lib")
         );
+    }
+
+    #[test]
+    fn is_steam_executable_matches_only_steam_client() {
+        assert!(is_steam_executable(
+            "/tmp/prefix/drive_c/Program Files/Steam/Steam.EXE"
+        ));
+        assert!(!is_steam_executable(
+            "/tmp/prefix/drive_c/Program Files/Steam/steamwebhelper.exe"
+        ));
+        assert!(!is_steam_executable("/tmp/Games/Example.exe"));
     }
 
     #[test]
