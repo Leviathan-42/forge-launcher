@@ -25,7 +25,6 @@ final class ForgeAppScannerTests: XCTestCase {
         try touch(gameDir.appendingPathComponent("CrashReporter.exe"))
         try touch(gameDir.appendingPathComponent("Bootstrap.exe"))
         try touch(gameDir.appendingPathComponent("Example Game.exe"))
-        defer { try? FileManager.default.removeItem(at: gameDir.deletingLastPathComponent()) }
 
         XCTAssertEqual(
             ForgeStore.primaryGameExe(in: gameDir)?.lastPathComponent,
@@ -64,7 +63,6 @@ final class ForgeAppScannerTests: XCTestCase {
 
     func testScanSteamGamesAddsNamedGameEntryWithAppId() throws {
         let prefix = try makePrefix()
-        defer { try? FileManager.default.removeItem(at: prefix) }
 
         let steamapps = prefix.appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)
         let gameDir = steamapps.appendingPathComponent("common/Example Game", isDirectory: true)
@@ -92,7 +90,6 @@ final class ForgeAppScannerTests: XCTestCase {
 
     func testScanAppsKeepsUserVisibleAppsAndFiltersManagedHelpers() throws {
         let prefix = try makePrefix()
-        defer { try? FileManager.default.removeItem(at: prefix) }
 
         let driveC = prefix.appendingPathComponent("drive_c", isDirectory: true)
         let steamDir = driveC.appendingPathComponent("Program Files/Steam", isDirectory: true)

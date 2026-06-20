@@ -4,7 +4,6 @@ import XCTest
 final class ForgeRuntimeStagingTests: XCTestCase {
     func testCopyIfDifferentCopiesMissingFileAndCreatesParentDirectory() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let source = root.appendingPathComponent("source/d3d11.dll")
         let destination = root.appendingPathComponent("target/nested/d3d11.dll")
@@ -21,7 +20,6 @@ final class ForgeRuntimeStagingTests: XCTestCase {
 
     func testCopyIfDifferentSkipsExistingFileWithMatchingSize() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let source = root.appendingPathComponent("source.dll")
         let destination = root.appendingPathComponent("destination.dll")
@@ -35,7 +33,6 @@ final class ForgeRuntimeStagingTests: XCTestCase {
 
     func testCopyIfDifferentReplacesExistingFileWithDifferentSize() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let source = root.appendingPathComponent("source.dll")
         let destination = root.appendingPathComponent("destination.dll")
@@ -49,7 +46,6 @@ final class ForgeRuntimeStagingTests: XCTestCase {
 
     func testRemoveStagedD3DMetalDllsRemovesOnlyStagedDllFiles() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let gameDir = root.appendingPathComponent("Game", isDirectory: true)
         try FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
@@ -80,7 +76,6 @@ final class ForgeRuntimeStagingTests: XCTestCase {
 
     func testDXVKSourceRootsFindsNestedRuntimeVersionsBeforeBundleRoot() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let runtimes = root.appendingPathComponent("Runtimes", isDirectory: true)
         let dxvkBundle = runtimes.appendingPathComponent("dxvk-runtime", isDirectory: true)
@@ -99,7 +94,6 @@ final class ForgeRuntimeStagingTests: XCTestCase {
 
     func testDXMTSourceRootsIncludesRuntimeBundlesAndWineBundledFallback() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let runtimes = root.appendingPathComponent("Runtimes", isDirectory: true)
         let dxmtBundle = runtimes.appendingPathComponent("dxmt-v0.6", isDirectory: true)
@@ -119,7 +113,6 @@ final class ForgeRuntimeStagingTests: XCTestCase {
 
     func testEnsureDXMTInstalledStagesD3D11AliasWithoutRealRuntime() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let wineRoot = root.appendingPathComponent("wine-runtime", isDirectory: true)
         let winePath = wineRoot.appendingPathComponent("bin/wine")
@@ -178,7 +171,6 @@ final class ForgeRuntimeStagingTests: XCTestCase {
 
     func testSteamGameDirectoryReadsInstallDirFromCompactManifest() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let steamapps = root.appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)
         try FileManager.default.createDirectory(at: steamapps, withIntermediateDirectories: true)

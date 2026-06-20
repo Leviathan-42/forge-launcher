@@ -4,7 +4,6 @@ import XCTest
 final class ForgePersistenceTests: XCTestCase {
     func testLoadConfigReturnsDefaultsWhenMissingAndRoundTripsSavedConfig() throws {
         let support = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: support) }
 
         XCTAssertEqual(try ForgeStore.loadConfig(from: support).defaultPrefix, AppConfig.defaults.defaultPrefix)
 
@@ -31,7 +30,6 @@ final class ForgePersistenceTests: XCTestCase {
 
     func testLoadProfilesReturnsDefaultForMissingOrEmptyProfileFile() throws {
         let support = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: support) }
         let config = AppConfig.defaults
 
         XCTAssertEqual(try ForgeStore.loadProfiles(from: support, config: config).first?.id, RuntimeProfile.defaultId)
@@ -75,7 +73,6 @@ final class ForgePersistenceTests: XCTestCase {
 
     func testSaveBottleUpdatesExistingBottleAndInsertsNewBottle() throws {
         let support = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: support) }
         let config = AppConfig.defaults
         let existing = BottleEntry(
             name: "Default",

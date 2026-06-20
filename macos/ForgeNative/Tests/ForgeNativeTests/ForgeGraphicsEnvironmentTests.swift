@@ -103,7 +103,6 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
 
     func testGptkWineDllSearchPathsKeepsExistingSubpathsInOrder() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let windows64 = root.appendingPathComponent("wine/x86_64-windows", isDirectory: true)
         let windows32 = root.appendingPathComponent("wine/i386-windows", isDirectory: true)
@@ -124,7 +123,6 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
 
     func testConfigureMoltenVkUsesConfiguredIcdFile() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let icd = root.appendingPathComponent("MoltenVK_icd.json")
         try "{}".write(to: icd, atomically: true, encoding: .utf8)
@@ -145,7 +143,6 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
 
     func testConfigureMoltenVkSkipsConfiguredDirectoryForNestedIcdFile() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let icd = root.appendingPathComponent("MoltenVK_icd.json")
         try "{}".write(to: icd, atomically: true, encoding: .utf8)
@@ -163,7 +160,6 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
 
     func testConfigureMoltenVkPreservesExistingIcdEnvironment() throws {
         let root = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: root) }
 
         let icd = root.appendingPathComponent("MoltenVK_icd.json")
         try "{}".write(to: icd, atomically: true, encoding: .utf8)

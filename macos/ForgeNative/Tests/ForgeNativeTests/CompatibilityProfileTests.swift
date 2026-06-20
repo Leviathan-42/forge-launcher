@@ -57,7 +57,6 @@ final class CompatibilityProfileTests: XCTestCase {
 
     func testLoadGameProfilesMigratesOldAgainstTheStormD3DMetalOverrideToDXMT() throws {
         let support = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: support) }
 
         let staleProfile = GameCompatibilityProfile(
             id: "steam:1336490",
@@ -78,7 +77,6 @@ final class CompatibilityProfileTests: XCTestCase {
 
     func testLoadGameProfilesMigratesAmongUsNonWineD3DOverrideToSeed() throws {
         let support = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: support) }
 
         let staleProfile = GameCompatibilityProfile(
             id: "steam:945360",
@@ -98,7 +96,6 @@ final class CompatibilityProfileTests: XCTestCase {
 
     func testLoadGameProfilesMigratesOverwatchD3DMetalOverrideToSeed() throws {
         let support = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: support) }
 
         let staleProfile = GameCompatibilityProfile(
             id: "steam:2357570",
@@ -118,7 +115,6 @@ final class CompatibilityProfileTests: XCTestCase {
 
     func testLoadGameProfilesAddsOverwatchStackGuaranteeToExistingProfile() throws {
         let support = try makeTempDirectory()
-        defer { try? FileManager.default.removeItem(at: support) }
 
         let existingProfile = GameCompatibilityProfile(
             id: "steam:2357570",
