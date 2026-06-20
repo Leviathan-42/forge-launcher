@@ -43,7 +43,7 @@ struct GameProfileEditorSheet: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(.white.opacity(0.10))
-                    Image(systemName: app.kind == "launcher" ? "bolt.fill" : "gamecontroller.fill")
+                    Image(systemName: appIconName)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.74))
                 }
@@ -134,7 +134,7 @@ struct GameProfileEditorSheet: View {
                 .buttonStyle(
                     ForgeButtonStyle(
                         tint: .white.opacity(0.09),
-                        foreground: .white.opacity(canReset ? 0.84 : 0.42)
+                        foreground: resetButtonForeground
                     )
                 )
                 .disabled(!canReset)
@@ -157,15 +157,26 @@ struct GameProfileEditorSheet: View {
         .background(.black.opacity(0.56))
     }
 
+    private var appIconName: String {
+        app.kind == "launcher" ? "bolt.fill" : "gamecontroller.fill"
+    }
+
+    private var resetButtonForeground: Color {
+        .white.opacity(canReset ? 0.84 : 0.42)
+    }
+
+    private var selectedBackendOverride: GraphicsBackend? {
+        backendSelection == Self.bottleDefaultBackend
+            ? nil
+            : GraphicsBackend(rawValue: backendSelection)
+    }
+
     private func saveProfile() {
         do {
             let launchArgs = try ForgeStore.parseLaunchArgs(launchArgsText)
             let env = try ForgeStore.parseEnvOverrides(envText)
             let notes = ForgeStore.cleanedProfileNotes(notesText)
-            let backend = backendSelection == Self.bottleDefaultBackend
-                ? nil
-                : GraphicsBackend(rawValue: backendSelection)
-            save(backend, launchArgs, env, notes)
+            save(selectedBackendOverride, launchArgs, env, notes)
         } catch {
             validationMessage = error.localizedDescription
         }
