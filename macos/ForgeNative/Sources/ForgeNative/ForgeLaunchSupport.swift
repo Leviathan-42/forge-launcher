@@ -42,7 +42,7 @@ extension ForgeStore {
         steamSafeMode: Bool
     ) async throws {
         let configuredWinePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
-        let isSteam = forceSteamMode || URL(fileURLWithPath: exePath).lastPathComponent.caseInsensitiveCompare("steam.exe") == .orderedSame
+        let isSteam = isSteamExecutable(exePath, forceSteamMode: forceSteamMode)
         let gameBackend = backendOverride ?? bottle.graphicsBackend ?? profile.defaultBackend
         let launchBackend: GraphicsBackend = (isSteam && steamSafeMode) ? .wineBuiltin : gameBackend
         let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
@@ -338,6 +338,13 @@ extension ForgeStore {
 
     nonisolated static func steamSafeArgs(_ extra: [String]) -> [String] {
         ["-no-cef-sandbox", "-cef-disable-sandbox"] + extra
+    }
+
+    nonisolated static func isSteamExecutable(_ exePath: String, forceSteamMode: Bool) -> Bool {
+        forceSteamMode ||
+            URL(fileURLWithPath: exePath)
+                .lastPathComponent
+                .caseInsensitiveCompare("steam.exe") == .orderedSame
     }
 
     nonisolated static func clearVulkanBackendEnvironment(_ env: inout [String: String]) {

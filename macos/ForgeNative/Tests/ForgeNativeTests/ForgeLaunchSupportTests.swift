@@ -9,6 +9,12 @@ final class ForgeLaunchSupportTests: XCTestCase {
         )
     }
 
+    func testIsSteamExecutableHonorsForceModeAndExecutableName() {
+        XCTAssertTrue(ForgeStore.isSteamExecutable("/tmp/Steam/Steam.EXE", forceSteamMode: false))
+        XCTAssertTrue(ForgeStore.isSteamExecutable("/tmp/Game.exe", forceSteamMode: true))
+        XCTAssertFalse(ForgeStore.isSteamExecutable("/tmp/Steam/steamwebhelper.exe", forceSteamMode: false))
+    }
+
     func testClearVulkanBackendEnvironmentRemovesVulkanAndDXVKKeys() {
         var env = [
             "VK_ICD_FILENAMES": "/tmp/icd.json",
