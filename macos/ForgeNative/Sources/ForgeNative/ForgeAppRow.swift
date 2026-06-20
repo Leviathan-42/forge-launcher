@@ -37,7 +37,6 @@ struct LiquidAppRow: View {
     let resetProfile: () -> Void
     let editProfile: () -> Void
     let launch: () -> Void
-    let launchThroughSteam: (() -> Void)?
     let stop: () -> Void
 
     var body: some View {

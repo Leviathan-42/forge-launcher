@@ -53,7 +53,6 @@ struct ForgeAppsPanel: View {
                                         store.launch(app)
                                     }
                                 },
-                                launchThroughSteam: nil,
                                 stop: {
                                     store.stopRunningApp()
                                 }
