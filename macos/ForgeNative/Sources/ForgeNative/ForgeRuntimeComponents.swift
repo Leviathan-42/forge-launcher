@@ -10,29 +10,65 @@ struct DropExeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             RuntimeCardHeader(
-                icon: isTargeted ? "arrow.down.doc.fill" : "plus.app.fill",
-                title: isTargeted ? "Drop to Run" : "Add EXE",
+                icon: headerIconName,
+                title: headerTitle,
                 subtitle: "Drag a Windows .exe here or select one from Finder.",
                 iconFontSize: 22,
                 iconFrameSize: 46,
                 iconCornerRadius: 17,
-                iconBackgroundOpacity: isTargeted ? 0.18 : 0.10,
+                iconBackgroundOpacity: iconBackgroundOpacity,
                 iconForegroundOpacity: 0.88
             )
 
             Spacer(minLength: 0)
 
-            Button(isRunning ? "Stop" : "Select EXE", action: isRunning ? stopAction : selectAction)
-                .buttonStyle(ForgeButtonStyle(tint: isRunning ? .red.opacity(0.26) : .white.opacity(0.15)))
-                .disabled(isDisabled && !isRunning)
+            Button(primaryButtonTitle, action: primaryButtonAction)
+                .buttonStyle(ForgeButtonStyle(tint: primaryButtonTint))
+                .disabled(primaryButtonIsDisabled)
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 145, alignment: .leading)
-        .liquidGlass(cornerRadius: 26, opacity: isTargeted ? 0.42 : 0.26)
+        .liquidGlass(cornerRadius: 26, opacity: glassOpacity)
         .overlay(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(.white.opacity(isTargeted ? 0.38 : 0), lineWidth: 1.4)
+                .stroke(.white.opacity(targetStrokeOpacity), lineWidth: 1.4)
         )
+    }
+
+    private var headerIconName: String {
+        isTargeted ? "arrow.down.doc.fill" : "plus.app.fill"
+    }
+
+    private var headerTitle: String {
+        isTargeted ? "Drop to Run" : "Add EXE"
+    }
+
+    private var iconBackgroundOpacity: Double {
+        isTargeted ? 0.18 : 0.10
+    }
+
+    private var primaryButtonTitle: String {
+        isRunning ? "Stop" : "Select EXE"
+    }
+
+    private var primaryButtonAction: () -> Void {
+        isRunning ? stopAction : selectAction
+    }
+
+    private var primaryButtonTint: Color {
+        isRunning ? .red.opacity(0.26) : .white.opacity(0.15)
+    }
+
+    private var primaryButtonIsDisabled: Bool {
+        isDisabled && !isRunning
+    }
+
+    private var glassOpacity: Double {
+        isTargeted ? 0.42 : 0.26
+    }
+
+    private var targetStrokeOpacity: Double {
+        isTargeted ? 0.38 : 0
     }
 }
 
