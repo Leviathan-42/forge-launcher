@@ -6,19 +6,6 @@ export type GraphicsBackend =
   | "wine_builtin"
   | "none";
 
-export type RuntimeProfile = {
-  id: string;
-  name: string;
-  wine64_path: string;
-  wineserver_path?: string | null;
-  gptk_lib_path?: string | null;
-  dxvk_path?: string | null;
-  vkd3d_path?: string | null;
-  moltenvk_path?: string | null;
-  default_backend: GraphicsBackend;
-  env: Record<string, string>;
-};
-
 export type Bottle = {
   id: string;
   name: string;
