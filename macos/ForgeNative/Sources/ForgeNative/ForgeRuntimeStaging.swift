@@ -51,10 +51,20 @@ extension ForgeStore {
     nonisolated static func dxvkSourceRoots(runtimesDir: URL? = nil) -> [URL] {
         let runtimes = runtimesDir ?? defaultRuntimesDirectory()
         var roots: [URL] = []
-        if let entries = try? FileManager.default.contentsOfDirectory(at: runtimes, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
+        if let entries = try? FileManager.default.contentsOfDirectory(
+            at: runtimes,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
             for entry in entries where entry.lastPathComponent.lowercased().contains("dxvk") {
-                if let children = try? FileManager.default.contentsOfDirectory(at: entry, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
-                    roots.append(contentsOf: children.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedDescending })
+                if let children = try? FileManager.default.contentsOfDirectory(
+                    at: entry,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                ) {
+                    roots.append(contentsOf: children.sorted {
+                        $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedDescending
+                    })
                 }
                 roots.append(entry)
             }
@@ -63,7 +73,8 @@ extension ForgeStore {
     }
 
     nonisolated static func steamGameDirectory(prefixPath: String, appId: String) -> URL? {
-        let steamapps = URL(fileURLWithPath: prefixPath).appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)
+        let steamapps = URL(fileURLWithPath: prefixPath)
+            .appendingPathComponent("drive_c/Program Files (x86)/Steam/steamapps", isDirectory: true)
         let manifest = steamapps.appendingPathComponent("appmanifest_\(appId).acf")
         guard let text = try? String(contentsOf: manifest, encoding: .utf8),
               let installDir = acfValue("installdir", in: text) else { return nil }
@@ -93,7 +104,10 @@ extension ForgeStore {
                 && fm.fileExists(atPath: $0.appendingPathComponent("x86_64-windows/dxgi.dll").path)
                 && fm.fileExists(atPath: $0.appendingPathComponent("x86_64-unix/winemetal.so").path)
         }) else {
-            throw ForgeError.message("DXMT runtime files were not found. Expected ~/Wine/Runtimes/dxmt-v*/v*/x86_64-windows and x86_64-unix.")
+            throw ForgeError.message(
+                "DXMT runtime files were not found. " +
+                    "Expected ~/Wine/Runtimes/dxmt-v*/v*/x86_64-windows and x86_64-unix."
+            )
         }
 
         let windows64Source = sourceRoot.appendingPathComponent("x86_64-windows", isDirectory: true)
@@ -115,22 +129,46 @@ extension ForgeStore {
                 try copyIfDifferent(source32, to: syswow64.appendingPathComponent(dll))
             }
         }
-        try copyIfDifferent(windows64Source.appendingPathComponent("d3d11.dll"), to: runtimeWin64Dir.appendingPathComponent("dd3d11.dll"))
-        try copyIfDifferent(windows64Source.appendingPathComponent("d3d11.dll"), to: system32.appendingPathComponent("dd3d11.dll"))
-        if fm.fileExists(atPath: windows32Source.appendingPathComponent("d3d11.dll").path), fm.fileExists(atPath: runtimeWin32Dir.path) {
-            try copyIfDifferent(windows32Source.appendingPathComponent("d3d11.dll"), to: runtimeWin32Dir.appendingPathComponent("dd3d11.dll"))
-            try copyIfDifferent(windows32Source.appendingPathComponent("d3d11.dll"), to: syswow64.appendingPathComponent("dd3d11.dll"))
+        try copyIfDifferent(
+            windows64Source.appendingPathComponent("d3d11.dll"),
+            to: runtimeWin64Dir.appendingPathComponent("dd3d11.dll")
+        )
+        try copyIfDifferent(
+            windows64Source.appendingPathComponent("d3d11.dll"),
+            to: system32.appendingPathComponent("dd3d11.dll")
+        )
+        if fm.fileExists(atPath: windows32Source.appendingPathComponent("d3d11.dll").path),
+           fm.fileExists(atPath: runtimeWin32Dir.path) {
+            try copyIfDifferent(
+                windows32Source.appendingPathComponent("d3d11.dll"),
+                to: runtimeWin32Dir.appendingPathComponent("dd3d11.dll")
+            )
+            try copyIfDifferent(
+                windows32Source.appendingPathComponent("d3d11.dll"),
+                to: syswow64.appendingPathComponent("dd3d11.dll")
+            )
         }
-        try copyIfDifferent(unixSource.appendingPathComponent("winemetal.so"), to: runtimeUnixDir.appendingPathComponent("winemetal.so"))
+        try copyIfDifferent(
+            unixSource.appendingPathComponent("winemetal.so"),
+            to: runtimeUnixDir.appendingPathComponent("winemetal.so")
+        )
     }
 
     nonisolated static func dxmtSourceRoots(wineRoot: URL, runtimesDir: URL? = nil) -> [URL] {
         let runtimes = runtimesDir ?? defaultRuntimesDirectory()
         var roots: [URL] = []
-        if let entries = try? FileManager.default.contentsOfDirectory(at: runtimes, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
+        if let entries = try? FileManager.default.contentsOfDirectory(
+            at: runtimes,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
             for entry in entries where entry.lastPathComponent.lowercased().contains("dxmt") {
                 roots.append(entry)
-                if let children = try? FileManager.default.contentsOfDirectory(at: entry, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) {
+                if let children = try? FileManager.default.contentsOfDirectory(
+                    at: entry,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                ) {
                     roots.append(contentsOf: children)
                 }
             }
