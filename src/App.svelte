@@ -560,7 +560,7 @@
               title={desktopCommandsAvailable ? `Run ${entry.name}` : "Open the Tauri desktop app to launch"}
               aria-label={desktopCommandsAvailable ? `Run ${entry.name}` : "Open the Tauri desktop app to launch"}
               on:click={() => runExeEntry(entry)}
-              disabled={busy !== ""}
+              disabled={busy !== "" || !desktopCommandsAvailable}
             >
               <Icon name="play" size={16} />
               <span>Play</span>
