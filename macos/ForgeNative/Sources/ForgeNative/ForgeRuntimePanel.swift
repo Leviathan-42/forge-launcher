@@ -42,7 +42,6 @@ struct ForgeRuntimePanel: View {
                 title: "Bottle Folder",
                 subtitle: bottle.prefixPath,
                 primaryTitle: "Reveal",
-                isDisabled: false,
                 primaryAction: { store.revealBottle() }
             )
 
@@ -51,7 +50,6 @@ struct ForgeRuntimePanel: View {
                 title: "Rescan",
                 subtitle: "Refresh installed launchers and EXEs.",
                 primaryTitle: "Refresh",
-                isDisabled: false,
                 primaryAction: { store.reload() }
             )
         }

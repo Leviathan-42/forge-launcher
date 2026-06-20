@@ -41,7 +41,7 @@ struct RuntimeActionCard: View {
     let title: String
     let subtitle: String
     let primaryTitle: String
-    let isDisabled: Bool
+    var isDisabled = false
     let primaryAction: () -> Void
 
     var body: some View {
