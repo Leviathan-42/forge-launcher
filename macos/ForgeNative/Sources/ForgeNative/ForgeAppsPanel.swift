@@ -88,9 +88,7 @@ struct ForgeAppsPanel: View {
     }
 
     private var backendText: String {
-        let backend = bottle.graphicsBackend
-            ?? store.profiles.first(where: { $0.id == bottle.runtimeProfileId })?.defaultBackend
-            ?? .dxvkVkd3d
+        let backend = bottle.graphicsBackend ?? store.profile(for: bottle).defaultBackend
         return "Default: \(backend.displayName)"
     }
 }
