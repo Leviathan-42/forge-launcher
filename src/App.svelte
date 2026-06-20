@@ -35,6 +35,11 @@
     game?: Game;
   };
 
+  type FileDropPayload = {
+    type?: unknown;
+    paths?: unknown;
+  };
+
   type RuntimeStackId = "wine11-moltenvk";
 
   const steamSafeArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"] as const;
@@ -182,12 +187,12 @@
     if (!("__TAURI_INTERNALS__" in window)) return;
 
     unlistenDrop = await getCurrentWebview().onDragDropEvent((event) => {
-      const payload = event.payload as { type: string; paths?: string[] };
-      if (payload.type !== "drop") {
+      const paths = dropPaths(event.payload);
+      if (!paths) {
         return;
       }
 
-      const exe = (payload.paths || []).find((droppedPath: string) => droppedPath.toLowerCase().endsWith(".exe"));
+      const exe = paths.find((droppedPath) => droppedPath.toLowerCase().endsWith(".exe"));
       if (!exe) {
         notify("bad", "Drop a Windows .exe file.");
         return;
@@ -195,6 +200,16 @@
 
       void addExePath(exe);
     });
+  }
+
+  function dropPaths(payload: unknown) {
+    if (!payload || typeof payload !== "object") return null;
+
+    const drop = payload as FileDropPayload;
+    if (drop.type !== "drop") return null;
+    if (!Array.isArray(drop.paths)) return [];
+
+    return drop.paths.filter((path): path is string => typeof path === "string");
   }
 
   function isSteamPath(path: string) {
