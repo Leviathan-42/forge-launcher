@@ -44,9 +44,9 @@ struct RuntimeProfile: Codable, Identifiable {
             gptkLibPath: gptkLibPath.isEmpty ? nil : gptkLibPath,
             dxvkPath: nil,
             vkd3dPath: nil,
-            moltenvkPath: "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
+            moltenvkPath: defaultMoltenVkIcdPath,
             defaultBackend: .dxvkVkd3d,
-            env: ["VK_ICD_FILENAMES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"]
+            env: ["VK_ICD_FILENAMES": defaultMoltenVkIcdPath]
         )
     }
 }

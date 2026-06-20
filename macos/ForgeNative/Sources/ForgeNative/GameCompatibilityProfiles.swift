@@ -87,8 +87,8 @@ extension ForgeStore {
                 env: [
                     "WINE_D3D_CONFIG": "renderer=vulkan",
                     "WINEDLLOVERRIDES": SeededGameProfileValue.amongUsWineDllOverrides,
-                    "VK_ICD_FILENAMES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
-                    "VK_DRIVER_FILES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+                    "VK_ICD_FILENAMES": defaultMoltenVkIcdPath,
+                    "VK_DRIVER_FILES": defaultMoltenVkIcdPath
                 ],
                 notes: "32-bit Unity D3D11 build; DXMT/DXVK are not viable in this WoW64 runtime. " +
                     "WineD3D's Vulkan renderer reaches D3D11 level 11.1."

@@ -1,6 +1,7 @@
 import Foundation
 
 private let moltenVkIcdRelativePath = "share/vulkan/icd.d/MoltenVK_icd.json"
+let defaultMoltenVkIcdPath = "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
 
 extension ForgeStore {
     nonisolated static func configureMoltenVK(
@@ -39,7 +40,7 @@ extension ForgeStore {
             add(URL(fileURLWithPath: configuredPath).appendingPathComponent(moltenVkIcdRelativePath).path)
             add(URL(fileURLWithPath: configuredPath).appendingPathComponent("MoltenVK_icd.json").path)
         }
-        add("/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json")
+        add(defaultMoltenVkIcdPath)
         add("/usr/local/share/vulkan/icd.d/MoltenVK_icd.json")
         add("/opt/homebrew/Cellar/molten-vk/share/vulkan/icd.d/MoltenVK_icd.json")
         return dedupePathParts(candidates)
