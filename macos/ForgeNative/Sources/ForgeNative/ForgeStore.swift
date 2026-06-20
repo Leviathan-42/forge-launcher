@@ -280,6 +280,10 @@ final class ForgeStore: ObservableObject {
             ?? RuntimeProfile.defaultProfile(config: config)
     }
 
+    func defaultBackend(for bottle: BottleEntry) -> GraphicsBackend {
+        bottle.graphicsBackend ?? profile(for: bottle).defaultBackend
+    }
+
     private nonisolated static func sessionOnlyChangeMessage(
         change: String,
         destination: String,

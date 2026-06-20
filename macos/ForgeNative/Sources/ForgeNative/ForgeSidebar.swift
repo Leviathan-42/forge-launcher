@@ -48,7 +48,7 @@ struct ForgeSidebar: View {
                 StatusLine(icon: "app.badge.fill", title: "Launchable apps", value: "\(store.apps.count)")
                 BackendPickerCard(
                     selection: Binding(
-                        get: { bottle.graphicsBackend ?? store.profile(for: bottle).defaultBackend },
+                        get: { store.defaultBackend(for: bottle) },
                         set: { store.setBackend($0) }
                     )
                 )
