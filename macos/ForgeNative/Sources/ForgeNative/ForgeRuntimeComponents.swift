@@ -10,12 +10,14 @@ struct DropExeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 11) {
-                Image(systemName: isTargeted ? "arrow.down.doc.fill" : "plus.app.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.white.opacity(0.88))
-                    .frame(width: 46, height: 46)
-                    .background(.white.opacity(isTargeted ? 0.18 : 0.10), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+                RuntimeCardIcon(
+                    systemName: isTargeted ? "arrow.down.doc.fill" : "plus.app.fill",
+                    fontSize: 22,
+                    frameSize: 46,
+                    cornerRadius: 17,
+                    backgroundOpacity: isTargeted ? 0.18 : 0.10,
+                    foregroundOpacity: 0.88
+                )
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(isTargeted ? "Drop to Run" : "Add EXE")
@@ -55,12 +57,7 @@ struct RuntimeActionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 11) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.white.opacity(0.84))
-                    .frame(width: 42, height: 42)
-                    .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                RuntimeCardIcon(systemName: icon)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
@@ -83,5 +80,26 @@ struct RuntimeActionCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 145, alignment: .leading)
         .liquidGlass(cornerRadius: 26, opacity: 0.26)
+    }
+}
+
+private struct RuntimeCardIcon: View {
+    let systemName: String
+    var fontSize: CGFloat = 20
+    var frameSize: CGFloat = 42
+    var cornerRadius: CGFloat = 16
+    var backgroundOpacity = 0.10
+    var foregroundOpacity = 0.84
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: fontSize, weight: .semibold))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(.white.opacity(foregroundOpacity))
+            .frame(width: frameSize, height: frameSize)
+            .background(
+                .white.opacity(backgroundOpacity),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
     }
 }
