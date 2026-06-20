@@ -11,6 +11,8 @@ import type {
 } from "$lib/types";
 
 const mockPrefix = `${homeHint()}/Wine/Bottles/default`;
+const previewRuntimeProfileId = "wine-vulkan";
+const previewGraphicsBackend: GraphicsBackend = "dxvk_vkd3d";
 
 function homeHint() {
   return "~";
@@ -48,8 +50,8 @@ export async function listBottles() {
         prefix_path: mockPrefix,
         exists: false,
         steam_installed: false,
-        runtime_profile_id: "gptk-d3dmetal",
-        graphics_backend: null,
+        runtime_profile_id: previewRuntimeProfileId,
+        graphics_backend: previewGraphicsBackend,
         env_overrides: {},
         app_count: 0,
       },
@@ -66,8 +68,8 @@ export async function createBottle(name: string, prefixPath?: string) {
       prefix_path: prefixPath || `${homeHint()}/Wine/Bottles/${slug}`,
       exists: true,
       steam_installed: false,
-      runtime_profile_id: "gptk-d3dmetal",
-      graphics_backend: null,
+      runtime_profile_id: previewRuntimeProfileId,
+      graphics_backend: previewGraphicsBackend,
       env_overrides: {},
       app_count: 0,
     },
