@@ -17,7 +17,7 @@
     updateBottleRuntime,
     upsertGame,
   } from "$lib/tauri";
-  import type { AppConfig, Bottle, BottleApp, Game, GraphicsBackend, LauncherStatus, WineStatus } from "$lib/types";
+  import type { AppConfig, Bottle, BottleApp, Game, GraphicsBackend, WineStatus } from "$lib/types";
 
   type Toast = {
     id: number;
@@ -62,7 +62,6 @@
   let games: Game[] = [];
   let config: AppConfig | null = null;
   let wine: WineStatus | null = null;
-  let status: LauncherStatus | null = null;
   let selectedBottle: Bottle | undefined;
   let exeRows: ExeEntry[] = [];
   let loading = true;
@@ -120,14 +119,12 @@
 
     appLoading = true;
     try {
-      const [nextStatus, nextApps, nextBottles, nextGames] = await Promise.all([
-        launcherStatus(bottle.prefix_path),
+      const [nextApps, nextBottles, nextGames] = await Promise.all([
         listBottleApps(bottle.prefix_path),
         listBottles(),
         loadGames(),
       ]);
 
-      status = nextStatus;
       apps = nextApps;
       bottles = nextBottles;
       games = nextGames;
