@@ -29,7 +29,7 @@ export type BottleApp = {
   id: string;
   name: string;
   path: string;
-  kind: "launcher" | "app" | "setup" | "tool" | string;
+  kind: string;
 };
 
 export type AppConfig = {
@@ -37,7 +37,7 @@ export type AppConfig = {
   gptk_lib_path: string;
   default_prefix: string;
   suppress_wine_debug: boolean;
-  theme: "dark" | "light" | "system" | string;
+  theme: string;
   global_hud: boolean;
   metalfx_enabled: boolean;
   env?: Record<string, string>;
@@ -56,7 +56,7 @@ export type Game = {
   exe_path: string;
   working_dir?: string | null;
   wine_prefix?: string | null;
-  source?: "manual" | "steam" | string;
+  source?: string;
   steam_app_id?: number | null;
   env_overrides?: Record<string, string>;
 };
