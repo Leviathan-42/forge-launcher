@@ -62,8 +62,8 @@ extension ForgeStore {
         }
 
         apps.sort {
-            let leftRank = $0.kind == "launcher" ? 0 : 1
-            let rightRank = $1.kind == "launcher" ? 0 : 1
+            let leftRank = $0.kindSortRank
+            let rightRank = $1.kindSortRank
             if leftRank != rightRank { return leftRank < rightRank }
             return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }

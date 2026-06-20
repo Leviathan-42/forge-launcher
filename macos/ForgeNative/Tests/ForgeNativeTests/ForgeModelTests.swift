@@ -30,6 +30,17 @@ final class ForgeModelTests: XCTestCase {
         XCTAssertFalse(helper.isSteamClient)
     }
 
+    func testBottleAppItemKindPresentationAndSortRank() {
+        let launcher = BottleAppItem(name: "Steam", path: "/tmp/Steam.exe", kind: "launcher")
+        let game = BottleAppItem(name: "Example", path: "/tmp/Example.exe", kind: "game")
+
+        XCTAssertEqual(launcher.symbolName, "bolt.fill")
+        XCTAssertEqual(game.symbolName, "gamecontroller.fill")
+        XCTAssertEqual(launcher.kindDisplayName, "Launcher")
+        XCTAssertEqual(game.kindDisplayName, "Game")
+        XCTAssertLessThan(launcher.kindSortRank, game.kindSortRank)
+    }
+
     func testDisplayNameNormalizesSeparatorsAndSteamName() {
         XCTAssertEqual(ForgeStore.displayName(for: "/tmp/Steam.exe"), "Steam")
         XCTAssertEqual(ForgeStore.displayName(for: "/tmp/Example_Game-Launcher.exe"), "Example Game Launcher")

@@ -74,6 +74,14 @@ struct BottleAppItem: Identifiable, Hashable {
     var symbolName: String {
         kind == "launcher" ? "bolt.fill" : "gamecontroller.fill"
     }
+
+    var kindDisplayName: String {
+        kind.capitalized
+    }
+
+    var kindSortRank: Int {
+        kind == "launcher" ? 0 : 1
+    }
 }
 
 enum GraphicsBackend: String, Codable, Equatable, CaseIterable {

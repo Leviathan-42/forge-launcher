@@ -66,7 +66,7 @@ struct LiquidAppRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(app.kind.capitalized)
+            Text(app.kindDisplayName)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: 84, alignment: .leading)
