@@ -10,13 +10,10 @@ import type {
   WineStatus,
 } from "$lib/types";
 
-const mockPrefix = `${homeHint()}/Wine/Bottles/default`;
+const previewHome = "~";
+const mockPrefix = `${previewHome}/Wine/Bottles/default`;
 const previewRuntimeProfileId = "wine-vulkan";
 const previewGraphicsBackend: GraphicsBackend = "dxvk_vkd3d";
-
-function homeHint() {
-  return "~";
-}
 
 function bottleSlug(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, "-") || "bottle";
@@ -65,7 +62,7 @@ export async function createBottle(name: string, prefixPath?: string) {
     {
       id: `${slug}-preview`,
       name,
-      prefix_path: prefixPath || `${homeHint()}/Wine/Bottles/${slug}`,
+      prefix_path: prefixPath || `${previewHome}/Wine/Bottles/${slug}`,
       exists: true,
       steam_installed: false,
       runtime_profile_id: previewRuntimeProfileId,
@@ -119,7 +116,7 @@ export async function loadConfig() {
     undefined,
     {
       wine64_path: "/opt/homebrew/bin/wine64",
-      gptk_lib_path: "/opt/homebrew/lib/external",
+      gptk_lib_path: "",
       default_prefix: mockPrefix,
       suppress_wine_debug: true,
       theme: "system",
