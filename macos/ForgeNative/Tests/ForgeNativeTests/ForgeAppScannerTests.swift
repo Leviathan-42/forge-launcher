@@ -41,6 +41,23 @@ final class ForgeAppScannerTests: XCTestCase {
         XCTAssertFalse(ForgeStore.isUserVisibleExe("/tmp/Program Files/Common Files/Runtime/Helper.exe"))
     }
 
+    func testManagedLauncherFilterKeepsLaunchersAndHidesChildren() {
+        XCTAssertTrue(ForgeStore.isUserVisibleExe("/tmp/Program Files/Steam/steam.exe"))
+        XCTAssertTrue(ForgeStore.isUserVisibleExe("/tmp/Program Files/Epic Games/Launcher/Portal/EpicGamesLauncher.exe"))
+        XCTAssertTrue(ForgeStore.isUserVisibleExe("/tmp/Program Files/Rockstar Games/Launcher/Launcher.exe"))
+
+        XCTAssertFalse(ForgeStore.isUserVisibleExe("/tmp/Program Files/Steam/bin/FriendHelper.exe"))
+        XCTAssertFalse(ForgeStore.isUserVisibleExe("/tmp/Program Files/Epic Games/Launcher/Portal/PortalWorker.exe"))
+        XCTAssertFalse(ForgeStore.isUserVisibleExe("/tmp/Program Files/Rockstar Games/Launcher/LauncherPatcher.exe"))
+    }
+
+    func testManagedLauncherContainersAreNotRecursed() {
+        XCTAssertFalse(ForgeStore.shouldDescendForUserApps("/tmp/drive_c/Program Files/Steam"))
+        XCTAssertFalse(ForgeStore.shouldDescendForUserApps("/tmp/drive_c/Program Files (x86)/Epic Games"))
+        XCTAssertFalse(ForgeStore.shouldDescendForUserApps("/tmp/drive_c/Program Files/Battle.net"))
+        XCTAssertTrue(ForgeStore.shouldDescendForUserApps("/tmp/drive_c/Program Files/Visible Game"))
+    }
+
     func testScanSteamGamesAddsNamedGameEntryWithAppId() throws {
         let prefix = try makePrefix()
         defer { try? FileManager.default.removeItem(at: prefix) }
