@@ -20,6 +20,18 @@ private enum GameProfileEnvKey {
     static let overwatchStackGuarantee = "FORGE_STACK_GUARANTEE_BYTES"
 }
 
+private enum SeededGameProfileValue {
+    static let amongUsWineDllOverrides = "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11," +
+        "*d3d12,*d3d12core=b;vulkan-1,winevulkan=b;mscoree,mshtml="
+    static let peakLaunchArgs = [
+        "-force-vulkan",
+        "-force-gfx-st",
+        "-disable-gpu-skinning",
+        "-screen-fullscreen",
+        "1"
+    ]
+}
+
 extension ForgeStore {
     nonisolated static func loadGameProfiles(from support: URL) throws -> [String: GameCompatibilityProfile] {
         let url = support.appendingPathComponent("game_compatibility_profiles.json")
@@ -49,7 +61,9 @@ extension ForgeStore {
 
     nonisolated static func saveGameProfiles(_ profiles: [String: GameCompatibilityProfile], to support: URL) throws {
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        let ordered = profiles.values.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        let ordered = profiles.values.sorted {
+            $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending
+        }
         let data = try JSONEncoder.forge.encode(ordered)
         try data.write(to: support.appendingPathComponent("game_compatibility_profiles.json"), options: .atomic)
     }
@@ -72,7 +86,7 @@ extension ForgeStore {
                 launchArgs: [],
                 env: [
                     "WINE_D3D_CONFIG": "renderer=vulkan",
-                    "WINEDLLOVERRIDES": "*dxgi,*d3d8,*d3d9,*d3d10core,*d3d11,*d3d12,*d3d12core=b;vulkan-1,winevulkan=b;mscoree,mshtml=",
+                    "WINEDLLOVERRIDES": SeededGameProfileValue.amongUsWineDllOverrides,
                     "VK_ICD_FILENAMES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
                     "VK_DRIVER_FILES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
                 ],
@@ -92,7 +106,7 @@ extension ForgeStore {
                 id: SeededGameProfileID.peak,
                 displayName: "PEAK",
                 backendOverride: .dxvkVkd3d,
-                launchArgs: ["-force-vulkan", "-force-gfx-st", "-disable-gpu-skinning", "-screen-fullscreen", "1"],
+                launchArgs: SeededGameProfileValue.peakLaunchArgs,
                 env: [:],
                 notes: "Unity Vulkan path works; disable GPU skinning to avoid avatar mesh corruption."
             )
@@ -168,12 +182,22 @@ extension ForgeStore {
     func gameProfile(for app: BottleAppItem) -> GameCompatibilityProfile {
         let key = Self.gameProfileKey(for: app)
         if let profile = gameProfiles[key] { return profile }
-        return GameCompatibilityProfile(id: key, displayName: app.name, backendOverride: nil, launchArgs: [], env: [:], notes: nil)
+        return GameCompatibilityProfile(
+            id: key,
+            displayName: app.name,
+            backendOverride: nil,
+            launchArgs: [],
+            env: [:],
+            notes: nil
+        )
     }
 
     func gameProfileIsAppSpecific(for app: BottleAppItem) -> Bool {
         let profile = gameProfile(for: app)
-        return profile.backendOverride != nil || !profile.launchArgs.isEmpty || !profile.env.isEmpty || profile.notes != nil
+        return profile.backendOverride != nil
+            || !profile.launchArgs.isEmpty
+            || !profile.env.isEmpty
+            || profile.notes != nil
     }
 
     func gameProfileCanReset(_ app: BottleAppItem) -> Bool {
@@ -250,7 +274,8 @@ extension ForgeStore {
         do {
             try Self.saveGameProfiles(gameProfiles, to: Self.appSupportDir())
         } catch {
-            alertMessage = "Compatibility profile changed for this session, but Forge could not save it: \(error.localizedDescription)"
+            alertMessage = "Compatibility profile changed for this session, " +
+                "but Forge could not save it: \(error.localizedDescription)"
         }
     }
 }

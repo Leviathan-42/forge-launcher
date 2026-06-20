@@ -17,7 +17,10 @@ final class CompatibilityProfileTests: XCTestCase {
         let profile = try XCTUnwrap(profiles["name:peak"])
 
         XCTAssertEqual(profile.backendOverride, .dxvkVkd3d)
-        XCTAssertEqual(profile.launchArgs, ["-force-vulkan", "-force-gfx-st", "-disable-gpu-skinning", "-screen-fullscreen", "1"])
+        XCTAssertEqual(
+            profile.launchArgs,
+            ["-force-vulkan", "-force-gfx-st", "-disable-gpu-skinning", "-screen-fullscreen", "1"]
+        )
     }
 
     func testSeededAmongUsProfileUsesWineD3DVulkanFallback() throws {
