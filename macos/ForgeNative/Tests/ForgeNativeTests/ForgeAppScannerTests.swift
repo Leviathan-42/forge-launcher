@@ -43,7 +43,11 @@ final class ForgeAppScannerTests: XCTestCase {
 
     func testManagedLauncherFilterKeepsLaunchersAndHidesChildren() {
         XCTAssertTrue(ForgeStore.isUserVisibleExe("/tmp/Program Files/Steam/steam.exe"))
-        XCTAssertTrue(ForgeStore.isUserVisibleExe("/tmp/Program Files/Epic Games/Launcher/Portal/EpicGamesLauncher.exe"))
+        XCTAssertTrue(
+            ForgeStore.isUserVisibleExe(
+                "/tmp/Program Files/Epic Games/Launcher/Portal/EpicGamesLauncher.exe"
+            )
+        )
         XCTAssertTrue(ForgeStore.isUserVisibleExe("/tmp/Program Files/Rockstar Games/Launcher/Launcher.exe"))
 
         XCTAssertFalse(ForgeStore.isUserVisibleExe("/tmp/Program Files/Steam/bin/FriendHelper.exe"))
@@ -93,7 +97,8 @@ final class ForgeAppScannerTests: XCTestCase {
         let driveC = prefix.appendingPathComponent("drive_c", isDirectory: true)
         let steamDir = driveC.appendingPathComponent("Program Files/Steam", isDirectory: true)
         let gameDir = driveC.appendingPathComponent("Program Files/Visible Game", isDirectory: true)
-        let commonFilesDir = driveC.appendingPathComponent("Program Files/Common Files/Hidden Runtime", isDirectory: true)
+        let commonFilesDir = driveC
+            .appendingPathComponent("Program Files/Common Files/Hidden Runtime", isDirectory: true)
         try FileManager.default.createDirectory(at: steamDir, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: commonFilesDir, withIntermediateDirectories: true)

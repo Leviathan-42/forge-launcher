@@ -56,7 +56,11 @@ final class ForgeLaunchSupportTests: XCTestCase {
         XCTAssertTrue(summary.contains("FORGE_STACK_GUARANTEE_BYTES=262144"))
         XCTAssertTrue(summary.contains("FORGE_STEAM_SAFE_MODE=1"))
         XCTAssertTrue(summary.contains("FORGE_GAME_WINEDLLOVERRIDES=*dxgi,*d3d11=n"))
-        XCTAssertTrue(summary.contains("FORGE_GAME_VK_ICD_FILENAMES=/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"))
+        XCTAssertTrue(
+            summary.contains(
+                "FORGE_GAME_VK_ICD_FILENAMES=/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+            )
+        )
         XCTAssertTrue(summary.contains("FORGE_GAME_DXVK_ASYNC=1"))
     }
 
