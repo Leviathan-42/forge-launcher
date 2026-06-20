@@ -43,6 +43,7 @@
   type RuntimeStackId = "wine11-moltenvk";
 
   const steamSafeArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"] as const;
+  const desktopLaunchUnavailableMessage = "Launch is only available in the Tauri desktop app.";
   const defaultRuntimeStackId: RuntimeStackId = "wine11-moltenvk";
   const runtimeStacks: {
     id: RuntimeStackId;
@@ -171,10 +172,7 @@
     const bottle = currentBottle();
     if (!bottle) return;
 
-    if (!desktopCommandsAvailable) {
-      notify("bad", "Launch is only available in the Tauri desktop app.");
-      return;
-    }
+    if (!canRunDesktopLaunch()) return;
 
     await withBusy("custom-exe", async () => {
       await runExe(bottle.prefix_path, path, args);
@@ -236,10 +234,7 @@
     const bottle = currentBottle();
     if (!bottle) return;
 
-    if (!desktopCommandsAvailable) {
-      notify("bad", "Launch is only available in the Tauri desktop app.");
-      return;
-    }
+    if (!canRunDesktopLaunch()) return;
 
     await withBusy(`app-${app.id}`, async () => {
       await runExe(bottle.prefix_path, app.path, launchArgsForApp(app));
@@ -251,10 +246,7 @@
     if (!config) return;
     const prefixPath = game.wine_prefix || config.default_prefix;
 
-    if (!desktopCommandsAvailable) {
-      notify("bad", "Launch is only available in the Tauri desktop app.");
-      return;
-    }
+    if (!canRunDesktopLaunch()) return;
 
     await withBusy(`${mode}-${game.id}`, async () => {
       const targetStatus = mode === "steam" ? await launcherStatus(prefixPath) : null;
@@ -312,6 +304,13 @@
 
   function dismissToast(id: number) {
     toasts = toasts.filter((toast) => toast.id !== id);
+  }
+
+  function canRunDesktopLaunch() {
+    if (desktopCommandsAvailable) return true;
+
+    notify("bad", desktopLaunchUnavailableMessage);
+    return false;
   }
 
   function currentBottle() {
