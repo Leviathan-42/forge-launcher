@@ -66,6 +66,8 @@ npm run native:build
 npm run check:all
 ```
 
+`npm run check:all` covers the web build/check, Rust fmt/check/clippy/tests, and native Swift build/tests.
+
 `npm run native:dev` creates and opens `dist/Forge.app`, so it appears in Cmd-Tab and the Dock like a normal macOS app.
 
 ## Legacy web/Tauri files

@@ -31,6 +31,8 @@ npm run check:all
 npm run kill
 ```
 
+`npm run check:all` covers the web build/check, Rust fmt/check/clippy/tests, and native Swift build/tests.
+
 ## Current runtime model
 
 The current working runtime on this machine is a Forge-owned WoW64 Wine build:
