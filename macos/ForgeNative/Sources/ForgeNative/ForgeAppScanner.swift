@@ -12,6 +12,35 @@ private let hiddenExecutableFileNames: Set<String> = [
     "dxsetup.exe", "vc_redist.x64.exe", "vc_redist.x86.exe", "installscript.vdf.exe"
 ]
 
+private let managedLauncherContainerSuffixes = [
+    "/program files/steam",
+    "/program files (x86)/steam",
+    "/program files (x86)/epic games",
+    "/program files/epic games",
+    "/program files/battle.net",
+    "/program files (x86)/battle.net",
+    "/program files/electronic arts",
+    "/program files (x86)/ubisoft",
+    "/program files/rockstar games"
+]
+
+private let managedLauncherPathMarkers = [
+    "/steam/",
+    "/epic games/",
+    "/battle.net/",
+    "/electronic arts/",
+    "/ubisoft/",
+    "/rockstar games/"
+]
+
+private let visibleManagedLauncherFileNames: Set<String> = [
+    "steam.exe",
+    "epicgameslauncher.exe",
+    "battle.net.exe",
+    "ealauncher.exe",
+    "ubisoftconnect.exe"
+]
+
 extension ForgeStore {
     nonisolated static func findSteam(prefixPath: String) -> String? {
         steamCandidates(prefixPath: prefixPath).first(where: { FileManager.default.fileExists(atPath: $0) })
@@ -158,33 +187,16 @@ extension ForgeStore {
     }
 
     nonisolated static func isManagedLauncherContainer(_ raw: String) -> Bool {
-        raw.hasSuffix("/program files/steam")
-            || raw.hasSuffix("/program files (x86)/steam")
-            || raw.hasSuffix("/program files (x86)/epic games")
-            || raw.hasSuffix("/program files/epic games")
-            || raw.hasSuffix("/program files/battle.net")
-            || raw.hasSuffix("/program files (x86)/battle.net")
-            || raw.hasSuffix("/program files/electronic arts")
-            || raw.hasSuffix("/program files (x86)/ubisoft")
-            || raw.hasSuffix("/program files/rockstar games")
+        managedLauncherContainerSuffixes.contains { raw.hasSuffix($0) }
     }
 
     nonisolated static func isManagedLauncherChild(_ raw: String, file: String) -> Bool {
-        if file == "steam.exe"
-            || file == "epicgameslauncher.exe"
-            || file == "battle.net.exe"
-            || file == "ealauncher.exe"
-            || file == "ubisoftconnect.exe"
-            || file == "launcher.exe" && raw.contains("/rockstar games/launcher/") {
+        if visibleManagedLauncherFileNames.contains(file)
+            || (file == "launcher.exe" && raw.contains("/rockstar games/launcher/")) {
             return false
         }
 
-        return raw.contains("/steam/")
-            || raw.contains("/epic games/")
-            || raw.contains("/battle.net/")
-            || raw.contains("/electronic arts/")
-            || raw.contains("/ubisoft/")
-            || raw.contains("/rockstar games/")
+        return managedLauncherPathMarkers.contains { raw.contains($0) }
     }
 
     nonisolated static func guessKind(_ path: String) -> String {
