@@ -469,11 +469,6 @@
     return index > 0 ? normalized.slice(0, index) : null;
   }
 
-  function handleDropZoneKey(event: KeyboardEvent) {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    void chooseExe();
-  }
 </script>
 
 <svelte:head>
