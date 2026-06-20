@@ -416,6 +416,12 @@
     return 4;
   }
 
+  function emptyExeListText() {
+    if (appLoading) return "Scanning bottle";
+    if (appFilter.trim()) return "No matching .exe files found";
+    return "No user-installed .exe files found";
+  }
+
   function exeKey(path: string) {
     return path.trim().replace(/\/+$/, "").toLowerCase();
   }
@@ -514,7 +520,7 @@
         {#if exeRows.length === 0}
           <div class="empty-state">
             <Icon name="hardDrive" size={24} />
-            <span>{appLoading ? "Scanning bottle" : "No user-installed .exe files found"}</span>
+            <span>{emptyExeListText()}</span>
           </div>
         {/if}
 
