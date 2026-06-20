@@ -165,18 +165,3 @@ struct LiquidAppRow: View {
         return "\(envKeys.count) env vars"
     }
 }
-
-struct StatusPill: View {
-    let text: String
-    let isGood: Bool
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.white.opacity(isGood ? 0.88 : 0.62))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(.white.opacity(isGood ? 0.13 : 0.07), in: Capsule())
-            .overlay(Capsule().stroke(.white.opacity(0.10), lineWidth: 1))
-    }
-}
