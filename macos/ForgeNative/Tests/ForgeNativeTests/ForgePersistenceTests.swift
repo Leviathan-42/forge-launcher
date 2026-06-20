@@ -34,11 +34,11 @@ final class ForgePersistenceTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: support) }
         let config = AppConfig.defaults
 
-        XCTAssertEqual(try ForgeStore.loadProfiles(from: support, config: config).first?.id, "forge-cx-wine11-open-wow64")
+        XCTAssertEqual(try ForgeStore.loadProfiles(from: support, config: config).first?.id, RuntimeProfile.defaultId)
 
         try "[]".write(to: support.appendingPathComponent("runtime_profiles.json"), atomically: true, encoding: .utf8)
 
-        XCTAssertEqual(try ForgeStore.loadProfiles(from: support, config: config).first?.id, "forge-cx-wine11-open-wow64")
+        XCTAssertEqual(try ForgeStore.loadProfiles(from: support, config: config).first?.id, RuntimeProfile.defaultId)
     }
 
     func testSelectBottlePrefersConfiguredPrefixThenFallsBack() {
@@ -56,7 +56,9 @@ final class ForgePersistenceTests: XCTestCase {
 
         XCTAssertEqual(ForgeStore.selectBottle(from: [first, selected], config: config).name, "Selected")
         XCTAssertEqual(ForgeStore.selectBottle(from: [first], config: config).name, "First")
-        XCTAssertEqual(ForgeStore.selectBottle(from: [], config: config).prefixPath, "/tmp/selected")
+        let fallback = ForgeStore.selectBottle(from: [], config: config)
+        XCTAssertEqual(fallback.prefixPath, "/tmp/selected")
+        XCTAssertEqual(fallback.runtimeProfileId, RuntimeProfile.defaultId)
     }
 
     func testSaveBottleUpdatesExistingBottleAndInsertsNewBottle() throws {

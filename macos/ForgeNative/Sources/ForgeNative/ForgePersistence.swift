@@ -64,7 +64,7 @@ extension ForgeStore {
         BottleEntry(
             name: "Default",
             prefixPath: config.defaultPrefix,
-            runtimeProfileId: "wine-vulkan",
+            runtimeProfileId: RuntimeProfile.defaultId,
             graphicsBackend: .dxvkVkd3d,
             envOverrides: [:]
         )

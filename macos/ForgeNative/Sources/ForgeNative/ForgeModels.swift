@@ -21,6 +21,8 @@ struct AppConfig: Codable {
 }
 
 struct RuntimeProfile: Codable, Identifiable {
+    static let defaultId = "forge-cx-wine11-open-wow64"
+
     var id: String
     var name: String
     var wine64Path: String
@@ -35,7 +37,7 @@ struct RuntimeProfile: Codable, Identifiable {
     static func defaultProfile(config: AppConfig) -> RuntimeProfile {
         let gptkLibPath = config.gptkLibPath.trimmingCharacters(in: .whitespacesAndNewlines)
         return RuntimeProfile(
-            id: "forge-cx-wine11-open-wow64",
+            id: Self.defaultId,
             name: "Forge Wine 11 Open WoW64 + MoltenVK",
             wine64Path: NSHomeDirectory() + "/Wine/Runtimes/forge-cx-wine-11-open-wow64/bin/wine",
             wineserverPath: NSHomeDirectory() + "/Wine/Runtimes/forge-cx-wine-11-open-wow64/bin/wineserver",
