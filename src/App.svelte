@@ -36,7 +36,6 @@
   };
 
   type RuntimeStackId = "wine11-moltenvk";
-  type RuntimeChoiceId = RuntimeStackId | "custom";
 
   const steamSafeArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"] as const;
   const defaultRuntimeStackId: RuntimeStackId = "wine11-moltenvk";
@@ -363,10 +362,10 @@
     return bottles.find((bottle) => samePath(bottle.prefix_path, prefix));
   }
 
-  function runtimeStackIdForBottle(bottle?: Bottle): RuntimeChoiceId {
-    if (!bottle) return "custom";
+  function runtimeStackIdForBottle(bottle?: Bottle): RuntimeStackId | null {
+    if (!bottle) return null;
 
-    return runtimeStacks.find((stack) => stack.profileId === bottle.runtime_profile_id)?.id || "custom";
+    return runtimeStacks.find((stack) => stack.profileId === bottle.runtime_profile_id)?.id || null;
   }
 
   function buildExeRows(scannedApps: BottleApp[], libraryGames: Game[], filter: string) {
