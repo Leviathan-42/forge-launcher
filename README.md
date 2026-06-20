@@ -32,6 +32,8 @@ npm run kill
 ```
 
 `npm run check:all` covers the web build/check, Rust fmt/check/clippy/tests, and native Swift build/tests.
+Use it for non-launch verification. `npm run native:dev` opens the app, and `npm run kill` stops
+Forge/Wine sessions, so avoid those while Steam or games are in use.
 
 ## Current runtime model
 

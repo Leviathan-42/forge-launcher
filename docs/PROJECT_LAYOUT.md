@@ -67,6 +67,8 @@ npm run check:all
 ```
 
 `npm run check:all` covers the web build/check, Rust fmt/check/clippy/tests, and native Swift build/tests.
+Use it for non-launch verification. `npm run native:dev` opens the app, and process-control commands
+such as `npm run kill` should wait until Steam and games are idle.
 
 `npm run native:dev` creates and opens `dist/Forge.app`, so it appears in Cmd-Tab and the Dock like a normal macOS app.
 
