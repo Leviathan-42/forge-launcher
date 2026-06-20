@@ -30,7 +30,7 @@ final class CompatibilityProfileTests: XCTestCase {
         XCTAssertEqual(profile.displayName, "Among Us")
         XCTAssertEqual(profile.backendOverride, .wineBuiltin)
         XCTAssertEqual(profile.env["WINE_D3D_CONFIG"], "renderer=vulkan")
-        XCTAssertEqual(profile.env["VK_ICD_FILENAMES"], "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json")
+        XCTAssertEqual(profile.env["VK_ICD_FILENAMES"], defaultMoltenVkIcdPath)
         XCTAssertTrue(profile.notes?.localizedCaseInsensitiveContains("32-bit Unity") == true)
     }
 

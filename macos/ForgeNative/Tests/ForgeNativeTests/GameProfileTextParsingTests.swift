@@ -18,16 +18,16 @@ final class GameProfileTextParsingTests: XCTestCase {
         XCTAssertEqual(try ForgeStore.parseLaunchArgs(ForgeStore.formatLaunchArgs(emptyArgs)), emptyArgs)
 
         let env = try ForgeStore.parseEnvOverrides("""
-        VK_ICD_FILENAMES=/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json
+        VK_ICD_FILENAMES=\(defaultMoltenVkIcdPath)
         # ignored
         FORGE_STACK_GUARANTEE_BYTES=262144
         """)
 
         XCTAssertEqual(env["FORGE_STACK_GUARANTEE_BYTES"], "262144")
-        XCTAssertEqual(env["VK_ICD_FILENAMES"], "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json")
+        XCTAssertEqual(env["VK_ICD_FILENAMES"], defaultMoltenVkIcdPath)
         XCTAssertEqual(
             ForgeStore.formatEnvOverrides(env),
-            "FORGE_STACK_GUARANTEE_BYTES=262144\nVK_ICD_FILENAMES=/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+            "FORGE_STACK_GUARANTEE_BYTES=262144\nVK_ICD_FILENAMES=\(defaultMoltenVkIcdPath)"
         )
     }
 

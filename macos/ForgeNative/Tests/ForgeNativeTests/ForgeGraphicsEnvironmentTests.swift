@@ -2,7 +2,6 @@ import XCTest
 @testable import ForgeNative
 
 private let gptkLibPath = "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib"
-private let homebrewMoltenVkIcdPath = "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
 
 final class ForgeGraphicsEnvironmentTests: XCTestCase {
     func testDedupePathPartsKeepsFirstNonEmptyOccurrence() {
@@ -80,16 +79,16 @@ final class ForgeGraphicsEnvironmentTests: XCTestCase {
         XCTAssertTrue(
             candidates.contains(URL(fileURLWithPath: expanded).appendingPathComponent("MoltenVK_icd.json").path)
         )
-        XCTAssertTrue(candidates.contains(homebrewMoltenVkIcdPath))
+        XCTAssertTrue(candidates.contains(defaultMoltenVkIcdPath))
     }
 
     func testMoltenVkCandidatesTrimAndDedupeConfiguredPath() {
-        let configured = "  \(homebrewMoltenVkIcdPath)  "
+        let configured = "  \(defaultMoltenVkIcdPath)  "
 
         let candidates = ForgeStore.moltenVkIcdCandidates(configuredPath: configured)
 
         XCTAssertEqual(
-            candidates.filter { $0 == homebrewMoltenVkIcdPath }.count,
+            candidates.filter { $0 == defaultMoltenVkIcdPath }.count,
             1
         )
     }

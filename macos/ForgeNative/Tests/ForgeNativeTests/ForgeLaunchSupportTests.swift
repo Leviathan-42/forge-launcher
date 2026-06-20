@@ -49,7 +49,7 @@ final class ForgeLaunchSupportTests: XCTestCase {
                 "FORGE_STACK_GUARANTEE_BYTES": "262144",
                 "FORGE_STEAM_SAFE_MODE": "1",
                 "FORGE_GAME_WINEDLLOVERRIDES": "*dxgi,*d3d11=n",
-                "FORGE_GAME_VK_ICD_FILENAMES": "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json",
+                "FORGE_GAME_VK_ICD_FILENAMES": defaultMoltenVkIcdPath,
                 "FORGE_GAME_DXVK_ASYNC": "1"
             ]
         )
@@ -64,7 +64,7 @@ final class ForgeLaunchSupportTests: XCTestCase {
         XCTAssertTrue(summary.contains("FORGE_GAME_WINEDLLOVERRIDES=*dxgi,*d3d11=n"))
         XCTAssertTrue(
             summary.contains(
-                "FORGE_GAME_VK_ICD_FILENAMES=/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json"
+                "FORGE_GAME_VK_ICD_FILENAMES=\(defaultMoltenVkIcdPath)"
             )
         )
         XCTAssertTrue(summary.contains("FORGE_GAME_DXVK_ASYNC=1"))

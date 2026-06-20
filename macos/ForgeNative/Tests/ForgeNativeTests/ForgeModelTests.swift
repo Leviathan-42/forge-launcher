@@ -56,7 +56,7 @@ final class ForgeModelTests: XCTestCase {
 
         XCTAssertEqual(profile.gptkLibPath, "/tmp/gptk")
         XCTAssertEqual(profile.defaultBackend, .dxvkVkd3d)
-        XCTAssertEqual(profile.env["VK_ICD_FILENAMES"], "/opt/homebrew/share/vulkan/icd.d/MoltenVK_icd.json")
+        XCTAssertEqual(profile.env["VK_ICD_FILENAMES"], defaultMoltenVkIcdPath)
     }
 
     func testRuntimeProfileDefaultIgnoresBlankConfiguredGptkPath() {
