@@ -126,7 +126,7 @@ extension GraphicsBackend {
         case .dxvkVkd3d: return "DXVK/VKD3D"
         case .wineBuiltin: return "WineD3D"
         case .dxmt: return "DXMT"
-        case .none: return "None"
+        case .none: return "Bottle Default"
         }
     }
 
@@ -145,7 +145,7 @@ extension GraphicsBackend {
         case .wineBuiltin:
             return "Compatibility fallback for older/simple DirectX or OpenGL games; usually slower."
         case .none:
-            return "No DirectX translation override. Use when a game has its own Vulkan/OpenGL renderer."
+            return "Do not force Forge graphics overrides. Best for CrossOver bottles or native Vulkan/OpenGL games."
         }
     }
 }

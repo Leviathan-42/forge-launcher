@@ -7,12 +7,14 @@ struct GameCompatibilityProfile: Codable, Identifiable, Equatable {
     var launchArgs: [String]
     var env: [String: String]
     var notes: String?
+    var directExeRelativePath: String? = nil
 }
 
 private enum SeededGameProfileID {
     static let againstTheStorm = "steam:1336490"
     static let amongUs = "steam:945360"
     static let overwatch = "steam:2357570"
+    static let mecchaChameleon = "steam:4704690"
     static let peak = "name:peak"
 }
 
@@ -29,6 +31,18 @@ private enum SeededGameProfileValue {
         "-disable-gpu-skinning",
         "-screen-fullscreen",
         "1"
+    ]
+    static let mecchaLaunchArgs = [
+        "-dx12",
+        "-windowed",
+        "-ForceRes",
+        "-ResX=1280",
+        "-ResY=720",
+        "-nosplash",
+        "-NoStartupMovies",
+        "-stdout",
+        "-FullStdOutLogOutput",
+        "-forcelogflush"
     ]
 }
 
@@ -103,6 +117,17 @@ extension ForgeStore {
                     "for Blizzard's loader/VEH path; do not use D3DMetal for the current Forge runtime."
             ),
             GameCompatibilityProfile(
+                id: SeededGameProfileID.mecchaChameleon,
+                displayName: "MECCHA CHAMELEON",
+                backendOverride: .d3dMetal,
+                launchArgs: SeededGameProfileValue.mecchaLaunchArgs,
+                env: [:],
+                notes: "UE5 build. Steam's app manifest points at a stub that quits under Forge Wine; " +
+                    "Forge starts Steam first, then launches the Win64 shipping executable directly with GPTK/D3DMetal. " +
+                    "The DX11/DXMT path reaches menus but can spin during public-session loads.",
+                directExeRelativePath: "Chameleon/Binaries/Win64/PenguinHotel-Win64-Shipping.exe"
+            ),
+            GameCompatibilityProfile(
                 id: SeededGameProfileID.peak,
                 displayName: "PEAK",
                 backendOverride: .dxvkVkd3d,
@@ -128,6 +153,8 @@ extension ForgeStore {
             return profile.backendOverride != .wineBuiltin
         case SeededGameProfileID.overwatch:
             return profile.backendOverride == .d3dMetal
+        case SeededGameProfileID.mecchaChameleon:
+            return profile.backendOverride != seed.backendOverride || profile.directExeRelativePath == nil
         default:
             return false
         }
@@ -188,7 +215,8 @@ extension ForgeStore {
             backendOverride: nil,
             launchArgs: [],
             env: [:],
-            notes: nil
+            notes: nil,
+            directExeRelativePath: nil
         )
     }
 
@@ -198,6 +226,7 @@ extension ForgeStore {
             || !profile.launchArgs.isEmpty
             || !profile.env.isEmpty
             || profile.notes != nil
+            || profile.directExeRelativePath != nil
     }
 
     func gameProfileCanReset(_ app: BottleAppItem) -> Bool {
@@ -220,6 +249,17 @@ extension ForgeStore {
         gameProfile(for: app).env
     }
 
+    func directLaunchPath(for app: BottleAppItem, bottle: BottleEntry) -> String? {
+        let profile = gameProfile(for: app)
+        guard let relativePath = profile.directExeRelativePath,
+              let appId = app.steamAppId,
+              let gameDir = Self.steamGameDirectory(prefixPath: bottle.prefixPath, appId: appId) else {
+            return nil
+        }
+        let target = gameDir.appendingPathComponent(relativePath).standardizedFileURL.path
+        return FileManager.default.fileExists(atPath: target) ? target : nil
+    }
+
     func setGameBackend(_ app: BottleAppItem, backend: GraphicsBackend) {
         var profile = gameProfile(for: app)
         profile.backendOverride = backend
@@ -240,7 +280,8 @@ extension ForgeStore {
             backendOverride: backendOverride,
             launchArgs: launchArgs,
             env: env,
-            notes: notes
+            notes: notes,
+            directExeRelativePath: gameProfiles[key]?.directExeRelativePath
         )
 
         if let existing = gameProfiles[key] {
@@ -251,6 +292,7 @@ extension ForgeStore {
            profile.launchArgs.isEmpty,
            profile.env.isEmpty,
            profile.notes == nil,
+           profile.directExeRelativePath == nil,
            Self.seededGameProfile(forKey: key) == nil {
             gameProfiles.removeValue(forKey: key)
             persistGameProfiles()

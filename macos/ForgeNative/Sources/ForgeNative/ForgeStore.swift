@@ -134,10 +134,12 @@ final class ForgeStore: ObservableObject {
                 let appBackend = await MainActor.run { self.effectiveBackend(for: app, bottle: bottle) }
                 let appLaunchArgs = await MainActor.run { self.launchArgs(for: app) }
                 let appEnv = await MainActor.run { self.gameEnv(for: app) }
+                let appDirectPath = await MainActor.run { self.directLaunchPath(for: app, bottle: bottle) }
                 let targetPath: String
                 let forceSteamMode: Bool
                 let steamAppId: String?
                 let extraArgs: [String]
+                let steamBootstrapPath: String?
 
                 if throughSteam {
                     guard let appId = app.steamAppId else {
@@ -146,11 +148,25 @@ final class ForgeStore: ObservableObject {
                     guard let steamPath = await MainActor.run(body: { self.steamPath }) else {
                         throw ForgeError.message("Windows Steam is not installed in this bottle yet.")
                     }
-                    targetPath = steamPath
-                    forceSteamMode = true
-                    steamAppId = appId
-                    extraArgs = ["-applaunch", appId] + appLaunchArgs
+                    if let appDirectPath {
+                        // Some Steam builds advertise a launcher stub in the manifest,
+                        // but the actual game is a nested Win64 shipping executable.
+                        // Start Steam first for Steamworks, then launch that executable
+                        // directly with the compatibility profile's backend/env.
+                        steamBootstrapPath = steamPath
+                        targetPath = appDirectPath
+                        forceSteamMode = false
+                        steamAppId = appId
+                        extraArgs = appLaunchArgs
+                    } else {
+                        steamBootstrapPath = nil
+                        targetPath = steamPath
+                        forceSteamMode = true
+                        steamAppId = appId
+                        extraArgs = ["-applaunch", appId] + appLaunchArgs
+                    }
                 } else {
+                    steamBootstrapPath = nil
                     targetPath = app.path
                     forceSteamMode = app.isSteamClient
                     steamAppId = app.steamAppId
@@ -162,7 +178,23 @@ final class ForgeStore: ObservableObject {
                     try? Self.stopWineSession(bottle: bottle, config: launchConfig, profile: launchProfile)
                 }
 
-                if throughSteam, appBackend == .d3dMetal {
+                if let steamBootstrapPath {
+                    try await Self.spawn(
+                        exePath: steamBootstrapPath,
+                        bottle: bottle,
+                        config: launchConfig,
+                        profile: launchProfile,
+                        extraArgs: [],
+                        forceSteamMode: true,
+                        steamAppId: nil,
+                        backendOverride: .wineBuiltin,
+                        gameEnvOverrides: [:],
+                        steamSafeMode: true
+                    )
+                    try await Task.sleep(nanoseconds: 12_000_000_000)
+                }
+
+                if throughSteam, appBackend == .d3dMetal, appDirectPath == nil {
                     // D3DMetal is still launched directly for Steam games so Steam's
                     // Chromium helpers do not interfere with the game's graphics DLLs.
                     // D3DMetal's PE DLLs and Unix modules must come from the same Wine
@@ -231,6 +263,23 @@ final class ForgeStore: ObservableObject {
     func revealBottle() {
         guard let bottle else { return }
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: bottle.prefixPath)])
+    }
+
+    func setRuntimeProfile(_ profileId: String) {
+        guard var current = bottle,
+              profiles.contains(where: { $0.id == profileId }) else { return }
+        current.runtimeProfileId = profileId
+        bottle = current
+        do {
+            try Self.saveBottle(current, to: Self.appSupportDir(), config: config)
+        } catch {
+            alertMessage = Self.sessionOnlyChangeMessage(
+                change: "Runtime",
+                destination: "bottles.json",
+                error: error
+            )
+        }
+        refreshBottleState()
     }
 
     func setBackend(_ backend: GraphicsBackend) {

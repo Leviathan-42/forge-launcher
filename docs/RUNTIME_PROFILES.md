@@ -33,6 +33,27 @@ enum GraphicsBackend {
 }
 ```
 
+## CrossOver no-GUI launches
+
+Forge can use CrossOver compatibility without opening the CrossOver app UI. When a
+local CrossOver install is present, Forge adds a runtime profile named:
+
+```text
+CrossOver (no GUI)
+```
+
+It points at CrossOver's bundled `wine` wrapper and discovers CrossOver bottles from:
+
+```text
+~/Library/Application Support/CrossOver/Bottles
+~/Wine/Bottles
+```
+
+For CrossOver bottles, use the `Bottle Default` graphics backend unless you explicitly
+want Forge to override DLL/backends. Forge pins the selected bottle with an absolute
+`CX_BOTTLE`/`WINEPREFIX`, so the game starts through CrossOver Wine directly but the
+CrossOver application window is not launched.
+
 ## Recommended defaults
 
 Forge is experimental. The current recommended default on Apple Silicon is:

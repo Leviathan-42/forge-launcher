@@ -5,6 +5,7 @@ private let dxvkDllNames = ["dxgi.dll", "d3d9.dll", "d3d10core.dll", "d3d10.dll"
 private let dxmtD3D11DllName = "d3d11.dll"
 private let dxmtD3D11AliasName = "dd3d11.dll"
 private let dxmtDllNames = [dxmtD3D11DllName, "dxgi.dll", "d3d10core.dll", "winemetal.dll"]
+private let wineD3D12ImportDllNames = ["d3d12.dll", "d3d12core.dll"]
 
 extension ForgeStore {
     nonisolated static func removeStagedD3DMetalDlls(exePath: String) throws {
@@ -163,6 +164,20 @@ extension ForgeStore {
                 windows32Source.appendingPathComponent(dxmtD3D11DllName),
                 to: syswow64.appendingPathComponent(dxmtD3D11AliasName)
             )
+        }
+        // Some UE5 games ship native DirectML next to the D3D11 executable. DirectML
+        // imports d3d12.dll even when the game is forced to the D3D11 RHI, so keep
+        // Wine's D3D12 PE stubs physically present in the prefix for native import
+        // resolution while DXMT handles d3d11/dxgi.
+        for dll in wineD3D12ImportDllNames {
+            let source64 = runtimeWin64Dir.appendingPathComponent(dll)
+            if fm.fileExists(atPath: source64.path) {
+                try copyIfDifferent(source64, to: system32.appendingPathComponent(dll))
+            }
+            let source32 = runtimeWin32Dir.appendingPathComponent(dll)
+            if fm.fileExists(atPath: source32.path), fm.fileExists(atPath: runtimeWin32Dir.path) {
+                try copyIfDifferent(source32, to: syswow64.appendingPathComponent(dll))
+            }
         }
         try copyIfDifferent(
             unixSource.appendingPathComponent("winemetal.so"),

@@ -98,7 +98,7 @@ final class ForgePersistenceTests: XCTestCase {
         try ForgeStore.saveBottle(extra, to: support, config: config)
 
         let bottles = try ForgeStore.loadBottles(from: support, config: config)
-        XCTAssertEqual(bottles.count, 2)
+        XCTAssertGreaterThanOrEqual(bottles.count, 2)
         XCTAssertEqual(bottles.first(where: { $0.prefixPath == config.defaultPrefix })?.graphicsBackend, .dxmt)
         XCTAssertEqual(bottles.first(where: { $0.prefixPath == config.defaultPrefix })?.envOverrides, ["TEST": "1"])
         XCTAssertEqual(bottles.first?.prefixPath, "/tmp/extra-prefix")

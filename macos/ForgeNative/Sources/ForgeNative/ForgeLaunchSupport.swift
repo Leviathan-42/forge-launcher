@@ -25,7 +25,12 @@ private let launchSummaryEnvironmentKeys = [
     "FORGE_GAME_MTL_HUD_LAYER",
     "FORGE_GAME_DXVK_ASYNC",
     "FORGE_GAME_DYLD_LIBRARY_PATH",
-    "FORGE_GAME_WINEDLLPATH"
+    "FORGE_GAME_WINEDLLPATH",
+    "FORGE_CROSSOVER_MODE",
+    "CX_ROOT",
+    "CX_BOTTLE",
+    "CX_BOTTLE_PATH",
+    "CX_DEBUGMSG"
 ]
 
 private let steamSafeCefArgs = ["-no-cef-sandbox", "-cef-disable-sandbox"]
@@ -44,12 +49,16 @@ extension ForgeStore {
         steamSafeMode: Bool
     ) async throws {
         let configuredWinePath = profile.wine64Path.isEmpty ? config.wine64Path : profile.wine64Path
+        let usesCrossOver = isCrossOverRuntime(profile: profile, winePath: configuredWinePath)
         let isSteam = isSteamExecutable(exePath, forceSteamMode: forceSteamMode)
+        let effectiveSteamSafeMode = steamSafeMode && !usesCrossOver
         let gameBackend = backendOverride ?? bottle.graphicsBackend ?? profile.defaultBackend
-        let launchBackend: GraphicsBackend = (isSteam && steamSafeMode) ? .wineBuiltin : gameBackend
+        let launchBackend: GraphicsBackend = (isSteam && effectiveSteamSafeMode) ? .wineBuiltin : gameBackend
         let gptkLibPath = profile.gptkLibPath ?? config.gptkLibPath
         var winePath = configuredWinePath
-        if launchBackend == .d3dMetal, let gptkWine = gptkWinePath(gptkLibPath: gptkLibPath) {
+        if launchBackend == .d3dMetal,
+           !usesCrossOver,
+           let gptkWine = gptkWinePath(gptkLibPath: gptkLibPath) {
             // Do not mix GPTK's D3DMetal modules with Forge Wine: Wine's builtin
             // PE DLLs and Unix-side .so modules are ABI-coupled to their Wine build.
             winePath = gptkWine
@@ -74,7 +83,7 @@ extension ForgeStore {
             existing: env["DYLD_FALLBACK_LIBRARY_PATH"]
         )
         env["WINEPREFIX"] = bottle.prefixPath
-        if launchBackend == .d3dMetal {
+        if launchBackend == .d3dMetal && !usesCrossOver {
             env["DYLD_LIBRARY_PATH"] = buildDyldPath(
                 gptkLibPath: gptkLibPath,
                 existing: runtimeDyldPath
@@ -91,6 +100,12 @@ extension ForgeStore {
             env.removeValue(forKey: "DYLD_FRAMEWORK_PATH")
         }
         env["WINEDEBUG"] = config.suppressWineDebug ? "fixme-all" : ""
+        configureCrossOverEnvironment(
+            profile: profile,
+            winePath: winePath,
+            prefixPath: bottle.prefixPath,
+            env: &env
+        )
         env["WINEDBG"] = "-all"
         env["GST_DEBUG"] = "1"
         env["MTL_HUD_ENABLED"] = config.globalHud ? "1" : "0"
@@ -111,21 +126,25 @@ extension ForgeStore {
 
         switch launchBackend {
         case .d3dMetal:
-            if let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {
-                let dllPaths = gptkWineDllSearchPaths(gptkBase: gptkBase)
-                if !dllPaths.isEmpty {
-                    env["WINEDLLPATH"] = dedupePathParts(dllPaths + [env["WINEDLLPATH"] ?? ""]).joined(separator: ":")
+            if usesCrossOver {
+                env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
+            } else {
+                if let gptkBase = gptkWineLibBase(gptkLibPath: gptkLibPath) {
+                    let dllPaths = gptkWineDllSearchPaths(gptkBase: gptkBase)
+                    if !dllPaths.isEmpty {
+                        env["WINEDLLPATH"] = dedupePathParts(dllPaths + [env["WINEDLLPATH"] ?? ""]).joined(separator: ":")
+                    }
                 }
+                try removeStagedD3DMetalDlls(exePath: exePath)
+                env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
+                if let frameworkPath = d3dMetalFrameworkPath(gptkLibPath: gptkLibPath) {
+                    env["D3DMETAL_FRAMEWORK_PATH"] = frameworkPath
+                }
+                env["D3DM_MTL4"] = env["D3DM_MTL4"] ?? "0"
+                env["D3DM_SUPPORT_DXR"] = env["D3DM_SUPPORT_DXR"] ?? "0"
+                env["D3DM_ENABLE_METALFX"] = env["D3DM_ENABLE_METALFX"] ?? "0"
+                env["FORGE_D3DMETAL_RUNTIME"] = "gptk-wine-d3dmetal"
             }
-            try removeStagedD3DMetalDlls(exePath: exePath)
-            env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
-            if let frameworkPath = d3dMetalFrameworkPath(gptkLibPath: gptkLibPath) {
-                env["D3DMETAL_FRAMEWORK_PATH"] = frameworkPath
-            }
-            env["D3DM_MTL4"] = env["D3DM_MTL4"] ?? "0"
-            env["D3DM_SUPPORT_DXR"] = env["D3DM_SUPPORT_DXR"] ?? "0"
-            env["D3DM_ENABLE_METALFX"] = env["D3DM_ENABLE_METALFX"] ?? "0"
-            env["FORGE_D3DMETAL_RUNTIME"] = "gptk-wine-d3dmetal"
         case .dxvk:
             try ensureDXVKInstalled(exePath: exePath, prefixPath: bottle.prefixPath, steamAppId: steamAppId)
             env["WINEDLLOVERRIDES"] = wineDllOverrides(for: launchBackend)
@@ -185,7 +204,7 @@ extension ForgeStore {
         // a shell/profile value leak into direct game launches.
         env.removeValue(forKey: "FORGE_SKIP_DESKTOP_WINDOW_BOOTSTRAP")
 
-        if isSteam && steamSafeMode {
+        if isSteam && effectiveSteamSafeMode {
             if backendUsesMoltenVK(gameBackend) {
                 configureMoltenVK(profile: profile, config: config, env: &env)
             }
@@ -243,7 +262,7 @@ extension ForgeStore {
         // `start` detaches through explorer and can lose/flatten macOS-only env like
         // MTL_HUD_ENABLED before the Unix-side Metal module is loaded. Direct launch
         // keeps Forge's environment on the actual Wine process tree.
-        let launchArgs = [exePath] + ((isSteam && steamSafeMode) ? steamSafeArgs(extraArgs) : extraArgs)
+        let launchArgs = [exePath] + ((isSteam && effectiveSteamSafeMode) ? steamSafeArgs(extraArgs) : extraArgs)
         process.arguments = launchArgs
         process.currentDirectoryURL = URL(fileURLWithPath: exePath).deletingLastPathComponent()
         process.environment = env
@@ -256,7 +275,7 @@ extension ForgeStore {
             isSteam: isSteam,
             launchBackend: launchBackend,
             gameBackend: gameBackend,
-            steamSafeMode: isSteam && steamSafeMode,
+            steamSafeMode: isSteam && effectiveSteamSafeMode,
             args: launchArgs,
             env: env
         )

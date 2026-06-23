@@ -83,6 +83,46 @@ struct StatusLine: View {
     }
 }
 
+struct RuntimeProfilePickerCard: View {
+    let profiles: [RuntimeProfile]
+    @Binding var selection: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Wine Runtime", systemImage: "cpu")
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.78))
+
+            Picker("Wine Runtime", selection: $selection) {
+                ForEach(profiles) { profile in
+                    Text(profile.name).tag(profile.id)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+
+            Text(guidance)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.52))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(13)
+        .sidebarCardBackground()
+    }
+
+    private var selectedProfile: RuntimeProfile? {
+        profiles.first(where: { $0.id == selection })
+    }
+
+    private var guidance: String {
+        guard let selectedProfile else { return "Select the Wine runtime used to start this bottle." }
+        if ForgeStore.isCrossOverRuntime(profile: selectedProfile) {
+            return "Uses CrossOver's Wine and bottle compatibility directly. The CrossOver app UI is not opened."
+        }
+        return "Uses Forge's bundled Wine runtime and Forge-managed graphics handoff."
+    }
+}
+
 struct BackendPickerCard: View {
     @Binding var selection: GraphicsBackend
 

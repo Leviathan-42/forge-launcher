@@ -46,6 +46,13 @@ struct ForgeSidebar: View {
                     value: bottle.name
                 )
                 StatusLine(icon: "app.badge.fill", title: "Launchable apps", value: "\(store.apps.count)")
+                RuntimeProfilePickerCard(
+                    profiles: store.profiles,
+                    selection: Binding(
+                        get: { store.bottle?.runtimeProfileId ?? bottle.runtimeProfileId },
+                        set: { store.setRuntimeProfile($0) }
+                    )
+                )
                 BackendPickerCard(
                     selection: Binding(
                         get: { store.defaultBackend(for: bottle) },

@@ -24,11 +24,19 @@ extension ForgeStore {
 
     nonisolated static func loadProfiles(from support: URL, config: AppConfig) throws -> [RuntimeProfile] {
         let url = support.appendingPathComponent("runtime_profiles.json")
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return [RuntimeProfile.defaultProfile(config: config)]
+        var profiles: [RuntimeProfile]
+        if FileManager.default.fileExists(atPath: url.path) {
+            let decoded = try JSONDecoder.forge.decode([RuntimeProfile].self, from: Data(contentsOf: url))
+            profiles = decoded.isEmpty ? [RuntimeProfile.defaultProfile(config: config)] : decoded
+        } else {
+            profiles = [RuntimeProfile.defaultProfile(config: config)]
         }
-        let decoded = try JSONDecoder.forge.decode([RuntimeProfile].self, from: Data(contentsOf: url))
-        return decoded.isEmpty ? [RuntimeProfile.defaultProfile(config: config)] : decoded
+
+        if let crossOver = RuntimeProfile.crossOverProfile(),
+           !profiles.contains(where: { $0.id == crossOver.id }) {
+            profiles.append(crossOver)
+        }
+        return profiles
     }
 
     nonisolated static func selectBottle(from bottles: [BottleEntry], config: AppConfig) -> BottleEntry {
@@ -43,9 +51,19 @@ extension ForgeStore {
 
     nonisolated static func loadBottles(from support: URL, config: AppConfig) throws -> [BottleEntry] {
         let url = support.appendingPathComponent("bottles.json")
-        guard FileManager.default.fileExists(atPath: url.path) else { return [defaultBottle(config: config)] }
-        let decoded = try JSONDecoder.forge.decode([BottleEntry].self, from: Data(contentsOf: url))
-        return decoded.isEmpty ? [defaultBottle(config: config)] : decoded
+        var bottles: [BottleEntry]
+        if FileManager.default.fileExists(atPath: url.path) {
+            let decoded = try JSONDecoder.forge.decode([BottleEntry].self, from: Data(contentsOf: url))
+            bottles = decoded.isEmpty ? [defaultBottle(config: config)] : decoded
+        } else {
+            bottles = [defaultBottle(config: config)]
+        }
+
+        for discovered in discoverCrossOverBottles()
+            where !bottles.contains(where: { $0.prefixPath == discovered.prefixPath }) {
+            bottles.append(discovered)
+        }
+        return bottles
     }
 
     nonisolated static func saveBottle(_ bottle: BottleEntry, to support: URL, config: AppConfig) throws {
